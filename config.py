@@ -1,21 +1,41 @@
-# Configuration file - Edit these values for your setup
+# Configuration file for GitLab ↔ Google Sheets Sync
+# Sensitive values are loaded from environment variables or .env file
 
-# GitLab Settings
-GITLAB_URL = "https://sourcecontrol.hsenidmobile.com/"
-PROJECT_ID = "65"
-GITLAB_TOKEN = ""  # Replace with your actual token
+import os
+from dotenv import load_dotenv
 
-# Google Sheets Settings
-SPREADSHEET_ID = "your-google-sheet-id-here"  # Replace with your Google Sheet ID
-WORKSHEET_NAME = "Issues"  # Name of the worksheet/tab
-GOOGLE_SHEETS_API_KEY = "your-google-sheets-api-key-here"  # Direct API key for personal use
+# Load environment variables from .env file
+load_dotenv()
 
-# GitLab Issue Template Settings
-DEFAULT_ASSIGNEE = "@farhad.l@appigo.co"
-DEFAULT_ESTIMATE = "8h"  # Default estimate in hours
-DEFAULT_MILESTONE = "%milestone-name"  # Replace with your milestone name
-DEFAULT_DUE_DATE = ""  # Leave empty or set default due date
-DEFAULT_LABEL = "~task"  # Replace with your label
+# GitLab Settings (from environment variables)
+GITLAB_URL = os.getenv('GITLAB_URL', 'https://sourcecontrol.hsenidmobile.com/api/v4/')
+PROJECT_ID = os.getenv('PROJECT_ID', '263')
+GITLAB_TOKEN = os.getenv('GITLAB_TOKEN')  # Required - no default
+
+if not GITLAB_TOKEN:
+    raise ValueError("GITLAB_TOKEN environment variable is required. Please set it in your .env file.")
+
+# Google Sheets Settings (from environment variables)
+SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')  # Required - no default
+WORKSHEET_NAME = os.getenv('WORKSHEET_NAME', 'Sheet1')
+
+if not SPREADSHEET_ID:
+    raise ValueError("SPREADSHEET_ID environment variable is required. Please set it in your .env file.")
+
+# Service Account Authentication (from environment variables)
+SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', 'service_account.json')
+
+# Google Sheets API Scopes
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets'  # Full read/write access to spreadsheets
+]
+
+# GitLab Issue Template Settings (from environment variables with defaults)
+DEFAULT_ASSIGNEE = os.getenv('DEFAULT_ASSIGNEE', '@farhad.l@appigo.co')
+DEFAULT_ESTIMATE = os.getenv('DEFAULT_ESTIMATE', '8h')
+DEFAULT_MILESTONE = os.getenv('DEFAULT_MILESTONE', '%milestone-name')
+DEFAULT_DUE_DATE = os.getenv('DEFAULT_DUE_DATE', '')
+DEFAULT_LABEL = os.getenv('DEFAULT_LABEL', '~task')
 
 # Sheet Column Mapping (your actual Google Sheet columns)
 COLUMNS = {
@@ -32,9 +52,20 @@ COLUMNS = {
     "END_DATE": 11                  # Column K - Actual End Date
 }
 
-# Status mappings (based on your requirements)
-CLOSE_STATUSES = ["completed"]
-OPEN_STATUSES = ["in progress"]
+# Status mappings (updated for dropdown options)
+CLOSE_STATUSES = ["Completed", "Cancelled"]
+OPEN_STATUSES = ["Not Started", "In Progress", "Under Review", "Testing", "On Hold"]
+
+# Status dropdown options (for sheet setup)
+STATUS_OPTIONS = [
+    "Not Started",
+    "In Progress", 
+    "Under Review",
+    "Testing",
+    "Completed",
+    "On Hold",
+    "Cancelled"
+]
 
 # Headers for your Google Sheet
 SHEET_HEADERS = [

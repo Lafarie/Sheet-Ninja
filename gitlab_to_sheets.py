@@ -1,18 +1,44 @@
 """
-Simple GitLab to Google Sheets Sync
-This script syncs GitLab issues to Google Sheets using direct API key access
+GitLab to Google Sheets Sync with Service Account Authentication
+This script syncs GitLab issues to Google Sheets using Service Account credentials
 Updates existing sheet with GitLab issues data
 """
 
 import requests
 from datetime import datetime
 import config
+import os
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 class GitLabToSheets:
     def __init__(self):
-        self.base_url = f"https://sheets.googleapis.com/v4/spreadsheets/{config.SPREADSHEET_ID}"
-        self.api_key = config.GOOGLE_SHEETS_API_KEY
-        print("✅ Connected to Google Sheets API")
+        self.spreadsheet_id = config.SPREADSHEET_ID
+        self.service = self._authenticate_google_sheets()
+        print("✅ Connected to Google Sheets API with Service Account")
+    
+    def _authenticate_google_sheets(self):
+        """Authenticate with Google Sheets using Service Account"""
+        try:
+            # Check if service account file exists
+            if not os.path.exists(config.SERVICE_ACCOUNT_FILE):
+                raise FileNotFoundError(f"Service account file not found: {config.SERVICE_ACCOUNT_FILE}")
+            
+            # Create credentials from service account file
+            credentials = service_account.Credentials.from_service_account_file(
+                config.SERVICE_ACCOUNT_FILE,
+                scopes=config.SCOPES
+            )
+            
+            # Build the service
+            service = build('sheets', 'v4', credentials=credentials)
+            return service
+            
+        except Exception as e:
+            print(f"❌ Failed to authenticate with Google Sheets: {e}")
+            print(f"💡 Make sure '{config.SERVICE_ACCOUNT_FILE}' exists and contains valid service account credentials")
+            raise
     
     def get_gitlab_issues(self):
         """Get all issues from GitLab project"""
@@ -33,54 +59,65 @@ class GitLabToSheets:
             return []
     
     def get_sheet_values(self, range_name):
-        """Get values from Google Sheet using API key"""
-        url = f"{self.base_url}/values/{range_name}?key={self.api_key}"
-        
+        """Get values from Google Sheet using Service Account"""
         try:
-            response = requests.get(url, timeout=30)
-            if response.status_code == 200:
-                return response.json().get('values', [])
-            else:
-                print(f"❌ Failed to get sheet values: {response.text}")
-                return []
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.spreadsheet_id,
+                range=range_name
+            ).execute()
+            
+            values = result.get('values', [])
+            return values
+            
+        except HttpError as e:
+            print(f"❌ Failed to get sheet values: {e}")
+            return []
         except Exception as e:
             print(f"❌ Error getting sheet values: {e}")
             return []
     
     def update_sheet_values(self, range_name, values):
-        """Update Google Sheet values using API key"""
-        url = f"{self.base_url}/values/{range_name}?valueInputOption=RAW&key={self.api_key}"
-        
-        data = {
-            "values": values
-        }
-        
+        """Update Google Sheet values using Service Account"""
         try:
-            response = requests.put(url, json=data, timeout=30)
-            if response.status_code == 200:
-                return True
-            else:
-                print(f"❌ Failed to update sheet: {response.text}")
-                return False
+            body = {
+                'values': values
+            }
+            
+            result = self.service.spreadsheets().values().update(
+                spreadsheetId=self.spreadsheet_id,
+                range=range_name,
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            
+            return True
+            
+        except HttpError as e:
+            print(f"❌ Failed to update sheet: {e}")
+            return False
         except Exception as e:
             print(f"❌ Error updating sheet: {e}")
             return False
     
     def append_sheet_values(self, range_name, values):
-        """Append values to Google Sheet using API key"""
-        url = f"{self.base_url}/values/{range_name}:append?valueInputOption=RAW&key={self.api_key}"
-        
-        data = {
-            "values": values
-        }
-        
+        """Append values to Google Sheet using Service Account"""
         try:
-            response = requests.post(url, json=data, timeout=30)
-            if response.status_code == 200:
-                return True
-            else:
-                print(f"❌ Failed to append to sheet: {response.text}")
-                return False
+            body = {
+                'values': values
+            }
+            
+            result = self.service.spreadsheets().values().append(
+                spreadsheetId=self.spreadsheet_id,
+                range=range_name,
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            
+            return True
+            
+        except HttpError as e:
+            print(f"❌ Failed to append to sheet: {e}")
+            return False
         except Exception as e:
             print(f"❌ Error appending to sheet: {e}")
             return False

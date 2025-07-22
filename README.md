@@ -1,50 +1,120 @@
 # GitLab ↔ Google Sheets Sync Scripts
 
-Simple scripts to sync GitLab issues with Google Sheets using direct API key access.
+Scripts to sync GitLab issues with Google Sheets using Service Account authentication and environment variables for secure configuration.
 
-## Setup
+## 🚀 Quick Setup
 
-1. **Install required packages:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
 
-2. **Get Google Sheets API Key:**
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project or select existing one
-   - Enable Google Sheets API
-   - Go to Credentials → Create Credentials → API Key
-   - Copy the API key
+### 2. Environment Variables Setup
+```bash
+# Copy the template
+cp env.example .env
 
-3. **Make your Google Sheet public (for API access):**
-   - Open your Google Sheet
-   - Click "Share" → "Get link" → "Anyone with the link can view"
-   - Or make it public: "Anyone on the internet with this link can view"
+# Edit .env with your actual values
+notepad .env  # Windows
+nano .env     # Linux/Mac
+```
 
-4. **Edit config.py:**
-   - Update `GITLAB_TOKEN` with your GitLab token
-   - Update `SPREADSHEET_ID` with your Google Sheet ID (from the URL)
-   - Update `GOOGLE_SHEETS_API_KEY` with your API key
-   - Configure GitLab issue template settings
+Fill in your `.env` file with:
+```env
+# Required Values
+GITLAB_TOKEN=your-gitlab-token-here
+SPREADSHEET_ID=your-google-sheet-id-here
 
-## Usage
+# Optional Values (have defaults)
+GITLAB_URL=https://sourcecontrol.hsenidmobile.com/api/v4/
+PROJECT_ID=263
+WORKSHEET_NAME=Sheet1
+SERVICE_ACCOUNT_FILE=service_account.json
+DEFAULT_ASSIGNEE=@your.email@company.com
+```
 
-### Option 1: Sync GitLab → Google Sheets only
+### 3. Set up Google Service Account
+
+**Step 3.1: Create Service Account**
+- Go to [Google Cloud Console](https://console.cloud.google.com/)
+- Create a new project or select an existing one
+- Enable the Google Sheets API:
+  - Go to APIs & Services → Library
+  - Search for "Google Sheets API" and enable it
+- Create Service Account credentials:
+  - Go to APIs & Services → Credentials
+  - Click "Create Credentials" → "Service Account"
+  - Fill in service account details and click "Create"
+  - Skip optional steps and click "Done"
+
+**Step 3.2: Download Credentials**
+- Click on the created service account
+- Go to "Keys" tab → "Add Key" → "Create new key"
+- Choose "JSON" format and download the file
+- Rename the file to `service_account.json`
+- Place it in the same directory as your scripts
+
+**Step 3.3: Share Google Sheet with Service Account**
+- Open your Google Sheet
+- Click "Share" button
+- Add the service account email (found in the JSON file as `client_email`)
+- Give it "Editor" permission
+- Click "Send"
+
+### 4. Get GitLab Personal Access Token
+- Go to your GitLab instance → User Settings → Access Tokens
+- Create a new personal access token with `api` scope
+- Copy the token and add it to your `.env` file
+
+### 5. Test the Setup
 ```bash
 python gitlab_to_sheets.py
 ```
 
-### Option 2: Sync Google Sheets → GitLab only  
+## 🔧 Usage
+
+### Sync GitLab → Google Sheets
+```bash
+python gitlab_to_sheets.py
+```
+
+### Sync Google Sheets → GitLab
 ```bash
 python sheets_to_gitlab.py
 ```
 
-### Option 3: Complete sync (both directions)
+### Complete Bidirectional Sync
 ```bash
 python complete_sync.py
 ```
 
-## Google Sheet Format
+### Setup Status Dropdown
+```bash
+python setup_sheet_dropdown.py
+```
+
+### Robust Sync with CSV Fallback
+```bash
+python gitlab_to_sheets_fixed.py
+```
+
+## 🔒 Security Features
+
+### Environment Variables
+All sensitive data is stored in environment variables:
+- ✅ **No hardcoded tokens** in source code
+- ✅ **`.env` file excluded** from version control
+- ✅ **Automatic validation** of required variables
+- ✅ **Safe to commit** code without exposing secrets
+
+### Protected Files
+The `.gitignore` automatically excludes:
+- `.env` files (environment variables)
+- `service_account.json` (Google credentials)
+- `*.json` files (all JSON credentials)
+- Python cache and build files
+
+## 📊 Google Sheet Format
 
 Your Google Sheet should have these columns:
 - **A**: Date
@@ -53,77 +123,112 @@ Your Google Sheet should have these columns:
 - **D**: Specific Project Name
 - **E**: Main Task
 - **F**: Sub Task
-- **G**: Status
+- **G**: Status (with dropdown)
 - **H**: Actual Start Date
 - **I**: Planned Estimation (H)
 - **J**: Actual Estimation (H)
 - **K**: Actual End Date
 
-## GitLab Issue Template
+## 📋 Status Dropdown Options
 
-When creating GitLab issues, the script automatically adds these quick actions:
+The Status column (G) includes a dropdown with:
+- **Not Started**
+- **In Progress** 
+- **Under Review**
+- **Testing**
+- **Completed**
+- **On Hold**
+- **Cancelled**
 
-```
-/assign @farhad.l@appigo.co
-/estimate 8h
-/milestone %milestone-name
-/due 
-/label ~task
-```
-
-You can customize these in `config.py`:
-- `DEFAULT_ASSIGNEE` - Who gets assigned to new issues
-- `DEFAULT_ESTIMATE` - Default time estimate
-- `DEFAULT_MILESTONE` - Default milestone
-- `DEFAULT_DUE_DATE` - Default due date
-- `DEFAULT_LABEL` - Default label
-
-## How It Works
+## 🔄 How It Works
 
 ### Sheets → GitLab:
 - **Creates GitLab issues** for sub-tasks that don't have a GIT ID
-- **Uses Sub Task as the issue title** (as requested)
+- **Uses Sub Task as the issue title**
 - **Updates the GIT ID column** when new issues are created
 - **Applies GitLab quick actions** automatically (assign, estimate, milestone, etc.)
-- **Closes issues** when status is "Completed"
+- **Closes issues** when status is "Completed" or "Cancelled"
 - **Adds time tracking** from "Actual Estimation (H)" column
-- **Keeps issues open** when status is "In Progress"
+- **Keeps issues open** for other statuses
 
 ### GitLab → Sheets:
 - **Updates existing rows** with GitLab issue data
 - **Adds new rows** for new GitLab issues (with basic info)
 - **Preserves user data** (project names, estimations, etc.)
+- **CSV Export fallback** if Service Account fails
 
-## Status Keywords
+## ⚠️ Environment Variables Reference
 
-**To close issues in GitLab:**
-- Completed
-
-**To keep issues open:**
-- In Progress
-
-## Example Row
-
-**Before running script:**
-```
-17-07-2025 | | Retailer | Support Service | Main Task | Create a Script to fetch data | In Progress | 17-07-2025 | 8 | | 
+### Required Variables
+```env
+GITLAB_TOKEN          # GitLab Personal Access Token (api scope)
+SPREADSHEET_ID        # Google Sheet ID from URL
 ```
 
-**After running script:**
+### Optional Variables (with defaults)
+```env
+GITLAB_URL           # Default: https://sourcecontrol.hsenidmobile.com/api/v4/
+PROJECT_ID           # Default: 263
+WORKSHEET_NAME       # Default: Sheet1
+SERVICE_ACCOUNT_FILE # Default: service_account.json
+DEFAULT_ASSIGNEE     # Default: @farhad.l@appigo.co
+DEFAULT_ESTIMATE     # Default: 8h
+DEFAULT_MILESTONE    # Default: %milestone-name
+DEFAULT_DUE_DATE     # Default: (empty)
+DEFAULT_LABEL        # Default: ~task
 ```
-17-07-2025 | 123 | Retailer | Support Service | Main Task | Create a Script to fetch data | In Progress | 17-07-2025 | 8 | | 
+
+## 🚨 Troubleshooting
+
+### Environment Variable Issues
+1. **"GITLAB_TOKEN environment variable is required"**
+   - Create a `.env` file from `env.example`
+   - Add your GitLab token to the `.env` file
+
+2. **"SPREADSHEET_ID environment variable is required"**
+   - Add your Google Sheet ID to the `.env` file
+   - Get ID from the sheet URL: `/d/[SPREADSHEET_ID]/edit`
+
+### Service Account Issues
+1. **"Service account file not found"**
+   - Ensure `service_account.json` is in the script directory
+   - Check the `SERVICE_ACCOUNT_FILE` path in your `.env`
+
+2. **"The caller does not have permission"**
+   - Share the Google Sheet with the service account email
+   - Give the service account "Editor" permission
+
+### GitLab Issues
+1. **"Expecting value: line 1 column 1"**
+   - Check your `GITLAB_URL` includes `/api/v4`
+   - Verify your `GITLAB_TOKEN` has `api` scope
+   - Ensure the `PROJECT_ID` is correct
+
+## 📁 File Structure
+
+```
+scripts/
+├── config.py                    # Configuration (loads from environment)
+├── gitlab_to_sheets.py          # GitLab → Sheets sync
+├── sheets_to_gitlab.py          # Sheets → GitLab sync
+├── gitlab_to_sheets_fixed.py    # Robust version with CSV fallback
+├── setup_sheet_dropdown.py     # Setup status dropdown
+├── complete_sync.py             # Complete bidirectional sync
+├── requirements.txt             # Python dependencies
+├── env.example                  # Environment variables template
+├── .env                         # Your actual environment variables (create this)
+├── service_account.json         # Google Service Account credentials (create this)
+└── .gitignore                   # Excludes sensitive files
 ```
 
-**GitLab issue will be created with:**
-- **Title:** "Create a Script to fetch data" (Sub Task)
-- **Description:** Project details + quick actions
-- **Assigned to:** @farhad.l@appigo.co
-- **Estimated:** 8h (from Planned Estimation column)
-- **Milestone & Labels:** As configured
+## 🎯 Security Best Practices
 
-## Files
+1. **Never commit `.env` or `service_account.json` files**
+2. **Use strong, unique GitLab tokens**
+3. **Only share sheets with specific service account**
+4. **Regularly review and rotate access tokens**
+5. **Keep service account permissions minimal**
 
-- `config.py` - All configuration settings (API keys, GitLab template)
-- `gitlab_to_sheets.py` - Sync GitLab issues to Google Sheets
-- `sheets_to_gitlab.py` - Sync Google Sheets changes to GitLab (creates issues with template)
-- `complete_sync.py` - Run both syncs together
+---
+
+**🎉 Your GitLab ↔ Google Sheets sync is now secure and production-ready!**
