@@ -175,11 +175,19 @@ class SheetsToGitLab:
             print(f"❌ Error creating GitLab issue: {e}")
             return None
     
-    def update_git_id_in_sheet(self, row_number, git_id):
+    def update_git_id_in_sheet(self, row_number, git_id, project_name=""):
         """Update the GIT ID in the Google Sheet with clickable link"""
         try:
             cell_range = f"{config.WORKSHEET_NAME}!B{row_number + 2}"  # +2 for header and 0-index
-            issue_url = f"https://sourcecontrol.hsenidmobile.com/appigo/ticket-generator/-/issues/{git_id}"
+            
+            # Generate dynamic issue URL based on project name
+            if project_name:
+                issue_url = config.get_gitlab_issue_url(project_name, git_id)
+                print(f"🔗 Generated URL for {project_name}: {issue_url}")
+            else:
+                # Fallback to default repo path
+                issue_url = f"https://sourcecontrol.hsenidmobile.com/appigo/ticket-generator/-/issues/{git_id}"
+                print(f"🔗 Using default URL: {issue_url}")
             
             # Create a clickable link using Google Sheets HYPERLINK formula
             link_formula = f'=HYPERLINK("{issue_url}", "{git_id}")'
@@ -394,7 +402,7 @@ class SheetsToGitLab:
                 new_git_id = self.create_gitlab_issue(title, "", project_name, planned_estimation, actual_estimation)
                 if new_git_id:
                     # Update the sheet with new GIT ID
-                    self.update_git_id_in_sheet(row_index, new_git_id)
+                    self.update_git_id_in_sheet(row_index, new_git_id, project_name)
                     git_id = str(new_git_id)
             
             # Process existing or newly created issue

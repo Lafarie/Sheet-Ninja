@@ -57,11 +57,23 @@ CLOSE_STATUSES = ["Completed", "Cancelled"]
 OPEN_STATUSES = ["Not Started", "In Progress", "Under Review", "Testing", "On Hold"]
 
 # Configurable Dropdown Options
-# Project Name Options with associated GitLab Project IDs
+# Project Name Options with associated GitLab Project IDs and Repository Paths
 PROJECT_OPTIONS = {
-    "Rush Buffet": {"display": "Rush Buffet", "project_id": "263"},
-    "Retailer": {"display": "Retailer", "project_id": "264"}, 
-    "Ticket Generator": {"display": "Ticket Generator", "project_id": "265"}
+    "Rush Buffet": {
+        "display": "Rush Buffet", 
+        "project_id": "263",
+        "repo_path": "appigo/rush-buffet"
+    },
+    "Retailer": {
+        "display": "Retailer", 
+        "project_id": "264",
+        "repo_path": "appigo/retailer"
+    }, 
+    "Ticket Generator": {
+        "display": "Ticket Generator", 
+        "project_id": "265",
+        "repo_path": "appigo/ticket-generator"
+    }
 }
 
 # Specific Project Name Options (configurable)
@@ -118,3 +130,26 @@ def get_project_display_names():
 def get_project_keys():
     """Get list of project keys for dropdown values"""
     return list(PROJECT_OPTIONS.keys())
+
+def get_repo_path_by_name(project_name):
+    """Get GitLab repository path based on project name from dropdown"""
+    # Remove emoji if present for backward compatibility
+    clean_name = project_name.strip()
+    
+    # Direct lookup first
+    if clean_name in PROJECT_OPTIONS:
+        return PROJECT_OPTIONS[clean_name]["repo_path"]
+    
+    # Fallback: search by display name or partial match
+    for key, value in PROJECT_OPTIONS.items():
+        if clean_name in key or clean_name in value["display"]:
+            return value["repo_path"]
+    
+    # Default fallback to ticket-generator (most common)
+    return "appigo/ticket-generator"
+
+def get_gitlab_issue_url(project_name, issue_id):
+    """Generate GitLab issue URL based on project name and issue ID"""
+    repo_path = get_repo_path_by_name(project_name)
+    base_url = GITLAB_URL.replace('/api/v4/', '')  # Remove API path to get base URL
+    return f"{base_url}{repo_path}/-/issues/{issue_id}"
