@@ -7,7 +7,7 @@ This script reads changes from Google Sheets and updates GitLab using Service Ac
 """
 
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import config
 import os
 from google.oauth2 import service_account
@@ -107,7 +107,7 @@ class SheetsToGitLab:
             print(f"❌ Error reading Google Sheet: {e}")
             return []
     
-    def create_gitlab_issue(self, title, description="", project_name="", planned_estimation=""):
+    def create_gitlab_issue(self, title, description="", project_name="", planned_estimation="", actual_estimation=""):
         """Create a new GitLab issue using the exact API format"""
         url = f"{config.GITLAB_URL}projects/{config.PROJECT_ID}/issues"
         headers = {
@@ -115,13 +115,18 @@ class SheetsToGitLab:
             "Content-Type": "application/json"
         }
         
-        # Build description with GitLab quick actions
+        # Create GitLab-style description with user and timestamp
+        current_time = datetime.now().strftime("%b %d, %I:%M %p")
+        user_name = config.DEFAULT_ASSIGNEE
+        
+        # Build description in GitLab quick actions format
         quick_actions = []
+        quick_actions.append(f"{user_name}, {current_time}")
         quick_actions.append(f"/assign {config.DEFAULT_ASSIGNEE}")
         
         # Use planned estimation from sheet or default
         estimate = planned_estimation if planned_estimation else config.DEFAULT_ESTIMATE
-        quick_actions.append(f"/estimate {estimate}")
+        quick_actions.append(f"/estimate {estimate}h")
         
         if config.DEFAULT_MILESTONE:
             quick_actions.append(f"/milestone {config.DEFAULT_MILESTONE}")
@@ -132,15 +137,17 @@ class SheetsToGitLab:
         if config.DEFAULT_LABEL:
             quick_actions.append(f"/label {config.DEFAULT_LABEL}")
         
-        # Combine description with quick actions
-        full_description = description
-        if quick_actions:
-            full_description += "\n\n" + "\n".join(quick_actions)
+        # Use dynamic values from Google Sheet
+        estimate_value = planned_estimation if planned_estimation else config.DEFAULT_ESTIMATE.replace('h', '')
+        due_value = actual_estimation if actual_estimation else estimate_value
         
+        # Build dynamic description with actual values from sheet
+        dynamic_description = f"/assign {config.DEFAULT_ASSIGNEE} \n/estimate {estimate_value}h \n/milestone %\"{config.DEFAULT_MILESTONE}\" \n/due {due_value} \n/label {config.DEFAULT_LABEL}"
+        print(dynamic_description)
         # Use JSON format as specified
         data = {
             "title": title,
-            "description": full_description
+            "description": dynamic_description
         }
         
         try:
@@ -160,13 +167,84 @@ class SheetsToGitLab:
             return None
     
     def update_git_id_in_sheet(self, row_number, git_id):
-        """Update the GIT ID in the Google Sheet"""
+        """Update the GIT ID in the Google Sheet with clickable link"""
         try:
             cell_range = f"{config.WORKSHEET_NAME}!B{row_number + 2}"  # +2 for header and 0-index
-            self.update_sheet_values(cell_range, [[str(git_id)]])
-            print(f"✅ Updated GIT ID in row {row_number + 2}: {git_id}")
+            issue_url = f"https://sourcecontrol.hsenidmobile.com/appigo/ticket-generator/-/issues/{git_id}"
+            
+            # Create a clickable link using Google Sheets HYPERLINK formula
+            link_formula = f'=HYPERLINK("{issue_url}", "#{git_id}")'
+            
+            # Update with formula to create clickable link
+            body = {
+                'values': [[link_formula]]
+            }
+            
+            result = self.service.spreadsheets().values().update(
+                spreadsheetId=self.spreadsheet_id,
+                range=cell_range,
+                valueInputOption='USER_ENTERED',  # This allows formulas to be processed
+                body=body
+            ).execute()
+            
+            print(f"✅ Updated GIT ID in row {row_number + 2}: {issue_url} (clickable link)")
+            
+            # Check if next day is weekend and color row red
+            self.check_and_color_weekend_row(row_number + 2)
+            
         except Exception as e:
             print(f"❌ Error updating GIT ID in sheet: {e}")
+    
+    def check_and_color_weekend_row(self, row_number):
+        """Check if tomorrow is weekend and color the row red"""
+        try:
+            tomorrow = datetime.now() + timedelta(days=1)
+            # weekday() returns 0-6 where 5=Saturday, 6=Sunday
+            if tomorrow.weekday() >= 5:  # Weekend (Saturday or Sunday)
+                self.color_row_red(row_number)
+                print(f"🎨 Colored row {row_number} red (next day is weekend)")
+        except Exception as e:
+            print(f"❌ Error checking weekend: {e}")
+    
+    def color_row_red(self, row_number):
+        """Color entire row red using Google Sheets API"""
+        try:
+            # Convert to 0-based index for API
+            row_index = row_number - 1
+            
+            request_body = {
+                'requests': [
+                    {
+                        'repeatCell': {
+                            'range': {
+                                'sheetId': 0,  # First sheet
+                                'startRowIndex': row_index,
+                                'endRowIndex': row_index + 1,
+                                'startColumnIndex': 0,
+                                'endColumnIndex': 11  # Columns A-K
+                            },
+                            'cell': {
+                                'userEnteredFormat': {
+                                    'backgroundColor': {
+                                        'red': 1.0,
+                                        'green': 0.8,
+                                        'blue': 0.8
+                                    }
+                                }
+                            },
+                            'fields': 'userEnteredFormat.backgroundColor'
+                        }
+                    }
+                ]
+            }
+            
+            self.service.spreadsheets().batchUpdate(
+                spreadsheetId=self.spreadsheet_id,
+                body=request_body
+            ).execute()
+            
+        except Exception as e:
+            print(f"❌ Error coloring row: {e}")
     
     def close_gitlab_issue(self, issue_id):
         """Close GitLab issue using the exact API format"""
@@ -267,7 +345,7 @@ class SheetsToGitLab:
             return
         
         for row_index, record in enumerate(records):
-            git_id = record.get('GIT ID', '').strip()
+            git_id = record.get('GIT ID', '').strip().replace('#', '')  # Remove # from hyperlink
             sub_task = record.get('Sub Task', '').strip()
             status = record.get('Status', '').strip()
             main_task = record.get('Main Task', '').strip()
@@ -285,9 +363,8 @@ class SheetsToGitLab:
             if not git_id:
                 # Create new GitLab issue using sub-task as title
                 title = sub_task
-                description = f"**Project:** {project_name}\n**Specific Project:** {specific_project}\n**Main Task:** {main_task}\n**Sub Task:** {sub_task}"
                 
-                new_git_id = self.create_gitlab_issue(title, description, project_name, planned_estimation)
+                new_git_id = self.create_gitlab_issue(title, "", project_name, planned_estimation, actual_estimation)
                 if new_git_id:
                     # Update the sheet with new GIT ID
                     self.update_git_id_in_sheet(row_index, new_git_id)
