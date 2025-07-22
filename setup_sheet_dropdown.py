@@ -57,6 +57,64 @@ class SheetDropdownSetup:
             print(f"❌ Error getting sheet ID: {e}")
             return None
     
+    def add_project_name_dropdown(self):
+        """Add dropdown validation to Project Name column (Column C)"""
+        try:
+            sheet_id = self.get_sheet_id(config.WORKSHEET_NAME)
+            if not sheet_id:
+                return False
+            
+            # Create data validation rule for Project Name
+            requests = [{
+                "setDataValidation": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": 1,  # Start from row 2 (skip header)
+                        "endRowIndex": 1000,  # Apply to first 1000 rows
+                        "startColumnIndex": 2,  # Column C (0-indexed, so 2 = C)
+                        "endColumnIndex": 3   # Only Column C
+                    },
+                    "rule": {
+                        "condition": {
+                            "type": "ONE_OF_LIST",
+                            "values": [
+                                {
+                                    "userEnteredValue": "retailer"
+                                },
+                                {
+                                    "userEnteredValue": "rush"
+                                },
+                                {
+                                    "userEnteredValue": "ticket-generator"
+                                }
+                            ]
+                        },
+                        "inputMessage": "Select a project.",
+                        "strict": True,
+                        "showCustomUi": True
+                    }
+                }
+            }]
+            
+            # Apply the validation
+            body = {"requests": requests}
+            
+            result = self.service.spreadsheets().batchUpdate(
+                spreadsheetId=self.spreadsheet_id,
+                body=body
+            ).execute()
+            
+            print("✅ Project Name dropdown added to Column C successfully!")
+            print("📋 Available options: retailer, rush, ticket-generator")
+            return True
+            
+        except HttpError as e:
+            print(f"❌ Failed to add Project Name dropdown: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Error adding Project Name dropdown: {e}")
+            return False
+
     def add_status_dropdown(self):
         """Add dropdown validation to Status column (Column G)"""
         try:
@@ -143,6 +201,47 @@ class SheetDropdownSetup:
         except Exception as e:
             print(f"❌ Error adding headers: {e}")
     
+    def format_project_column(self):
+        """Apply formatting to the project name column"""
+        try:
+            sheet_id = self.get_sheet_id(config.WORKSHEET_NAME)
+            if not sheet_id:
+                return False
+            
+            # Format the project name column
+            requests = [{
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": 1,  # Start from row 2 (skip header)
+                        "endRowIndex": 1000,
+                        "startColumnIndex": 2,  # Column C
+                        "endColumnIndex": 3
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "horizontalAlignment": "CENTER",
+                            "textFormat": {
+                                "bold": True
+                            }
+                        }
+                    },
+                    "fields": "userEnteredFormat(horizontalAlignment,textFormat)"
+                }
+            }]
+            
+            body = {"requests": requests}
+            
+            self.service.spreadsheets().batchUpdate(
+                spreadsheetId=self.spreadsheet_id,
+                body=body
+            ).execute()
+            
+            print("✅ Project Name column formatting applied!")
+            
+        except Exception as e:
+            print(f"❌ Error formatting Project Name column: {e}")
+
     def format_status_column(self):
         """Apply formatting to the status column"""
         try:
@@ -185,21 +284,31 @@ class SheetDropdownSetup:
             print(f"❌ Error formatting column: {e}")
     
     def setup_complete_sheet(self):
-        """Complete setup: headers, dropdown, and formatting"""
-        print("🔄 Setting up Google Sheet with dropdown...")
+        """Complete setup: headers, dropdowns, and formatting"""
+        print("🔄 Setting up Google Sheet with dropdowns...")
         print(f"📊 Spreadsheet ID: {self.spreadsheet_id}")
         print(f"📋 Worksheet: {config.WORKSHEET_NAME}")
         
         # Add headers
         self.add_sheet_headers()
         
+        # Add Project Name dropdown
+        project_success = self.add_project_name_dropdown()
+        if project_success:
+            self.format_project_column()
+        
         # Add status dropdown
-        if self.add_status_dropdown():
-            # Apply formatting
+        status_success = self.add_status_dropdown()
+        if status_success:
             self.format_status_column()
-            
+        
+        if project_success and status_success:
             print("\n🎉 Sheet setup completed!")
-            print("📋 Status column (G) now has a dropdown with these options:")
+            print("📋 Project Name column (C) dropdown options:")
+            print("   • retailer")
+            print("   • rush")
+            print("   • ticket-generator")
+            print("📋 Status column (G) dropdown options:")
             print("   • Pending")
             print("   • In Progress") 
             print("   • Completed")
@@ -207,7 +316,7 @@ class SheetDropdownSetup:
             
             return True
         else:
-            print("❌ Failed to set up dropdown")
+            print("❌ Failed to set up all dropdowns")
             return False
 
 if __name__ == "__main__":
