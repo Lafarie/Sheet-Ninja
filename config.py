@@ -1,9 +1,9 @@
 # Configuration file - Edit these values for your setup
 
 # GitLab Settings
-GITLAB_URL = "https://gitbd.hsenidmobile.com/api/v4"
+GITLAB_URL = "https://sourcecontrol.hsenidmobile.com/"
 PROJECT_ID = "65"
-GITLAB_TOKEN = "ysUyAPJZgNL_BrzJHHgw"  # Replace with your actual token
+GITLAB_TOKEN = ""  # Replace with your actual token
 
 # Google Sheets Settings
 SPREADSHEET_ID = "your-google-sheet-id-here"  # Replace with your Google Sheet ID
