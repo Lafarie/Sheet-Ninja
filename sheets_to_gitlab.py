@@ -109,7 +109,15 @@ class SheetsToGitLab:
     
     def create_gitlab_issue(self, title, description="", project_name="", planned_estimation="", actual_estimation=""):
         """Create a new GitLab issue using the exact API format"""
-        url = f"{config.GITLAB_URL}projects/{config.PROJECT_ID}/issues"
+        # Get the correct project ID based on project name
+        if project_name:
+            project_id = config.get_project_id_by_name(project_name)
+            print(f"📋 Using project ID {project_id} for project: {project_name}")
+        else:
+            project_id = config.PROJECT_ID
+            print(f"📋 Using default project ID: {project_id}")
+        
+        url = f"{config.GITLAB_URL}projects/{project_id}/issues"
         headers = {
             "PRIVATE-TOKEN": config.GITLAB_TOKEN,
             "Content-Type": "application/json"
@@ -156,6 +164,7 @@ class SheetsToGitLab:
                 issue_data = response.json()
                 issue_id = issue_data['iid']
                 print(f"✅ Created GitLab issue #{issue_id}: {title}")
+                print(f"   🏗️ Project ID: {project_id} ({project_name})")
                 print(f"   📋 Applied quick actions: {', '.join(quick_actions)}")
                 return issue_id
             else:
@@ -246,9 +255,15 @@ class SheetsToGitLab:
         except Exception as e:
             print(f"❌ Error coloring row: {e}")
     
-    def close_gitlab_issue(self, issue_id):
+    def close_gitlab_issue(self, issue_id, project_name=""):
         """Close GitLab issue using the exact API format"""
-        url = f"{config.GITLAB_URL}projects/{config.PROJECT_ID}/issues/{issue_id}"
+        # Get the correct project ID based on project name
+        if project_name:
+            project_id = config.get_project_id_by_name(project_name)
+        else:
+            project_id = config.PROJECT_ID
+        
+        url = f"{config.GITLAB_URL}projects/{project_id}/issues/{issue_id}"
         headers = {
             "PRIVATE-TOKEN": config.GITLAB_TOKEN,
             "Content-Type": "application/json"
@@ -262,7 +277,7 @@ class SheetsToGitLab:
         try:
             response = requests.put(url, headers=headers, json=data, timeout=30)
             if response.status_code == 200:
-                print(f"✅ Closed GitLab issue #{issue_id}")
+                print(f"✅ Closed GitLab issue #{issue_id} in project {project_id}")
                 return True
             else:
                 print(f"❌ Failed to close issue #{issue_id} (Status: {response.status_code})")
@@ -272,9 +287,15 @@ class SheetsToGitLab:
             print(f"❌ Error closing issue #{issue_id}: {e}")
             return False
     
-    def update_gitlab_issue(self, issue_id, title=None, description=None, state_event=None):
+    def update_gitlab_issue(self, issue_id, title=None, description=None, state_event=None, project_name=""):
         """Update GitLab issue using the exact API format"""
-        url = f"{config.GITLAB_URL}projects/{config.PROJECT_ID}/issues/{issue_id}"
+        # Get the correct project ID based on project name
+        if project_name:
+            project_id = config.get_project_id_by_name(project_name)
+        else:
+            project_id = config.PROJECT_ID
+        
+        url = f"{config.GITLAB_URL}projects/{project_id}/issues/{issue_id}"
         headers = {
             "PRIVATE-TOKEN": config.GITLAB_TOKEN,
             "Content-Type": "application/json"
@@ -301,7 +322,7 @@ class SheetsToGitLab:
                     action = "closed"
                 elif state_event == "reopen":
                     action = "reopened"
-                print(f"✅ Successfully {action} GitLab issue #{issue_id}")
+                print(f"✅ Successfully {action} GitLab issue #{issue_id} in project {project_id}")
                 return True
             else:
                 print(f"❌ Failed to update issue #{issue_id} (Status: {response.status_code})")
@@ -311,12 +332,18 @@ class SheetsToGitLab:
             print(f"❌ Error updating issue #{issue_id}: {e}")
             return False
     
-    def add_time_to_gitlab(self, issue_id, hours):
+    def add_time_to_gitlab(self, issue_id, hours, project_name=""):
         """Add time spent to GitLab issue"""
         if not hours or hours <= 0:
             return False
+        
+        # Get the correct project ID based on project name
+        if project_name:
+            project_id = config.get_project_id_by_name(project_name)
+        else:
+            project_id = config.PROJECT_ID
             
-        url = f"{config.GITLAB_URL}/projects/{config.PROJECT_ID}/issues/{issue_id}/add_spent_time"
+        url = f"{config.GITLAB_URL}/projects/{project_id}/issues/{issue_id}/add_spent_time"
         headers = {"PRIVATE-TOKEN": config.GITLAB_TOKEN}
         data = {
             "duration": f"{hours}h",
@@ -326,7 +353,7 @@ class SheetsToGitLab:
         try:
             response = requests.post(url, headers=headers, data=data, timeout=30)
             if response.status_code == 201:
-                print(f"✅ Added {hours}h to issue #{issue_id}")
+                print(f"✅ Added {hours}h to issue #{issue_id} in project {project_id}")
                 return True
             else:
                 print(f"❌ Failed to add time to issue #{issue_id}: {response.text}")
@@ -380,13 +407,13 @@ class SheetsToGitLab:
                         try:
                             hours = float(actual_estimation)
                             if hours > 0:
-                                self.add_time_to_gitlab(git_id_int, hours)
+                                self.add_time_to_gitlab(git_id_int, hours, project_name)
                         except (ValueError, TypeError):
                             print(f"⚠️ Invalid time format for issue #{git_id}: {actual_estimation}")
                     
                     # Handle status
                     if status.lower() == "completed":
-                        self.close_gitlab_issue(git_id_int)
+                        self.close_gitlab_issue(git_id_int, project_name)
                     elif status.lower() == "in progress":
                         print(f"📋 Issue #{git_id} is in progress - keeping open")
                 

@@ -52,6 +52,9 @@ class SimpleSheetDropdown:
         """Add dropdown to Column C (Project Name)"""
         sheet_id = self.get_sheet_id()
         
+        # Get configurable project options from config
+        project_values = [{"userEnteredValue": key} for key in config.get_project_keys()]
+        
         requests = [{
             "setDataValidation": {
                 "range": {
@@ -64,13 +67,9 @@ class SimpleSheetDropdown:
                 "rule": {
                     "condition": {
                         "type": "ONE_OF_LIST",
-                        "values": [
-                            {"userEnteredValue": "Rush Buffet"},
-                            {"userEnteredValue": "Retailer"},
-                            {"userEnteredValue": "Ticket Generator"}
-                        ]
+                        "values": project_values
                     },
-                    "inputMessage": "Select a project.",
+                    "inputMessage": "🎯 Select a project from the list",
                     "strict": True,
                     "showCustomUi": True
                 }
@@ -91,6 +90,9 @@ class SimpleSheetDropdown:
         """Add dropdown to Column D (Specific Project Name)"""
         sheet_id = self.get_sheet_id()
         
+        # Get configurable specific project options from config
+        specific_project_values = [{"userEnteredValue": option} for option in config.SPECIFIC_PROJECT_OPTIONS]
+        
         requests = [{
             "setDataValidation": {
                 "range": {
@@ -103,17 +105,9 @@ class SimpleSheetDropdown:
                 "rule": {
                     "condition": {
                         "type": "ONE_OF_LIST",
-                        "values": [
-                            {"userEnteredValue": "Development"},
-                            {"userEnteredValue": "Bug Fix"},
-                            {"userEnteredValue": "Testing"},
-                            {"userEnteredValue": "Deployment"},
-                            {"userEnteredValue": "R&D"},
-                            {"userEnteredValue": "App Release"},
-                            {"userEnteredValue": "Support Service"}
-                        ]
+                        "values": specific_project_values
                     },
-                    "inputMessage": "Select a specific project type.",
+                    "inputMessage": "🔧 Select a specific project type",
                     "strict": True,
                     "showCustomUi": True
                 }
@@ -134,6 +128,9 @@ class SimpleSheetDropdown:
         """Add dropdown to Column G (Status)"""
         sheet_id = self.get_sheet_id()
         
+        # Get configurable status options from config
+        status_values = [{"userEnteredValue": option} for option in config.STATUS_OPTIONS]
+        
         requests = [{
             "setDataValidation": {
                 "range": {
@@ -146,13 +143,9 @@ class SimpleSheetDropdown:
                 "rule": {
                     "condition": {
                         "type": "ONE_OF_LIST",
-                        "values": [
-                            {"userEnteredValue": "Pending"},
-                            {"userEnteredValue": "In Progress"},
-                            {"userEnteredValue": "Completed"}
-                        ]
+                        "values": status_values
                     },
-                    "inputMessage": "Select a status.",
+                    "inputMessage": "📊 Update the task status",
                     "strict": True,
                     "showCustomUi": True
                 }
@@ -173,241 +166,110 @@ class SimpleSheetDropdown:
         """Add conditional formatting with colors for dropdown values"""
         sheet_id = self.get_sheet_id()
         
-        requests = [
-            # Project Name Colors (Column C)
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 2,
-                            "endColumnIndex": 3
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "Rush Buffet"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 1.0, "green": 0.8, "blue": 0.8}  # Light Red
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            },
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 2,
-                            "endColumnIndex": 3
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "Retailer"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 0.8, "green": 1.0, "blue": 0.8}  # Light Green
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            },
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 2,
-                            "endColumnIndex": 3
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "Ticket Generator"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 0.8, "green": 0.8, "blue": 1.0}  # Light Blue
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            },
-            # Specific Project Type Colors (Column D)
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 3,
-                            "endColumnIndex": 4
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "Development"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 0.9, "green": 1.0, "blue": 0.9}  # Very Light Green
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            },
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 3,
-                            "endColumnIndex": 4
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "Bug Fix"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 1.0, "green": 0.9, "blue": 0.9}  # Very Light Red
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            },
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 3,
-                            "endColumnIndex": 4
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "Testing"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 1.0, "green": 1.0, "blue": 0.8}  # Light Yellow
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            },
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 3,
-                            "endColumnIndex": 4
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "Deployment"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 0.9, "green": 0.9, "blue": 1.0}  # Very Light Blue
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            },
-            # Status Colors (Column G)
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 6,
-                            "endColumnIndex": 7
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "Pending"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 1.0, "green": 0.95, "blue": 0.8}  # Light Orange
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            },
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 6,
-                            "endColumnIndex": 7
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "In Progress"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 0.8, "green": 0.9, "blue": 1.0}  # Light Blue
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            },
-            {
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet_id,
-                            "startRowIndex": 1,
-                            "endRowIndex": 1000,
-                            "startColumnIndex": 6,
-                            "endColumnIndex": 7
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "Completed"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 0.8, "green": 1.0, "blue": 0.8}  # Light Green
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            }
+        requests = []
+        
+        # Project Name Colors (Column C) - Dynamic based on config
+        project_colors = [
+            {"red": 1.0, "green": 0.8, "blue": 0.8},  # Light Red
+            {"red": 0.8, "green": 1.0, "blue": 0.8},  # Light Green  
+            {"red": 0.8, "green": 0.8, "blue": 1.0}   # Light Blue
         ]
+        
+        for i, project_key in enumerate(config.get_project_keys()):
+            color = project_colors[i % len(project_colors)]  # Cycle through colors
+            requests.append({
+                "addConditionalFormatRule": {
+                    "rule": {
+                        "ranges": [{
+                            "sheetId": sheet_id,
+                            "startRowIndex": 1,
+                            "endRowIndex": 1000,
+                            "startColumnIndex": 2,
+                            "endColumnIndex": 3
+                        }],
+                        "booleanRule": {
+                            "condition": {
+                                "type": "TEXT_EQ",
+                                "values": [{"userEnteredValue": project_key}]
+                            },
+                            "format": {
+                                "backgroundColor": color
+                            }
+                        }
+                    },
+                    "index": 0
+                }
+            })
+        
+        # Specific Project Type Colors (Column D) - Dynamic based on config
+        specific_colors = [
+            {"red": 0.9, "green": 1.0, "blue": 0.9},  # Very Light Green
+            {"red": 1.0, "green": 0.9, "blue": 0.9},  # Very Light Red
+            {"red": 1.0, "green": 1.0, "blue": 0.8},  # Light Yellow
+            {"red": 0.9, "green": 0.9, "blue": 1.0},  # Very Light Blue
+            {"red": 0.95, "green": 0.95, "blue": 0.95},  # Light Gray
+            {"red": 0.9, "green": 1.0, "blue": 0.95},  # Light Mint
+            {"red": 1.0, "green": 0.95, "blue": 0.9}   # Light Peach
+        ]
+        
+        for i, specific_option in enumerate(config.SPECIFIC_PROJECT_OPTIONS):
+            color = specific_colors[i % len(specific_colors)]  # Cycle through colors
+            requests.append({
+                "addConditionalFormatRule": {
+                    "rule": {
+                        "ranges": [{
+                            "sheetId": sheet_id,
+                            "startRowIndex": 1,
+                            "endRowIndex": 1000,
+                            "startColumnIndex": 3,
+                            "endColumnIndex": 4
+                        }],
+                        "booleanRule": {
+                            "condition": {
+                                "type": "TEXT_EQ",
+                                "values": [{"userEnteredValue": specific_option}]
+                            },
+                            "format": {
+                                "backgroundColor": color
+                            }
+                        }
+                    },
+                    "index": 0
+                }
+            })
+        
+        # Status Colors (Column G) - Dynamic based on config
+        status_colors = [
+            {"red": 1.0, "green": 0.95, "blue": 0.8},  # Light Orange (Pending)
+            {"red": 0.8, "green": 0.9, "blue": 1.0},   # Light Blue (In Progress)
+            {"red": 0.8, "green": 1.0, "blue": 0.8}    # Light Green (Completed)
+        ]
+        
+        for i, status_option in enumerate(config.STATUS_OPTIONS):
+            color = status_colors[i % len(status_colors)]  # Cycle through colors
+            requests.append({
+                "addConditionalFormatRule": {
+                    "rule": {
+                        "ranges": [{
+                            "sheetId": sheet_id,
+                            "startRowIndex": 1,
+                            "endRowIndex": 1000,
+                            "startColumnIndex": 6,
+                            "endColumnIndex": 7
+                        }],
+                        "booleanRule": {
+                            "condition": {
+                                "type": "TEXT_EQ",
+                                "values": [{"userEnteredValue": status_option}]
+                            },
+                            "format": {
+                                "backgroundColor": color
+                            }
+                        }
+                    },
+                    "index": 0
+                }
+            })
         
         body = {"requests": requests}
         
@@ -443,22 +305,23 @@ class SimpleSheetDropdown:
             
             print("\n🎉 Setup completed successfully!")
             print("📋 Project Name column (C) dropdown options:")
-            print("   • Rush Buffet (🔴 Light Red)")
-            print("   • Retailer (🟢 Light Green)")
-            print("   • Ticket Generator (🔵 Light Blue)")
+            for project_key in config.get_project_keys():
+                project_id = config.get_project_id_by_name(project_key)
+                print(f"   • {project_key} (ID: {project_id})")
+            
             print("📋 Specific Project Name column (D) dropdown options:")
-            print("   • Development (🟢 Very Light Green)")
-            print("   • Bug Fix (🔴 Very Light Red)")
-            print("   • Testing (🟡 Light Yellow)")
-            print("   • Deployment (🔵 Very Light Blue)")
-            print("   • R&D")
-            print("   • App Release")
-            print("   • Support Service")
+            for option in config.SPECIFIC_PROJECT_OPTIONS:
+                print(f"   • {option}")
+            
             print("📋 Status column (G) dropdown options:")
-            print("   • Pending (🟠 Light Orange)")
-            print("   • In Progress (🔵 Light Blue)")
-            print("   • Completed (🟢 Light Green)")
+            for option in config.STATUS_OPTIONS:
+                print(f"   • {option}")
+            
             print(f"\n🔗 Open: https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}")
+            print("\n� To modify dropdown options, edit the config.py file:")
+            print("   - PROJECT_OPTIONS: Project names with GitLab project IDs")
+            print("   - SPECIFIC_PROJECT_OPTIONS: Task types")
+            print("   - STATUS_OPTIONS: Status values")
             
         except Exception as e:
             print(f"❌ Setup failed: {e}")

@@ -56,7 +56,26 @@ COLUMNS = {
 CLOSE_STATUSES = ["Completed", "Cancelled"]
 OPEN_STATUSES = ["Not Started", "In Progress", "Under Review", "Testing", "On Hold"]
 
-# Status dropdown options (for sheet setup)
+# Configurable Dropdown Options
+# Project Name Options with associated GitLab Project IDs
+PROJECT_OPTIONS = {
+    "Rush Buffet": {"display": "Rush Buffet", "project_id": "263"},
+    "Retailer": {"display": "Retailer", "project_id": "264"}, 
+    "Ticket Generator": {"display": "Ticket Generator", "project_id": "265"}
+}
+
+# Specific Project Name Options (configurable)
+SPECIFIC_PROJECT_OPTIONS = [
+    "Development",
+    "Bug Fix", 
+    "Testing",
+    "Deployment",
+    "R&D",
+    "App Release",
+    "Support Service"
+]
+
+# Status dropdown options (configurable)
 STATUS_OPTIONS = [
     "Not Started",
     "In Progress", 
@@ -73,3 +92,29 @@ SHEET_HEADERS = [
     "Main Task", "Sub Task", "Status", "Actual Start Date", 
     "Planned Estimation (H)", "Actual Estimation (H)", "Actual End Date"
 ]
+
+# Helper Functions
+def get_project_id_by_name(project_name):
+    """Get GitLab project ID based on project name from dropdown"""
+    # Remove emoji if present for backward compatibility
+    clean_name = project_name.strip()
+    
+    # Direct lookup first
+    if clean_name in PROJECT_OPTIONS:
+        return PROJECT_OPTIONS[clean_name]["project_id"]
+    
+    # Fallback: search by display name or partial match
+    for key, value in PROJECT_OPTIONS.items():
+        if clean_name in key or clean_name in value["display"]:
+            return value["project_id"]
+    
+    # Default fallback to existing PROJECT_ID
+    return PROJECT_ID
+
+def get_project_display_names():
+    """Get list of project display names for dropdown"""
+    return [value["display"] for value in PROJECT_OPTIONS.values()]
+
+def get_project_keys():
+    """Get list of project keys for dropdown values"""
+    return list(PROJECT_OPTIONS.keys())
