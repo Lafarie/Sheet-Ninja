@@ -42,7 +42,7 @@ class GitLabToSheets:
     
     def get_gitlab_issues(self):
         """Get all issues from GitLab project"""
-        url = f"{config.GITLAB_URL}/projects/{config.PROJECT_ID}/issues"
+        url = f"{config.GITLAB_URL}projects/{config.PROJECT_ID}/issues"
         headers = {"PRIVATE-TOKEN": config.GITLAB_TOKEN}
         
         try:
@@ -52,7 +52,8 @@ class GitLabToSheets:
                 print(f"✅ Found {len(issues)} issues in GitLab")
                 return issues
             else:
-                print(f"❌ Failed to get GitLab issues: {response.text}")
+                print(f"❌ Failed to get GitLab issues (Status: {response.status_code})")
+                print(f"   Response: {response.text}")
                 return []
         except Exception as e:
             print(f"❌ Error getting GitLab issues: {e}")

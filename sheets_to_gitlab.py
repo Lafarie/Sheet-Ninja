@@ -108,9 +108,12 @@ class SheetsToGitLab:
             return []
     
     def create_gitlab_issue(self, title, description="", project_name="", planned_estimation=""):
-        """Create a new GitLab issue with specific template"""
-        url = f"{config.GITLAB_URL}/projects/{config.PROJECT_ID}/issues"
-        headers = {"PRIVATE-TOKEN": config.GITLAB_TOKEN}
+        """Create a new GitLab issue using the exact API format"""
+        url = f"{config.GITLAB_URL}projects/{config.PROJECT_ID}/issues"
+        headers = {
+            "PRIVATE-TOKEN": config.GITLAB_TOKEN,
+            "Content-Type": "application/json"
+        }
         
         # Build description with GitLab quick actions
         quick_actions = []
@@ -134,13 +137,14 @@ class SheetsToGitLab:
         if quick_actions:
             full_description += "\n\n" + "\n".join(quick_actions)
         
+        # Use JSON format as specified
         data = {
             "title": title,
             "description": full_description
         }
         
         try:
-            response = requests.post(url, headers=headers, data=data, timeout=30)
+            response = requests.post(url, headers=headers, json=data, timeout=30)
             if response.status_code == 201:
                 issue_data = response.json()
                 issue_id = issue_data['iid']
@@ -148,7 +152,8 @@ class SheetsToGitLab:
                 print(f"   📋 Applied quick actions: {', '.join(quick_actions)}")
                 return issue_id
             else:
-                print(f"❌ Failed to create GitLab issue: {response.text}")
+                print(f"❌ Failed to create GitLab issue (Status: {response.status_code})")
+                print(f"   Response: {response.text}")
                 return None
         except Exception as e:
             print(f"❌ Error creating GitLab issue: {e}")
@@ -164,21 +169,68 @@ class SheetsToGitLab:
             print(f"❌ Error updating GIT ID in sheet: {e}")
     
     def close_gitlab_issue(self, issue_id):
-        """Close GitLab issue"""
-        url = f"{config.GITLAB_URL}/projects/{config.PROJECT_ID}/issues/{issue_id}"
-        headers = {"PRIVATE-TOKEN": config.GITLAB_TOKEN}
-        data = {"state_event": "close"}
+        """Close GitLab issue using the exact API format"""
+        url = f"{config.GITLAB_URL}projects/{config.PROJECT_ID}/issues/{issue_id}"
+        headers = {
+            "PRIVATE-TOKEN": config.GITLAB_TOKEN,
+            "Content-Type": "application/json"
+        }
+        
+        # Use JSON format as specified
+        data = {
+            "state_event": "close"
+        }
         
         try:
-            response = requests.put(url, headers=headers, data=data, timeout=30)
+            response = requests.put(url, headers=headers, json=data, timeout=30)
             if response.status_code == 200:
                 print(f"✅ Closed GitLab issue #{issue_id}")
                 return True
             else:
-                print(f"❌ Failed to close issue #{issue_id}: {response.text}")
+                print(f"❌ Failed to close issue #{issue_id} (Status: {response.status_code})")
+                print(f"   Response: {response.text}")
                 return False
         except Exception as e:
             print(f"❌ Error closing issue #{issue_id}: {e}")
+            return False
+    
+    def update_gitlab_issue(self, issue_id, title=None, description=None, state_event=None):
+        """Update GitLab issue using the exact API format"""
+        url = f"{config.GITLAB_URL}projects/{config.PROJECT_ID}/issues/{issue_id}"
+        headers = {
+            "PRIVATE-TOKEN": config.GITLAB_TOKEN,
+            "Content-Type": "application/json"
+        }
+        
+        # Build update data - only include fields that are provided
+        data = {}
+        if title:
+            data["title"] = title
+        if description:
+            data["description"] = description
+        if state_event:
+            data["state_event"] = state_event
+        
+        if not data:
+            print("⚠️ No update data provided")
+            return False
+        
+        try:
+            response = requests.put(url, headers=headers, json=data, timeout=30)
+            if response.status_code == 200:
+                action = "updated"
+                if state_event == "close":
+                    action = "closed"
+                elif state_event == "reopen":
+                    action = "reopened"
+                print(f"✅ Successfully {action} GitLab issue #{issue_id}")
+                return True
+            else:
+                print(f"❌ Failed to update issue #{issue_id} (Status: {response.status_code})")
+                print(f"   Response: {response.text}")
+                return False
+        except Exception as e:
+            print(f"❌ Error updating issue #{issue_id}: {e}")
             return False
     
     def add_time_to_gitlab(self, issue_id, hours):
