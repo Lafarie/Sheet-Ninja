@@ -173,7 +173,7 @@ class SheetsToGitLab:
             issue_url = f"https://sourcecontrol.hsenidmobile.com/appigo/ticket-generator/-/issues/{git_id}"
             
             # Create a clickable link using Google Sheets HYPERLINK formula
-            link_formula = f'=HYPERLINK("{issue_url}", "#{git_id}")'
+            link_formula = f'=HYPERLINK("{issue_url}", "{git_id}")'
             
             # Update with formula to create clickable link
             body = {

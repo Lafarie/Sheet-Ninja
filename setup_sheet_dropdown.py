@@ -64,10 +64,7 @@ class SheetDropdownSetup:
             if not sheet_id:
                 return False
             
-            # Use status options from config
-            status_options = config.STATUS_OPTIONS
-            
-            # Create data validation rule
+            # Create data validation rule using Gemini's format
             requests = [{
                 "setDataValidation": {
                     "range": {
@@ -80,10 +77,21 @@ class SheetDropdownSetup:
                     "rule": {
                         "condition": {
                             "type": "ONE_OF_LIST",
-                            "values": [{"userEnteredValue": option} for option in status_options]
+                            "values": [
+                                {
+                                    "userEnteredValue": "Pending"
+                                },
+                                {
+                                    "userEnteredValue": "In Progress"
+                                },
+                                {
+                                    "userEnteredValue": "Completed"
+                                }
+                            ]
                         },
-                        "showCustomUi": True,
-                        "strict": True
+                        "inputMessage": "Select a status.",
+                        "strict": True,
+                        "showCustomUi": True
                     }
                 }
             }]
@@ -97,7 +105,7 @@ class SheetDropdownSetup:
             ).execute()
             
             print("✅ Status dropdown added to Column G successfully!")
-            print(f"📋 Available options: {', '.join(status_options)}")
+            print("📋 Available options: Pending, In Progress, Completed")
             return True
             
         except HttpError as e:
@@ -192,8 +200,9 @@ class SheetDropdownSetup:
             
             print("\n🎉 Sheet setup completed!")
             print("📋 Status column (G) now has a dropdown with these options:")
-            for option in config.STATUS_OPTIONS:
-                print(f"   • {option}")
+            print("   • Pending")
+            print("   • In Progress") 
+            print("   • Completed")
             print(f"\n🔗 Open your sheet: https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}")
             
             return True
