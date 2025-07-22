@@ -31,7 +31,7 @@ SCOPES = [
 ]
 
 # GitLab Issue Template Settings (from environment variables with defaults)
-DEFAULT_ASSIGNEE = os.getenv('DEFAULT_ASSIGNEE', '@farhad.l@appigo.co')
+DEFAULT_ASSIGNEE = os.getenv('DEFAULT_ASSIGNEE', 'farhad.l')
 DEFAULT_ESTIMATE = os.getenv('DEFAULT_ESTIMATE', '8h')
 DEFAULT_MILESTONE = os.getenv('DEFAULT_MILESTONE', '%milestone-name')
 DEFAULT_DUE_DATE = os.getenv('DEFAULT_DUE_DATE', '')
