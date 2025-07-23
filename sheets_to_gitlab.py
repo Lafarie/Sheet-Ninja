@@ -13,6 +13,7 @@ import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+import re
 
 class SheetsToGitLab:
     def __init__(self):
@@ -172,9 +173,26 @@ class SheetsToGitLab:
             return None
     
     def update_git_id_in_sheet(self, row_number, git_id, project_name=""):
-        """Update the GIT ID in the Google Sheet with clickable link"""
+        """Update the GIT ID in the Google Sheet with clickable link only if different"""
         try:
             cell_range = f"{config.WORKSHEET_NAME}!B{row_number + 2}"  # +2 for header and 0-index
+            
+            # Check current value first to avoid unnecessary updates
+            current_values = self.get_sheet_values(cell_range)
+            if current_values and len(current_values) > 0 and len(current_values[0]) > 0:
+                current_value = str(current_values[0][0]).strip()
+                # Extract just the number from hyperlink formula if it exists
+                if current_value.startswith('=HYPERLINK('):
+                    # Extract the display text (git_id) from hyperlink formula
+                    match = re.search(r'=HYPERLINK\("[^"]*",\s*"([^"]*)"\)', current_value)
+                    if match:
+                        current_git_id = match.group(1).strip()
+                        if current_git_id == str(git_id):
+                            print(f"ℹ️ GIT ID {git_id} already exists in row {row_number + 2} - skipping update")
+                            return
+                elif current_value == str(git_id):
+                    print(f"ℹ️ GIT ID {git_id} already exists in row {row_number + 2} - skipping update")
+                    return
             
             # Generate dynamic issue URL based on project name
             if project_name:
@@ -259,8 +277,46 @@ class SheetsToGitLab:
         except Exception as e:
             print(f"❌ Error coloring row: {e}")
     
+    def get_gitlab_issue_details(self, issue_id, project_name=""):
+        """Get current GitLab issue details for comparison before updates"""
+        # Get the correct project ID based on project name
+        if project_name:
+            project_id = config.get_project_id_by_name(project_name)
+        else:
+            project_id = config.PROJECT_ID
+        
+        url = f"{config.GITLAB_URL}projects/{project_id}/issues/{issue_id}"
+        headers = {"PRIVATE-TOKEN": config.GITLAB_TOKEN}
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code == 200:
+                issue_data = response.json()
+                return {
+                    'state': issue_data.get('state'),
+                    'title': issue_data.get('title'),
+                    'total_time_spent': issue_data.get('total_time_spent', 0),  # in seconds
+                    'time_stats': issue_data.get('time_stats', {}),
+                    'description': issue_data.get('description', '')
+                }
+            else:
+                print(f"❌ Failed to get issue #{issue_id} details (Status: {response.status_code})")
+                return None
+        except Exception as e:
+            print(f"❌ Error getting issue #{issue_id} details: {e}")
+            return None
+    
     def close_gitlab_issue(self, issue_id, project_name=""):
-        """Close GitLab issue using the exact API format"""
+        """Close GitLab issue only if it's not already closed"""
+        # Check current state first
+        current_details = self.get_gitlab_issue_details(issue_id, project_name)
+        if not current_details:
+            return False
+        
+        if current_details['state'] == 'closed':
+            print(f"ℹ️ Issue #{issue_id} is already closed - skipping")
+            return True
+        
         # Get the correct project ID based on project name
         if project_name:
             project_id = config.get_project_id_by_name(project_name)
@@ -293,7 +349,35 @@ class SheetsToGitLab:
     
     
     def update_gitlab_issue(self, issue_id, title=None, description=None, state_event=None, project_name=""):
-        """Update GitLab issue using the exact API format"""
+        """Update GitLab issue only if values have changed"""
+        # Check current state first
+        current_details = self.get_gitlab_issue_details(issue_id, project_name)
+        if not current_details:
+            return False
+        
+        # Check what actually needs updating
+        updates_needed = {}
+        
+        if title and title != current_details['title']:
+            updates_needed['title'] = title
+        
+        if description and description != current_details['description']:
+            updates_needed['description'] = description
+        
+        if state_event:
+            if state_event == "close" and current_details['state'] == 'closed':
+                print(f"ℹ️ Issue #{issue_id} is already closed - skipping")
+                return True
+            elif state_event == "reopen" and current_details['state'] == 'opened':
+                print(f"ℹ️ Issue #{issue_id} is already open - skipping")
+                return True
+            else:
+                updates_needed['state_event'] = state_event
+        
+        if not updates_needed:
+            print(f"ℹ️ No updates needed for issue #{issue_id} - values unchanged")
+            return True
+        
         # Get the correct project ID based on project name
         if project_name:
             project_id = config.get_project_id_by_name(project_name)
@@ -306,28 +390,18 @@ class SheetsToGitLab:
             "Content-Type": "application/json"
         }
         
-        # Build update data - only include fields that are provided
-        data = {}
-        if title:
-            data["title"] = title
-        if description:
-            data["description"] = description
-        if state_event:
-            data["state_event"] = state_event
-        
-        if not data:
-            print("⚠️ No update data provided")
-            return False
-        
         try:
-            response = requests.put(url, headers=headers, json=data, timeout=30)
+            response = requests.put(url, headers=headers, json=updates_needed, timeout=30)
             if response.status_code == 200:
                 action = "updated"
                 if state_event == "close":
                     action = "closed"
                 elif state_event == "reopen":
                     action = "reopened"
+                
+                updated_fields = list(updates_needed.keys())
                 print(f"✅ Successfully {action} GitLab issue #{issue_id} in project {project_id}")
+                print(f"   📝 Updated fields: {', '.join(updated_fields)}")
                 return True
             else:
                 print(f"❌ Failed to update issue #{issue_id} (Status: {response.status_code})")
@@ -338,9 +412,27 @@ class SheetsToGitLab:
             return False
     
     def add_time_to_gitlab(self, issue_id, hours, project_name=""):
-        """Add time spent to GitLab issue"""
+        """Add time spent to GitLab issue only if not already logged"""
         if not hours or hours <= 0:
             return False
+        
+        # Check current time spent first
+        current_details = self.get_gitlab_issue_details(issue_id, project_name)
+        if not current_details:
+            return False
+        
+        # Convert hours to seconds for comparison
+        hours_in_seconds = float(hours) * 3600
+        current_time_spent = current_details.get('total_time_spent', 0)
+        
+        # Check if this amount of time (or more) has already been logged
+        if current_time_spent >= hours_in_seconds:
+            print(f"ℹ️ Issue #{issue_id} already has {current_time_spent/3600:.1f}h logged (≥{hours}h) - skipping time addition")
+            return True
+        
+        # Calculate the difference to add
+        time_to_add = hours_in_seconds - current_time_spent
+        hours_to_add = time_to_add / 3600
         
         # Get the correct project ID based on project name
         if project_name:
@@ -351,14 +443,15 @@ class SheetsToGitLab:
         url = f"{config.GITLAB_URL}/projects/{project_id}/issues/{issue_id}/add_spent_time"
         headers = {"PRIVATE-TOKEN": config.GITLAB_TOKEN}
         data = {
-            "duration": f"{hours}h",
-            "comment": f"Time logged from Google Sheets: {hours} hours"
+            "duration": f"{hours_to_add:.1f}h",
+            "comment": f"Time logged from Google Sheets: +{hours_to_add:.1f}h (total target: {hours}h)"
         }
         
         try:
             response = requests.post(url, headers=headers, data=data, timeout=30)
             if response.status_code == 201:
-                print(f"✅ Added {hours}h to issue #{issue_id} in project {project_id}")
+                print(f"✅ Added {hours_to_add:.1f}h to issue #{issue_id} in project {project_id}")
+                print(f"   ⏱️ Previous: {current_time_spent/3600:.1f}h → Target: {hours}h")
                 return True
             else:
                 print(f"❌ Failed to add time to issue #{issue_id}: {response.text}")
