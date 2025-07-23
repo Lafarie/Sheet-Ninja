@@ -133,9 +133,11 @@ class SheetsToGitLab:
         
         # Build dynamic description with actual values from sheet
         description_parts = [
+            f"{description}",
+            f"\n\n---\n\n",
             f"/assign {config.DEFAULT_ASSIGNEE}",
-            f"/estimate {estimate_value}",
-            f"/spend {actual_estimation_value}"
+            f"/estimate {estimate_value}h",
+            f"/spend {actual_estimation_value}h"
         ]
         
         if milestone_value:
@@ -531,17 +533,17 @@ class SheetsToGitLab:
             planned_estimation = record.get('Planned Estimation (H)', '').strip()
             actual_end_date = record.get('Actual End Date', '').strip()
             
-            if not sub_task:  # Skip rows without sub-task
+            if not main_task:  # Skip rows without sub-task
                 continue
             
-            print(f"\n📝 Processing row {row_index + 2}: {sub_task}")
+            print(f"\n📝 Processing row {row_index + 2}: {main_task}")
             
             # Check if GIT ID exists
             if not git_id:
-                # Create new GitLab issue using sub-task as title
-                title = sub_task
+                # Create new GitLab issue using main-task as title
+                title = main_task
                 
-                new_git_id = self.create_gitlab_issue(title, "", project_name, planned_estimation, actual_estimation, actual_end_date)
+                new_git_id = self.create_gitlab_issue(title, sub_task, project_name, planned_estimation, actual_estimation, actual_end_date)
                 if new_git_id:
                     # Update the sheet with new GIT ID
                     self.update_git_id_in_sheet(row_index, new_git_id, project_name)
