@@ -4,8 +4,11 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Get the directory where this config.py file is located (root directory)
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Load environment variables from .env file in root directory
+load_dotenv(os.path.join(ROOT_DIR, '.env'))
 
 # GitLab Settings (from environment variables)
 GITLAB_URL = os.getenv('GITLAB_URL', 'https://sourcecontrol.hsenidmobile.com/api/v4/')

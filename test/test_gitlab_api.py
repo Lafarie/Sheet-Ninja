@@ -7,6 +7,10 @@ Tests the GitLab API endpoints with the correct format
 import requests
 import json
 import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import config
+
 
 def test_get_issues():
     """Test getting GitLab issues"""

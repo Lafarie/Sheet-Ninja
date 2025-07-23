@@ -6,7 +6,9 @@ This script helps you get started with the environment setup
 
 import os
 import shutil
-import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import config  # Now this works
 
 def check_requirements():
     """Check if requirements are installed"""
