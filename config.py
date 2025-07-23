@@ -52,27 +52,23 @@ COLUMNS = {
     "END_DATE": 11                  # Column K - Actual End Date
 }
 
-# Status mappings (updated for dropdown options)
-CLOSE_STATUSES = ["Completed", "Cancelled"]
-OPEN_STATUSES = ["Not Started", "In Progress", "Under Review", "Testing", "On Hold"]
-
 # Configurable Dropdown Options
 # Project Name Options with associated GitLab Project IDs and Repository Paths
 PROJECT_OPTIONS = {
     "Rush Buffet": {
         "display": "Rush Buffet", 
-        "project_id": "263",
-        "repo_path": "appigo/rush-buffet"
+        "project_id": "",
+        "repo_path": "/appigo/rush-buffet"
     },
     "Retailer": {
         "display": "Retailer", 
-        "project_id": "264",
-        "repo_path": "appigo/retailer"
+        "project_id": "34",
+        "repo_path": "/appigo/appigo-mall"
     }, 
     "Ticket Generator": {
         "display": "Ticket Generator", 
-        "project_id": "265",
-        "repo_path": "appigo/ticket-generator"
+        "project_id": "263",
+        "repo_path": "/appigo/ticket-generator"
     }
 }
 

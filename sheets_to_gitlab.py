@@ -139,18 +139,15 @@ class SheetsToGitLab:
         if config.DEFAULT_MILESTONE:
             quick_actions.append(f"/milestone {config.DEFAULT_MILESTONE}")
         
-        if config.DEFAULT_DUE_DATE:
-            quick_actions.append(f"/due {config.DEFAULT_DUE_DATE}")
+        actual_due_value = actual_estimation if actual_estimation else config.DEFAULT_ESTIMATE.replace('h', '')
+        quick_actions.append(f"/due {actual_due_value}h")
         
         if config.DEFAULT_LABEL:
             quick_actions.append(f"/label {config.DEFAULT_LABEL}")
         
-        # Use dynamic values from Google Sheet
-        estimate_value = planned_estimation if planned_estimation else config.DEFAULT_ESTIMATE.replace('h', '')
-        due_value = actual_estimation if actual_estimation else estimate_value
-        
+   
         # Build dynamic description with actual values from sheet
-        dynamic_description = f"/assign {config.DEFAULT_ASSIGNEE} \n/estimate {estimate_value}h \n/milestone %\"{config.DEFAULT_MILESTONE}\" \n/due {due_value} \n/label {config.DEFAULT_LABEL}"
+        dynamic_description = f"/assign {config.DEFAULT_ASSIGNEE} \n/estimate {estimate}h \n/milestone %\"{config.DEFAULT_MILESTONE}\" \n/due {actual_due_value} \n/label {config.DEFAULT_LABEL}"
         print(dynamic_description)
         # Use JSON format as specified
         data = {
