@@ -107,7 +107,7 @@ class SheetsToGitLab:
             print(f"❌ Error reading Google Sheet: {e}")
             return []
     
-    def create_gitlab_issue(self, title, description="", project_name="", planned_estimation="", actual_estimation=""):
+    def create_gitlab_issue(self, title, description="", project_name="", planned_estimation="", actual_estimation="", actual_end_date=""):
         """Create a new GitLab issue using the exact API format"""
         # Get the correct project ID based on project name
         if project_name:
@@ -123,32 +123,32 @@ class SheetsToGitLab:
             "Content-Type": "application/json"
         }
         
-        # Create GitLab-style description with user and timestamp
-        current_time = datetime.now().strftime("%b %d, %I:%M %p")
-        user_name = config.DEFAULT_ASSIGNEE
+        # Extract values from sheet with fallback to defaults
+        estimate_value = planned_estimation if planned_estimation else config.DEFAULT_ESTIMATE.replace('h', '')
+        milestone_value = project_name if project_name else config.DEFAULT_MILESTONE
+        due_date_value = actual_end_date if actual_end_date else config.DEFAULT_DUE_DATE
+        actual_estimation_value = actual_estimation if actual_estimation else config.DEFAULT_ESTIMATE.replace('h', '')
+        label_value = config.DEFAULT_LABEL
         
-        # Build description in GitLab quick actions format
-        quick_actions = []
-        quick_actions.append(f"{user_name}, {current_time}")
-        quick_actions.append(f"/assign {config.DEFAULT_ASSIGNEE}")
-        
-        # Use planned estimation from sheet or default
-        estimate = planned_estimation if planned_estimation else config.DEFAULT_ESTIMATE
-        quick_actions.append(f"/estimate {estimate}h")
-        
-        if config.DEFAULT_MILESTONE:
-            quick_actions.append(f"/milestone {config.DEFAULT_MILESTONE}")
-        
-        actual_due_value = actual_estimation if actual_estimation else config.DEFAULT_ESTIMATE.replace('h', '')
-        quick_actions.append(f"/due {actual_due_value}h")
-        
-        if config.DEFAULT_LABEL:
-            quick_actions.append(f"/label {config.DEFAULT_LABEL}")
-        
-   
         # Build dynamic description with actual values from sheet
-        dynamic_description = f"/assign {config.DEFAULT_ASSIGNEE} \n/estimate {estimate}h \n/milestone %\"{config.DEFAULT_MILESTONE}\" \n/due {actual_due_value} \n/label {config.DEFAULT_LABEL}"
-        print(dynamic_description)
+        description_parts = [
+            f"/assign {config.DEFAULT_ASSIGNEE}",
+            f"/estimate {estimate_value}",
+            f"/spend {actual_estimation_value}"
+        ]
+        
+        if milestone_value:
+            description_parts.append(f"/milestone %\"{milestone_value}\"")
+        
+        if due_date_value:
+            description_parts.append(f"/due {due_date_value}")
+
+        if label_value:
+            description_parts.append(f"/label {label_value}")
+        
+        dynamic_description = " \n".join(description_parts)
+        print(f"📋 Quick actions to apply:\n{dynamic_description}")
+        
         # Use JSON format as specified
         data = {
             "title": title,
@@ -162,7 +162,6 @@ class SheetsToGitLab:
                 issue_id = issue_data['iid']
                 print(f"✅ Created GitLab issue #{issue_id}: {title}")
                 print(f"   🏗️ Project ID: {project_id} ({project_name})")
-                print(f"   📋 Applied quick actions: {', '.join(quick_actions)}")
                 return issue_id
             else:
                 print(f"❌ Failed to create GitLab issue (Status: {response.status_code})")
@@ -385,6 +384,7 @@ class SheetsToGitLab:
             specific_project = record.get('Specific Project Name', '').strip()
             actual_estimation = record.get('Actual Estimation (H)', '').strip()
             planned_estimation = record.get('Planned Estimation (H)', '').strip()
+            actual_end_date = record.get('Actual End Date', '').strip()
             
             if not sub_task:  # Skip rows without sub-task
                 continue
@@ -396,7 +396,7 @@ class SheetsToGitLab:
                 # Create new GitLab issue using sub-task as title
                 title = sub_task
                 
-                new_git_id = self.create_gitlab_issue(title, "", project_name, planned_estimation, actual_estimation)
+                new_git_id = self.create_gitlab_issue(title, "", project_name, planned_estimation, actual_estimation, actual_end_date)
                 if new_git_id:
                     # Update the sheet with new GIT ID
                     self.update_git_id_in_sheet(row_index, new_git_id, project_name)
