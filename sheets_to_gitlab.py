@@ -291,6 +291,7 @@ class SheetsToGitLab:
             print(f"❌ Error closing issue #{issue_id}: {e}")
             return False
     
+    
     def update_gitlab_issue(self, issue_id, title=None, description=None, state_event=None, project_name=""):
         """Update GitLab issue using the exact API format"""
         # Get the correct project ID based on project name
@@ -419,8 +420,8 @@ class SheetsToGitLab:
                     # Handle status
                     if status.lower() == "completed":
                         self.close_gitlab_issue(git_id_int, project_name)
-                    elif status.lower() == "in progress":
-                        print(f"📋 Issue #{git_id} is in progress - keeping open")
+                    else:
+                        self.update_gitlab_issue(git_id_int, state_event="reopen", project_name=project_name)
                 
                 except (ValueError, TypeError):
                     print(f"⚠️ Invalid GIT ID format: {git_id}")
