@@ -172,7 +172,7 @@ class SheetsToGitLab:
             print(f"❌ Error creating GitLab issue: {e}")
             return None
     
-    def update_git_id_in_sheet(self, row_number, git_id, project_name=""):
+    def update_git_id_in_sheet(self, row_number, git_id, project_name="", actual_end_date=""):
         """Update the GIT ID in the Google Sheet with clickable link only if different"""
         try:
             cell_range = f"{config.WORKSHEET_NAME}!B{row_number + 2}"  # +2 for header and 0-index
@@ -292,12 +292,19 @@ class SheetsToGitLab:
             response = requests.get(url, headers=headers, timeout=30)
             if response.status_code == 200:
                 issue_data = response.json()
+                # print(f"🔍 Debug - Issue #{issue_id} REST API response: {issue_data}")
+                
+                # Get time stats from the nested time_stats object
+                time_stats = issue_data.get('time_stats', {})
+                total_time_spent = time_stats.get('total_time_spent', 0)
+                
                 return {
                     'state': issue_data.get('state'),
                     'title': issue_data.get('title'),
-                    'total_time_spent': issue_data.get('total_time_spent', 0),  # in seconds
-                    'time_stats': issue_data.get('time_stats', {}),
-                    'description': issue_data.get('description', '')
+                    'total_time_spent': total_time_spent,  # in seconds from time_stats
+                    'time_stats': time_stats,
+                    'description': issue_data.get('description', ''),
+                    'due_date': issue_data.get('due_date', '')  # Include due date for comparison
                 }
             else:
                 print(f"❌ Failed to get issue #{issue_id} details (Status: {response.status_code})")
@@ -306,8 +313,8 @@ class SheetsToGitLab:
             print(f"❌ Error getting issue #{issue_id} details: {e}")
             return None
     
-    def close_gitlab_issue(self, issue_id, project_name=""):
-        """Close GitLab issue only if it's not already closed"""
+    def close_gitlab_issue(self, issue_id, project_name="", actual_end_date=""):
+        """Close GitLab issue only if it's not already closed, optionally set due date first"""
         # Check current state first
         current_details = self.get_gitlab_issue_details(issue_id, project_name)
         if not current_details:
@@ -329,15 +336,37 @@ class SheetsToGitLab:
             "Content-Type": "application/json"
         }
         
-        # Use JSON format as specified
+        # Build update data - close the issue and optionally set due date
         data = {
             "state_event": "close"
         }
         
+        # If actual_end_date is provided, set it as the due date when closing
+        if actual_end_date:
+            try:
+                if '-' in actual_end_date and len(actual_end_date.split('-')) == 3:
+                    parts = actual_end_date.split('-')
+                    if len(parts[0]) == 2:  # DD-MM-YYYY format
+                        formatted_date = f"{parts[2]}-{parts[1]}-{parts[0]}"  # Convert to YYYY-MM-DD
+                    else:  # Already YYYY-MM-DD format
+                        formatted_date = actual_end_date
+                else:
+                    formatted_date = actual_end_date
+                
+                current_due_date = current_details.get('due_date', '')
+                if formatted_date != current_due_date:
+                    data['due_date'] = formatted_date
+                    print(f"📅 Setting due date on close: {current_due_date} → {formatted_date}")
+            except Exception as e:
+                print(f"⚠️ Error processing due date {actual_end_date}: {e}")
+        
         try:
             response = requests.put(url, headers=headers, json=data, timeout=30)
             if response.status_code == 200:
-                print(f"✅ Closed GitLab issue #{issue_id} in project {project_id}")
+                updates = ["closed"]
+                if 'due_date' in data:
+                    updates.append("due date updated")
+                print(f"✅ Successfully {' and '.join(updates)} GitLab issue #{issue_id} in project {project_id}")
                 return True
             else:
                 print(f"❌ Failed to close issue #{issue_id} (Status: {response.status_code})")
@@ -348,7 +377,7 @@ class SheetsToGitLab:
             return False
     
     
-    def update_gitlab_issue(self, issue_id, title=None, description=None, state_event=None, project_name=""):
+    def update_gitlab_issue(self, issue_id, title=None, description=None, state_event=None, project_name="", actual_end_date=""):
         """Update GitLab issue only if values have changed"""
         # Check current state first
         current_details = self.get_gitlab_issue_details(issue_id, project_name)
@@ -364,13 +393,33 @@ class SheetsToGitLab:
         if description and description != current_details['description']:
             updates_needed['description'] = description
         
+        # Handle due date update (actual_end_date in sheets maps to due_date in GitLab)
+        if actual_end_date:
+            # Convert date format if needed (assume DD-MM-YYYY from sheets to YYYY-MM-DD for GitLab)
+            try:
+                if '-' in actual_end_date and len(actual_end_date.split('-')) == 3:
+                    parts = actual_end_date.split('-')
+                    if len(parts[0]) == 2:  # DD-MM-YYYY format
+                        formatted_date = f"{parts[2]}-{parts[1]}-{parts[0]}"  # Convert to YYYY-MM-DD
+                    else:  # Already YYYY-MM-DD format
+                        formatted_date = actual_end_date
+                else:
+                    formatted_date = actual_end_date
+                
+                current_due_date = current_details.get('due_date', '')
+                if formatted_date != current_due_date:
+                    updates_needed['due_date'] = formatted_date
+                    print(f"📅 Due date will be updated: {current_due_date} → {formatted_date}")
+            except Exception as e:
+                print(f"⚠️ Error processing due date {actual_end_date}: {e}")
+        
         if state_event:
             if state_event == "close" and current_details['state'] == 'closed':
                 print(f"ℹ️ Issue #{issue_id} is already closed - skipping")
                 return True
             elif state_event == "reopen" and current_details['state'] == 'opened':
-                print(f"ℹ️ Issue #{issue_id} is already open - skipping")
-                return True
+                print(f"ℹ️ Issue #{issue_id} is already open - checking for other updates")
+                # Don't return here, continue to check for other updates like due_date
             else:
                 updates_needed['state_event'] = state_event
         
@@ -397,7 +446,9 @@ class SheetsToGitLab:
                 if state_event == "close":
                     action = "closed"
                 elif state_event == "reopen":
-                    action = "reopened"
+                    if 'state_event' in updates_needed:
+                        action = "reopened"
+                    # If no state_event in updates_needed, it was already open so just say "updated"
                 
                 updated_fields = list(updates_needed.keys())
                 print(f"✅ Successfully {action} GitLab issue #{issue_id} in project {project_id}")
@@ -510,11 +561,14 @@ class SheetsToGitLab:
                         except (ValueError, TypeError):
                             print(f"⚠️ Invalid time format for issue #{git_id}: {actual_estimation}")
                     
-                    # Handle status
+                    # Handle status and due date updates
+                    
+                    # Handle status changes
                     if status.lower() == "completed":
-                        self.close_gitlab_issue(git_id_int, project_name)
+                        self.close_gitlab_issue(git_id_int, project_name, actual_end_date)
                     else:
-                        self.update_gitlab_issue(git_id_int, state_event="reopen", project_name=project_name)
+                        # For non-completed issues, check if state or due date needs updating
+                        self.update_gitlab_issue(git_id_int, state_event="reopen", project_name=project_name, actual_end_date=actual_end_date)
                 
                 except (ValueError, TypeError):
                     print(f"⚠️ Invalid GIT ID format: {git_id}")
