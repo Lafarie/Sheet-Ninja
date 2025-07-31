@@ -2,14 +2,34 @@
 
 Scripts to sync GitLab issues with Google Sheets using Service Account authentication and environment variables for secure configuration.
 
-## 🚀 Quick Setup
+## ✨ New Features
 
-### 1. Install Dependencies
+### � Dynamic Column Management
+- **Flexible column mapping** that adapts to sheet changes
+- **Auto-detection** of column positions and headers
+- **Interactive configuration** tool for custom setups
+- **Validation** to ensure everything works correctly
+
+### 🎯 Quick Setup Tool
+Run `python quick_setup.py` for guided setup and configuration management.
+
+## �🚀 Quick Setup
+
+### 1. One-Command Setup
+```bash
+# Install dependencies and run guided setup
+pip install -r requirements.txt
+python quick_setup.py
+```
+
+### 2. Manual Setup
+
+#### Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Environment Variables Setup
+#### Environment Variables Setup
 ```bash
 # Copy the template
 cp env.example .env
@@ -31,6 +51,15 @@ PROJECT_ID=263
 WORKSHEET_NAME=Sheet1
 SERVICE_ACCOUNT_FILE=service_account.json
 DEFAULT_ASSIGNEE=@your.email@company.com
+```
+
+#### Column Configuration
+```bash
+# Configure your Google Sheet columns dynamically
+python column_manager.py
+
+# Choose option 1 for auto-detection
+# Choose option 2 for interactive setup
 ```
 
 ### 3. Set up Google Service Account
@@ -73,30 +102,77 @@ python gitlab_to_sheets.py
 
 ## 🔧 Usage
 
-### Sync GitLab → Google Sheets
+### Quick Start (Recommended)
 ```bash
+# Guided setup and management
+python quick_setup.py
+```
+
+### Column Management
+```bash
+# Auto-detect and configure columns
+python column_manager.py
+
+# Options available:
+# 1. Auto-detect columns from your sheet
+# 2. Interactive column setup
+# 3. Validate current configuration
+# 4. Export/import configurations
+```
+
+### Sync Operations
+```bash
+# Sync GitLab → Google Sheets
 python gitlab_to_sheets.py
-```
 
-### Sync Google Sheets → GitLab
-```bash
+# Sync Google Sheets → GitLab
 python sheets_to_gitlab.py
-```
 
-### Complete Bidirectional Sync
-```bash
+# Complete Bidirectional Sync
 python complete_sync.py
 ```
 
-### Setup Status Dropdown
+### Sheet Setup
 ```bash
-python setup_sheet_dropdown.py
+# Setup dropdowns and formatting
+python setup/setup_sheet_dropdown.py
 ```
 
-### Robust Sync with CSV Fallback
-```bash
-python gitlab_to_sheets_fixed.py
+## 🔄 Dynamic Column System
+
+### Key Features
+- **Adaptive**: Automatically adapts to column position changes
+- **Auto-detection**: Finds columns by header names
+- **Validation**: Checks configuration against actual sheet
+- **Interactive**: Step-by-step configuration wizard
+
+### Column Configuration
+The system stores column mappings in `custom_columns.json`:
+```json
+{
+  "PROJECT_NAME": {
+    "index": 3,
+    "header": "Project Name",
+    "required": true,
+    "data_type": "dropdown"
+  }
+}
 ```
+
+### When Columns Change
+1. Run `python column_manager.py`
+2. Choose "Auto-detect and map columns"
+3. Review and apply suggested mappings
+4. Validate the new configuration
+
+### Migration from Fixed Columns
+If upgrading from the old system:
+1. Backup your sheet
+2. Run `python column_manager.py`
+3. Use auto-detection
+4. Test with a small dataset first
+
+📚 **Detailed Guide**: See [DYNAMIC_COLUMNS.md](DYNAMIC_COLUMNS.md) for complete documentation.
 
 ## 🔒 Security Features
 

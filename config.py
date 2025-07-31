@@ -40,20 +40,167 @@ DEFAULT_MILESTONE = os.getenv('DEFAULT_MILESTONE', '%milestone-name')
 DEFAULT_DUE_DATE = os.getenv('DEFAULT_DUE_DATE', '')
 DEFAULT_LABEL = os.getenv('DEFAULT_LABEL', '~task')
 
-# Sheet Column Mapping (your actual Google Sheet columns)
-COLUMNS = {
-    "DATE": 1,                      # Column A - Date
-    "GIT_ID": 2,                    # Column B - GIT ID
-    "PROJECT_NAME": 3,              # Column C - Project Name
-    "SPECIFIC_PROJECT": 4,          # Column D - Specific Project Name
-    "MAIN_TASK": 5,                 # Column E - Main Task
-    "SUB_TASK": 6,                  # Column F - Sub Task
-    "STATUS": 7,                    # Column G - Status
-    "START_DATE": 8,                # Column H - Actual Start Date
-    "PLANNED_ESTIMATION": 9,        # Column I - Planned Estimation (H)
-    "ACTUAL_ESTIMATION": 10,        # Column J - Actual Estimation (H)
-    "END_DATE": 11                  # Column K - Actual End Date
+# Dynamic Column Configuration System
+# This allows for flexible column mapping that can adapt to sheet changes
+
+# Default column definitions with metadata
+DEFAULT_COLUMN_CONFIG = {
+    "DATE": {
+        "index": 1,
+        "header": "Date",
+        "required": True,
+        "data_type": "date",
+        "description": "Task date",
+        "example": "2024-01-15"
+    },
+    "GIT_ID": {
+        "index": 2,
+        "header": "GIT ID",
+        "required": False,
+        "data_type": "text",
+        "description": "GitLab issue ID",
+        "example": "123"
+    },
+    "PROJECT_NAME": {
+        "index": 3,
+        "header": "Project Name",
+        "required": True,
+        "data_type": "dropdown",
+        "description": "Project selection",
+        "example": "Ticket Generator"
+    },
+    "SPECIFIC_PROJECT": {
+        "index": 4,
+        "header": "Specific Project Name",
+        "required": False,
+        "data_type": "dropdown",
+        "description": "Specific project type",
+        "example": "Development"
+    },
+    "MAIN_TASK": {
+        "index": 5,
+        "header": "Main Task",
+        "required": True,
+        "data_type": "text",
+        "description": "Main task description",
+        "example": "User Authentication System"
+    },
+    "SUB_TASK": {
+        "index": 6,
+        "header": "Sub Task",
+        "required": True,
+        "data_type": "text",
+        "description": "Sub task description",
+        "example": "Implement login API"
+    },
+    "STATUS": {
+        "index": 7,
+        "header": "Status",
+        "required": True,
+        "data_type": "dropdown",
+        "description": "Task status",
+        "example": "In Progress"
+    },
+    "START_DATE": {
+        "index": 8,
+        "header": "Actual Start Date",
+        "required": False,
+        "data_type": "date",
+        "description": "When task was started",
+        "example": "2024-01-15"
+    },
+    "PLANNED_ESTIMATION": {
+        "index": 9,
+        "header": "Planned Estimation (H)",
+        "required": False,
+        "data_type": "number",
+        "description": "Planned hours",
+        "example": "8"
+    },
+    "ACTUAL_ESTIMATION": {
+        "index": 10,
+        "header": "Actual Estimation (H)",
+        "required": False,
+        "data_type": "number",
+        "description": "Actual hours spent",
+        "example": "10"
+    },
+    "END_DATE": {
+        "index": 11,
+        "header": "Actual End Date",
+        "required": False,
+        "data_type": "date",
+        "description": "When task was completed",
+        "example": "2024-01-16"
+    }
 }
+
+# Load custom column configuration if it exists
+CUSTOM_COLUMN_CONFIG_FILE = os.path.join(ROOT_DIR, 'custom_columns.json')
+
+def load_column_config():
+    """Load column configuration from custom file or use defaults"""
+    if os.path.exists(CUSTOM_COLUMN_CONFIG_FILE):
+        try:
+            import json
+            with open(CUSTOM_COLUMN_CONFIG_FILE, 'r') as f:
+                custom_config = json.load(f)
+                print(f"✅ Loaded custom column configuration from {CUSTOM_COLUMN_CONFIG_FILE}")
+                return custom_config
+        except Exception as e:
+            print(f"⚠️ Error loading custom column config: {e}")
+            print("📋 Using default column configuration")
+    
+    return DEFAULT_COLUMN_CONFIG
+
+def save_column_config(config):
+    """Save column configuration to custom file"""
+    try:
+        import json
+        with open(CUSTOM_COLUMN_CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=2)
+        print(f"✅ Saved column configuration to {CUSTOM_COLUMN_CONFIG_FILE}")
+        return True
+    except Exception as e:
+        print(f"❌ Error saving column config: {e}")
+        return False
+
+# Load the active column configuration
+COLUMN_CONFIG = load_column_config()
+
+# Backward compatibility: Create COLUMNS dict from config
+COLUMNS = {key: value["index"] for key, value in COLUMN_CONFIG.items()}
+
+def get_column_by_header(header_name):
+    """Get column key by header name (case-insensitive)"""
+    header_name = header_name.strip().lower()
+    for key, config in COLUMN_CONFIG.items():
+        if config["header"].lower() == header_name:
+            return key
+    return None
+
+def get_header_by_column(column_key):
+    """Get header name by column key"""
+    if column_key in COLUMN_CONFIG:
+        return COLUMN_CONFIG[column_key]["header"]
+    return None
+
+def update_column_index(column_key, new_index):
+    """Update column index and save configuration"""
+    if column_key in COLUMN_CONFIG:
+        COLUMN_CONFIG[column_key]["index"] = new_index
+        COLUMNS[column_key] = new_index
+        save_column_config(COLUMN_CONFIG)
+        return True
+    return False
+
+def get_required_columns():
+    """Get list of required column keys"""
+    return [key for key, config in COLUMN_CONFIG.items() if config.get("required", False)]
+
+def get_column_order():
+    """Get columns sorted by their index"""
+    return sorted(COLUMN_CONFIG.items(), key=lambda x: x[1]["index"])
 
 # Configurable Dropdown Options
 # Project Name Options with associated GitLab Project IDs and Repository Paths
@@ -97,12 +244,14 @@ STATUS_OPTIONS = [
     "Cancelled"
 ]
 
-# Headers for your Google Sheet
-SHEET_HEADERS = [
-    "Date", "GIT ID", "Project Name", "Specific Project Name", 
-    "Main Task", "Sub Task", "Status", "Actual Start Date", 
-    "Planned Estimation (H)", "Actual Estimation (H)", "Actual End Date"
-]
+# Dynamic Headers generation from column configuration
+def get_sheet_headers():
+    """Get headers in correct order based on column configuration"""
+    ordered_columns = get_column_order()
+    return [config["header"] for key, config in ordered_columns]
+
+# Backward compatibility
+SHEET_HEADERS = get_sheet_headers()
 
 # Helper Functions
 def get_project_id_by_name(project_name):

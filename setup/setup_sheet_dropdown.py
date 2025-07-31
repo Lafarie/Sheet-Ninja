@@ -35,22 +35,28 @@ class SimpleSheetDropdown:
         raise ValueError(f"Worksheet '{config.WORKSHEET_NAME}' not found")
     
     def add_headers(self):
-        """Add headers to the sheet"""
+        """Add headers to the sheet using dynamic configuration"""
         try:
+            # Get headers from dynamic configuration
+            headers = config.get_sheet_headers()
+            
             # Add headers
             self.service.spreadsheets().values().update(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{config.WORKSHEET_NAME}!1:1",
                 valueInputOption='RAW',
-                body={'values': [config.SHEET_HEADERS]}
+                body={'values': [headers]}
             ).execute()
-            print("✅ Headers added/updated")
+            print(f"✅ Headers added/updated ({len(headers)} columns)")
         except Exception as e:
             print(f"⚠️ Headers update failed: {e}")
     
     def add_project_dropdown(self):
-        """Add dropdown to Column C (Project Name)"""
+        """Add dropdown to Project Name column using dynamic column mapping"""
         sheet_id = self.get_sheet_id()
+        
+        # Get Project Name column index from dynamic configuration
+        project_column_index = config.COLUMNS.get('PROJECT_NAME', 3) - 1  # Convert to 0-based
         
         # Get configurable project options from config
         project_values = [{"userEnteredValue": key} for key in config.get_project_keys()]
@@ -61,8 +67,8 @@ class SimpleSheetDropdown:
                     "sheetId": sheet_id,
                     "startRowIndex": 1,  # Start from row 2 (skip header)
                     "endRowIndex": 1000,  # Apply to first 1000 rows
-                    "startColumnIndex": 2,  # Column C (0-indexed)
-                    "endColumnIndex": 3   # Only Column C
+                    "startColumnIndex": project_column_index,  # Dynamic column
+                    "endColumnIndex": project_column_index + 1   # Only this column
                 },
                 "rule": {
                     "condition": {
@@ -83,12 +89,16 @@ class SimpleSheetDropdown:
             body=body
         ).execute()
         
-        print("✅ Dropdown added to Column C (Project Name)")
+        column_letter = chr(65 + project_column_index)  # Convert to letter
+        print(f"✅ Dropdown added to Column {column_letter} (Project Name)")
         return True
 
     def add_specific_project_dropdown(self):
-        """Add dropdown to Column D (Specific Project Name)"""
+        """Add dropdown to Specific Project Name column using dynamic column mapping"""
         sheet_id = self.get_sheet_id()
+        
+        # Get Specific Project column index from dynamic configuration
+        specific_column_index = config.COLUMNS.get('SPECIFIC_PROJECT', 4) - 1  # Convert to 0-based
         
         # Get configurable specific project options from config
         specific_project_values = [{"userEnteredValue": option} for option in config.SPECIFIC_PROJECT_OPTIONS]
@@ -99,8 +109,8 @@ class SimpleSheetDropdown:
                     "sheetId": sheet_id,
                     "startRowIndex": 1,  # Start from row 2 (skip header)
                     "endRowIndex": 1000,  # Apply to first 1000 rows
-                    "startColumnIndex": 3,  # Column D (0-indexed)
-                    "endColumnIndex": 4   # Only Column D
+                    "startColumnIndex": specific_column_index,  # Dynamic column
+                    "endColumnIndex": specific_column_index + 1   # Only this column
                 },
                 "rule": {
                     "condition": {
@@ -121,12 +131,16 @@ class SimpleSheetDropdown:
             body=body
         ).execute()
         
-        print("✅ Dropdown added to Column D (Specific Project Name)")
+        column_letter = chr(65 + specific_column_index)  # Convert to letter
+        print(f"✅ Dropdown added to Column {column_letter} (Specific Project Name)")
         return True
 
     def add_dropdown(self):
-        """Add dropdown to Column G (Status)"""
+        """Add dropdown to Status column using dynamic column mapping"""
         sheet_id = self.get_sheet_id()
+        
+        # Get Status column index from dynamic configuration
+        status_column_index = config.COLUMNS.get('STATUS', 7) - 1  # Convert to 0-based
         
         # Get configurable status options from config
         status_values = [{"userEnteredValue": option} for option in config.STATUS_OPTIONS]
@@ -137,8 +151,8 @@ class SimpleSheetDropdown:
                     "sheetId": sheet_id,
                     "startRowIndex": 1,  # Start from row 2 (skip header)
                     "endRowIndex": 1000,  # Apply to first 1000 rows
-                    "startColumnIndex": 6,  # Column G (0-indexed)
-                    "endColumnIndex": 7   # Only Column G
+                    "startColumnIndex": status_column_index,  # Dynamic column
+                    "endColumnIndex": status_column_index + 1   # Only this column
                 },
                 "rule": {
                     "condition": {
@@ -159,16 +173,22 @@ class SimpleSheetDropdown:
             body=body
         ).execute()
         
-        print("✅ Dropdown added to Column G (Status)")
+        column_letter = chr(65 + status_column_index)  # Convert to letter
+        print(f"✅ Dropdown added to Column {column_letter} (Status)")
         return True
     
     def add_conditional_formatting(self):
-        """Add conditional formatting with colors for dropdown values"""
+        """Add conditional formatting with colors for dropdown values using dynamic columns"""
         sheet_id = self.get_sheet_id()
         
         requests = []
         
-        # Project Name Colors (Column C) - Dynamic based on config
+        # Get dynamic column indices
+        project_column_index = config.COLUMNS.get('PROJECT_NAME', 3) - 1  # Convert to 0-based
+        specific_column_index = config.COLUMNS.get('SPECIFIC_PROJECT', 4) - 1
+        status_column_index = config.COLUMNS.get('STATUS', 7) - 1
+        
+        # Project Name Colors - Dynamic based on config
         project_colors = [
             {"red": 1.0, "green": 0.8, "blue": 0.8},  # Light Red
             {"red": 0.8, "green": 1.0, "blue": 0.8},  # Light Green  
@@ -184,8 +204,8 @@ class SimpleSheetDropdown:
                             "sheetId": sheet_id,
                             "startRowIndex": 1,
                             "endRowIndex": 1000,
-                            "startColumnIndex": 2,
-                            "endColumnIndex": 3
+                            "startColumnIndex": project_column_index,
+                            "endColumnIndex": project_column_index + 1
                         }],
                         "booleanRule": {
                             "condition": {
@@ -201,7 +221,7 @@ class SimpleSheetDropdown:
                 }
             })
         
-        # Specific Project Type Colors (Column D) - Dynamic based on config
+        # Specific Project Type Colors - Dynamic based on config
         specific_colors = [
             {"red": 0.9, "green": 1.0, "blue": 0.9},  # Very Light Green
             {"red": 1.0, "green": 0.9, "blue": 0.9},  # Very Light Red
@@ -221,8 +241,8 @@ class SimpleSheetDropdown:
                             "sheetId": sheet_id,
                             "startRowIndex": 1,
                             "endRowIndex": 1000,
-                            "startColumnIndex": 3,
-                            "endColumnIndex": 4
+                            "startColumnIndex": specific_column_index,
+                            "endColumnIndex": specific_column_index + 1
                         }],
                         "booleanRule": {
                             "condition": {
@@ -238,7 +258,7 @@ class SimpleSheetDropdown:
                 }
             })
         
-        # Status Colors (Column G) - Dynamic based on config
+        # Status Colors - Dynamic based on config
         status_colors = [
             {"red": 1.0, "green": 0.95, "blue": 0.8},  # Light Orange (Pending)
             {"red": 0.8, "green": 0.9, "blue": 1.0},   # Light Blue (In Progress)
@@ -254,8 +274,8 @@ class SimpleSheetDropdown:
                             "sheetId": sheet_id,
                             "startRowIndex": 1,
                             "endRowIndex": 1000,
-                            "startColumnIndex": 6,
-                            "endColumnIndex": 7
+                            "startColumnIndex": status_column_index,
+                            "endColumnIndex": status_column_index + 1
                         }],
                         "booleanRule": {
                             "condition": {
@@ -278,7 +298,7 @@ class SimpleSheetDropdown:
             body=body
         ).execute()
         
-        print("✅ Conditional formatting with colors applied!")
+        print("✅ Conditional formatting with colors applied to dynamic columns!")
         return True
     
     def setup_sheet(self):
@@ -304,24 +324,33 @@ class SimpleSheetDropdown:
             self.add_conditional_formatting()
             
             print("\n🎉 Setup completed successfully!")
-            print("📋 Project Name column (C) dropdown options:")
+            
+            # Show dynamic column information
+            print("📋 Dynamic Column Configuration:")
+            for key, column_config in config.get_column_order():
+                column_letter = chr(64 + column_config['index'])  # Convert to letter
+                required = " (REQUIRED)" if column_config.get('required', False) else ""
+                print(f"   Column {column_letter} ({column_config['index']}): {column_config['header']}{required}")
+            
+            print("\n📋 Project Name dropdown options:")
             for project_key in config.get_project_keys():
                 project_id = config.get_project_id_by_name(project_key)
                 print(f"   • {project_key} (ID: {project_id})")
             
-            print("📋 Specific Project Name column (D) dropdown options:")
+            print("📋 Specific Project Name dropdown options:")
             for option in config.SPECIFIC_PROJECT_OPTIONS:
                 print(f"   • {option}")
             
-            print("📋 Status column (G) dropdown options:")
+            print("📋 Status dropdown options:")
             for option in config.STATUS_OPTIONS:
                 print(f"   • {option}")
             
             print(f"\n🔗 Open: https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}")
-            print("\n� To modify dropdown options, edit the config.py file:")
-            print("   - PROJECT_OPTIONS: Project names with GitLab project IDs")
-            print("   - SPECIFIC_PROJECT_OPTIONS: Task types")
-            print("   - STATUS_OPTIONS: Status values")
+            print("\n🔧 Column Management:")
+            print("   - To modify dropdown options, edit the config.py file")
+            print("   - To change column positions, run: python column_manager.py")
+            print("   - Auto-detect and map columns when sheet structure changes")
+            print("   - Interactive column configuration with validation")
             
         except Exception as e:
             print(f"❌ Setup failed: {e}")

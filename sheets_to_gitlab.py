@@ -85,27 +85,76 @@ class SheetsToGitLab:
             return False
     
     def get_sheet_data(self):
-        """Get all data from Google Sheet"""
+        """Get all data from Google Sheet with dynamic column mapping"""
         try:
             # Get all values including headers
-            all_values = self.get_sheet_values(f"{config.WORKSHEET_NAME}!A:K")
+            all_values = self.get_sheet_values(f"{config.WORKSHEET_NAME}!A:Z")  # Extended range to handle more columns
             if len(all_values) < 2:  # No data rows
+                print("⚠️ No data rows found in sheet")
                 return []
             
-            headers = all_values[0]
+            detected_headers = all_values[0]
             data_rows = all_values[1:]
             
+            # Validate column configuration against detected headers
+            print(f"🔍 Detected {len(detected_headers)} columns in sheet")
+            
+            # Auto-detect column mapping if headers don't match
+            column_mapping = {}
+            mismatched_columns = []
+            
+            for key, column_config in config.COLUMN_CONFIG.items():
+                expected_index = column_config["index"]
+                expected_header = column_config["header"]
+                
+                # Check if the expected column exists and matches
+                if expected_index <= len(detected_headers):
+                    actual_header = detected_headers[expected_index - 1]
+                    if actual_header.lower().strip() == expected_header.lower().strip():
+                        column_mapping[key] = expected_index - 1  # Convert to 0-based index
+                    else:
+                        mismatched_columns.append(f"{key}: expected '{expected_header}' but found '{actual_header}' in column {expected_index}")
+                        # Try to find by header name
+                        for i, header in enumerate(detected_headers):
+                            if header.lower().strip() == expected_header.lower().strip():
+                                column_mapping[key] = i
+                                print(f"🔍 Auto-mapped {key} from column {expected_index} to column {i + 1}")
+                                break
+                else:
+                    mismatched_columns.append(f"{key}: column {expected_index} doesn't exist (only {len(detected_headers)} columns)")
+            
+            if mismatched_columns:
+                print("⚠️ Column mapping issues detected:")
+                for issue in mismatched_columns:
+                    print(f"   {issue}")
+                print("💡 Consider running column_manager.py to fix column mappings")
+            
+            # Parse data rows with dynamic mapping
             records = []
-            for row in data_rows:
-                # Pad row with empty strings if it's shorter than headers
-                padded_row = row + [''] * (len(headers) - len(row))
-                record = dict(zip(headers, padded_row))
+            for row_index, row in enumerate(data_rows):
+                # Pad row with empty strings if it's shorter than detected headers
+                padded_row = row + [''] * (len(detected_headers) - len(row))
+                
+                # Create record using dynamic column mapping
+                record = {}
+                for key, column_index in column_mapping.items():
+                    if column_index < len(padded_row):
+                        record[key] = padded_row[column_index]
+                    else:
+                        record[key] = ""
+                
+                # Add row index for reference
+                record['_row_index'] = row_index
                 records.append(record)
             
             print(f"✅ Found {len(records)} rows in Google Sheet")
+            print(f"📊 Successfully mapped {len(column_mapping)} columns")
             return records
+            
         except Exception as e:
             print(f"❌ Error reading Google Sheet: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def create_gitlab_issue(self, title, description="", project_name="", planned_estimation="", actual_estimation="", actual_end_date=""):
@@ -514,7 +563,7 @@ class SheetsToGitLab:
             return False
     
     def sync_sheets_to_gitlab(self):
-        """Main function to sync Google Sheets changes to GitLab"""
+        """Main function to sync Google Sheets changes to GitLab with dynamic column mapping"""
         print("🔄 Starting Google Sheets to GitLab sync...")
         
         records = self.get_sheet_data()
@@ -523,20 +572,24 @@ class SheetsToGitLab:
             return
         
         for row_index, record in enumerate(records):
-            git_id = record.get('GIT ID', '').strip().replace('#', '')  # Remove # from hyperlink
-            sub_task = record.get('Sub Task', '').strip()
-            status = record.get('Status', '').strip()
-            main_task = record.get('Main Task', '').strip()
-            project_name = record.get('Project Name', '').strip()
-            specific_project = record.get('Specific Project Name', '').strip()
-            actual_estimation = record.get('Actual Estimation (H)', '').strip()
-            planned_estimation = record.get('Planned Estimation (H)', '').strip()
-            actual_end_date = record.get('Actual End Date', '').strip()
+            # Use dynamic column mapping to extract values
+            git_id = record.get('GIT_ID', '').strip().replace('#', '')  # Remove # from hyperlink
+            sub_task = record.get('SUB_TASK', '').strip()
+            status = record.get('STATUS', '').strip()
+            main_task = record.get('MAIN_TASK', '').strip()
+            project_name = record.get('PROJECT_NAME', '').strip()
+            specific_project = record.get('SPECIFIC_PROJECT', '').strip()
+            actual_estimation = record.get('ACTUAL_ESTIMATION', '').strip()
+            planned_estimation = record.get('PLANNED_ESTIMATION', '').strip()
+            actual_end_date = record.get('END_DATE', '').strip()
             
-            if not main_task:  # Skip rows without sub-task
+            # Get the actual row index from the record
+            actual_row_index = record.get('_row_index', row_index)
+            
+            if not main_task:  # Skip rows without main task
                 continue
             
-            print(f"\n📝 Processing row {row_index + 2}: {main_task}")
+            print(f"\n📝 Processing row {actual_row_index + 2}: {main_task}")
             
             # Check if GIT ID exists
             if not git_id:
@@ -546,7 +599,7 @@ class SheetsToGitLab:
                 new_git_id = self.create_gitlab_issue(title, sub_task, project_name, planned_estimation, actual_estimation, actual_end_date)
                 if new_git_id:
                     # Update the sheet with new GIT ID
-                    self.update_git_id_in_sheet(row_index, new_git_id, project_name)
+                    self.update_git_id_in_sheet(actual_row_index, new_git_id, project_name)
                     git_id = str(new_git_id)
             
             # Process existing or newly created issue
@@ -576,6 +629,13 @@ class SheetsToGitLab:
                     print(f"⚠️ Invalid GIT ID format: {git_id}")
         
         print("\n✅ Sync completed!")
+        
+        # Provide helpful feedback about column mapping
+        print("\n💡 Column Management Tips:")
+        print("   • If columns are not syncing correctly, run: python column_manager.py")
+        print("   • Use auto-detection to map columns automatically")
+        print("   • Configure custom column mappings interactively")
+        print(f"   • Current configuration uses {len(config.COLUMNS)} mapped columns")
 
 if __name__ == "__main__":
     sync = SheetsToGitLab()
