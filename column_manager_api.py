@@ -41,12 +41,8 @@ class ColumnManagerAPI:
             self.service_account_file = service_account_file
             print(f"🔐 Using provided service account file: {self.service_account_file}")
         else:
-            # Check for uploaded file in temp location
-            is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
-            if is_docker:
-                temp_file = '/app/public/uploads/temp/service_account.json'
-            else:
-                temp_file = os.path.join(os.getcwd(), 'uploads', 'temp', 'service_account.json')
+            # Use centralized path configuration
+            temp_file = config.PATHS['service_account_file']
             
             print(f"🔍 Checking for uploaded service account file: {temp_file}")
             
@@ -411,19 +407,10 @@ def upload_service_account():
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
         if file and file.filename.endswith('.json'):
-            # Determine if running in Docker or locally
-            is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
-            
-            if is_docker:
-                # Docker environment - save to public/uploads/temp directory
-                temp_dir = '/app/public/uploads/temp'
-                os.makedirs(temp_dir, exist_ok=True)
-                file_path = os.path.join(temp_dir, 'service_account.json')
-            else:
-                # Local development - save to uploads/temp directory
-                temp_dir = os.path.join(os.getcwd(), 'uploads', 'temp')
-                os.makedirs(temp_dir, exist_ok=True)
-                file_path = os.path.join(temp_dir, 'service_account.json')
+            # Use centralized path configuration
+            temp_dir = config.PATHS['uploads_temp_dir']
+            os.makedirs(temp_dir, exist_ok=True)
+            file_path = config.PATHS['service_account_file']
             
             print(f"📁 Saving uploaded file to: {file_path}")
             file.save(file_path)
@@ -568,25 +555,14 @@ UI_SERVER_URL={config.UI_SERVER_URL}
                     "description": f"Column {value} mapping"
                 }
         
-        # Determine if running in Docker or locally
-        is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
+        # Use centralized path configuration
+        temp_env_file = config.PATHS['env_file']
+        temp_columns_file = config.PATHS['columns_file']
+        final_env_file = config.PATHS['final_env_file']
+        final_columns_file = config.PATHS['final_columns_file']
         
-        if is_docker:
-            # Docker environment paths
-            temp_env_file = '/app/temp/sync.env'
-            temp_columns_file = '/app/temp/custom_columns.json'
-            final_env_file = '/app/.env'
-            final_columns_file = '/app/custom_columns.json'
-        else:
-            # Local development paths
-            temp_env_file = os.path.join(os.getcwd(), 'temp_sync.env')
-            temp_columns_file = os.path.join(os.getcwd(), 'temp_custom_columns.json')
-            final_env_file = os.path.join(os.getcwd(), '.env')
-            final_columns_file = os.path.join(os.getcwd(), 'custom_columns.json')
-        
-        # Create temp directory if it doesn't exist (for Docker)
-        if is_docker:
-            os.makedirs('/app/temp', exist_ok=True)
+        # Create temp directory if it doesn't exist
+        os.makedirs(config.PATHS['temp_dir'], exist_ok=True)
         
         # Write temporary files to writable locations
         with open(temp_env_file, 'w') as f:

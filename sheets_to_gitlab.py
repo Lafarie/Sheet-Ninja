@@ -17,15 +17,10 @@ import re
 from dotenv import load_dotenv
 
 # Load environment variables from the temporary .env file created by the API
-# Check for environment variables first, then fall back to Docker/local paths
+# Check for environment variables first, then fall back to centralized paths
 env_file = os.getenv('ENV_FILE')
 if not env_file:
-    # Determine if running in Docker or locally
-    is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
-    if is_docker:
-        env_file = '/app/temp/sync.env'
-    else:
-        env_file = os.path.join(os.getcwd(), 'temp_sync.env')
+    env_file = config.PATHS['env_file']
 
 if os.path.exists(env_file):
     load_dotenv(env_file)
@@ -89,12 +84,8 @@ class SheetsToGitLab:
     def _authenticate_google_sheets(self):
         """Authenticate with Google Sheets using Service Account"""
         try:
-            # Check for uploaded service account file first
-            is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
-            if is_docker:
-                service_account_file = '/app/public/uploads/temp/service_account.json'
-            else:
-                service_account_file = os.path.join(os.getcwd(), 'uploads', 'temp', 'service_account.json')
+            # Use centralized path configuration
+            service_account_file = config.PATHS['service_account_file']
             
             # If uploaded file doesn't exist, fall back to default
             if not os.path.exists(service_account_file):

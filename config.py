@@ -4,15 +4,56 @@
 import os
 from dotenv import load_dotenv
 
+# Environment Detection and Path Configuration
+# This centralizes all path logic to avoid repetitive environment checks
+
+def get_environment_paths():
+    """Get the appropriate paths based on the current environment"""
+    is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
+    
+    if is_docker:
+        return {
+            'root_dir': '/app',
+            'temp_dir': '/app/temp',
+            'uploads_dir': '/app/public/uploads',
+            'uploads_temp_dir': '/app/public/uploads/temp',
+            'logs_dir': '/app/logs',
+            'config_dir': '/app/config',
+            'service_account_file': '/app/public/uploads/temp/service_account.json',
+            'env_file': '/app/temp/sync.env',
+            'columns_file': '/app/temp/custom_columns.json',
+            'final_env_file': '/app/.env',
+            'final_columns_file': '/app/custom_columns.json'
+        }
+    else:
+        # Local development paths
+        local_root = os.getcwd()
+        return {
+            'root_dir': local_root,
+            'temp_dir': os.path.join(local_root, 'temp'),
+            'uploads_dir': os.path.join(local_root, 'uploads'),
+            'uploads_temp_dir': os.path.join(local_root, 'uploads', 'temp'),
+            'logs_dir': os.path.join(local_root, 'logs'),
+            'config_dir': os.path.join(local_root, 'config'),
+            'service_account_file': os.path.join(local_root, 'uploads', 'temp', 'service_account.json'),
+            'env_file': os.path.join(local_root, 'temp_sync.env'),
+            'columns_file': os.path.join(local_root, 'temp_custom_columns.json'),
+            'final_env_file': os.path.join(local_root, '.env'),
+            'final_columns_file': os.path.join(local_root, 'custom_columns.json')
+        }
+
+# Initialize paths once
+PATHS = get_environment_paths()
+
 # Get the directory where this config.py file is located (root directory)
-ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = PATHS['root_dir']
 
 # Load environment variables from .env file in root directory
 # In Docker, the .env file is mounted as config.env
-env_file_path = os.path.join(ROOT_DIR, '.env')
+env_file_path = PATHS['final_env_file']
 if not os.path.exists(env_file_path):
     # Try the Docker-mounted location
-    env_file_path = os.path.join(ROOT_DIR, 'config.env')
+    env_file_path = os.path.join(PATHS['config_dir'], 'config.env')
 
 load_dotenv(env_file_path)
 
@@ -162,14 +203,7 @@ DEFAULT_COLUMN_CONFIG = {
 # Check for environment variable first, then fall back to default location
 columns_file = os.getenv('COLUMNS_FILE')
 if not columns_file:
-    # Determine if running in Docker or locally
-    is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
-    if is_docker:
-        columns_file = '/app/custom_columns.json'
-    else:
-        columns_file = os.path.join(ROOT_DIR, 'custom_columns.json')
-else:
-    columns_file = os.path.join(ROOT_DIR, 'custom_columns.json')
+    columns_file = PATHS['final_columns_file']
 
 CUSTOM_COLUMN_CONFIG_FILE = columns_file
 
