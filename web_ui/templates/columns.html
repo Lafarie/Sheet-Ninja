@@ -110,6 +110,9 @@
                     <button type="button" class="btn btn-success" onclick="saveColumnConfig()">
                         <i class="fas fa-save me-1"></i>Save Configuration
                     </button>
+                    <button type="button" class="btn btn-danger" onclick="updateSheetHeaders()">
+                        <i class="fas fa-upload me-1"></i>Update Sheet Headers
+                    </button>
                     <button type="button" class="btn btn-info" onclick="validateColumns()">
                         <i class="fas fa-check me-1"></i>Validate
                     </button>
@@ -124,7 +127,20 @@
                     </button>
                 </div>
             </div>
-        </div>        <!-- Debug Information -->
+        </div>        
+
+        <!-- Important Notice -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Important:</h6>
+                    <p class="mb-2">After configuring your column mappings, click <strong>"Update Sheet Headers"</strong> to apply the new headers to your Google Sheet.</p>
+                    <p class="mb-0">This will update the first row of your sheet with the headers you've configured above.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Information -->
         <div id="debug-info" class="alert alert-info" style="display: none;">
             <h6><i class="fas fa-info-circle me-2"></i>Debug Information</h6>
             <pre id="debug-output"></pre>
@@ -559,8 +575,8 @@
             });
         }
 
-        function setupHeaders() {
-            if (!confirm('This will replace the first row of your Google Sheet with proper column headers. Continue?')) {
+        function updateSheetHeaders() {
+            if (!confirm('This will update the first row of your Google Sheet with the current column configuration.\n\nThis will overwrite existing headers. Are you sure you want to continue?')) {
                 return;
             }
             
@@ -569,19 +585,41 @@
                 method: 'POST',
                 success: function(response) {
                     if (response.success) {
-                        showMessage('Success', response.message);
+                        let message = response.message;
+                        if (response.headers && response.headers.length > 0) {
+                            message += '<br><br><strong>Updated headers:</strong><br>';
+                            response.headers.forEach((header, index) => {
+                                message += `Column ${index + 1}: ${header}<br>`;
+                            });
+                        }
+                        if (response.column_mapping) {
+                            message += '<br><strong>Column mapping:</strong><br>';
+                            for (const [key, mapping] of Object.entries(response.column_mapping)) {
+                                message += `${key}: ${mapping}<br>`;
+                            }
+                        }
+                        showMessage('Success', message);
                         // Refresh the page after a short delay to show updated headers
                         setTimeout(() => {
                             window.location.reload();
-                        }, 2000);
+                        }, 3000);
                     } else {
                         showMessage('Error', response.error, true);
                     }
                 },
-                error: function() {
-                    showMessage('Error', 'Failed to setup headers', true);
+                error: function(xhr, status, error) {
+                    let errorMsg = 'Failed to update sheet headers';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    showMessage('Error', errorMsg, true);
                 }
             });
+        }
+
+        function setupHeaders() {
+            // This function is now replaced by updateSheetHeaders
+            updateSheetHeaders();
         }
 
         function resetToDefaults() {

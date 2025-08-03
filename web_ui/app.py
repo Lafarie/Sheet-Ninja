@@ -637,47 +637,73 @@ def remove_column():
 
 @app.route('/api/setup/headers', methods=['POST'])
 def setup_headers():
-    """Setup proper column headers in the Google Sheet"""
+    """Setup proper column headers in the Google Sheet based on current configuration"""
     try:
         if not ui_manager.initialize_services():
             return jsonify({'success': False, 'error': 'Cannot initialize services'})
         
-        # Define the proper headers based on config
-        headers = []
-        for column_key, column_info in config.COLUMN_CONFIG.items():
-            headers.append(column_info['header'])
+        # Get current column configuration sorted by index
+        column_config = config.COLUMN_CONFIG
+        
+        # Sort columns by their index to maintain proper order
+        sorted_columns = sorted(column_config.items(), key=lambda x: x[1].get('index', 999))
+        
+        # Build headers array based on the sorted column configuration
+        max_index = max([col_info.get('index', 1) for col_info in column_config.values()])
+        headers = [''] * max_index  # Initialize with empty strings
+        
+        for column_key, column_info in sorted_columns:
+            index = column_info.get('index', 1) - 1  # Convert to 0-based index
+            if 0 <= index < len(headers):
+                headers[index] = column_info.get('header', column_key)
+        
+        # Remove trailing empty headers
+        while headers and headers[-1] == '':
+            headers.pop()
         
         # Write headers to the first row
         service = ui_manager.column_manager.service
         spreadsheet_id = config.SPREADSHEET_ID
         worksheet_name = config.WORKSHEET_NAME
         
-        # Clear the first row first
-        range_name = f"{worksheet_name}!1:1"
-        service.spreadsheets().values().clear(
+        # Get current sheet data to preserve existing data
+        current_range = f"{worksheet_name}!A1:Z1000"  # Read a large range
+        current_result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range=range_name
+            range=current_range
         ).execute()
         
-        # Write new headers
-        range_name = f"{worksheet_name}!A1"
+        current_values = current_result.get('values', [])
+        
+        # Update the first row with new headers
+        if current_values:
+            current_values[0] = headers + [''] * (len(current_values[0]) - len(headers)) if len(current_values[0]) > len(headers) else headers
+        else:
+            current_values = [headers]
+        
+        # Write the updated data back
         body = {
-            'values': [headers]
+            'values': current_values
         }
         
         result = service.spreadsheets().values().update(
             spreadsheetId=spreadsheet_id,
-            range=range_name,
+            range=current_range,
             valueInputOption='RAW',
             body=body
         ).execute()
         
         return jsonify({
             'success': True,
-            'message': f'Successfully set up {len(headers)} column headers',
+            'message': f'Successfully updated {len(headers)} column headers in Google Sheet',
             'headers': headers,
-            'updated_cells': result.get('updatedCells', 0)
+            'updated_cells': result.get('updatedCells', 0),
+            'column_mapping': {col_key: f"Column {col_info.get('index', 1)} - {col_info.get('header', col_key)}" 
+                             for col_key, col_info in sorted_columns}
         })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
