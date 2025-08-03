@@ -623,8 +623,36 @@
         }
 
         function resetToDefaults() {
-            if (confirm('Are you sure you want to reset all column mappings to defaults? This will lose your current configuration.')) {
-                location.reload();
+            if (confirm('Are you sure you want to reset all column mappings to defaults?\n\nThis will:\n• Remove all custom columns\n• Restore the original default configuration\n• Lose your current configuration\n\nThis action cannot be undone.')) {
+                $.ajax({
+                    url: '/api/columns/reset',
+                    method: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            let message = response.message;
+                            if (response.reset_columns && response.reset_columns.length > 0) {
+                                message += '<br><br><strong>Columns reset:</strong><br>';
+                                response.reset_columns.forEach(column => {
+                                    message += `• ${column}<br>`;
+                                });
+                            }
+                            showMessage('Configuration Reset', message);
+                            // Refresh the page after a short delay to show the reset configuration
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        } else {
+                            showMessage('Error', response.error, true);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        let errorMsg = 'Failed to reset configuration';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg = xhr.responseJSON.error;
+                        }
+                        showMessage('Error', errorMsg, true);
+                    }
+                });
             }
         }
 

@@ -635,6 +635,30 @@ def remove_column():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+@app.route('/api/columns/reset', methods=['POST'])
+def reset_columns_to_defaults():
+    """Reset column configuration to defaults"""
+    try:
+        # Get the default configuration from config.py
+        default_config = config.DEFAULT_COLUMN_CONFIG.copy()
+        
+        # Save the default configuration as the current configuration
+        if config.save_column_config(default_config):
+            # Reload the configuration in memory
+            importlib.reload(config)
+            
+            return jsonify({
+                "success": True, 
+                "message": "Column configuration reset to defaults successfully",
+                "columns_reset": len(default_config),
+                "reset_columns": list(default_config.keys())
+            })
+        else:
+            return jsonify({"success": False, "error": "Failed to save default configuration"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
 @app.route('/api/setup/headers', methods=['POST'])
 def setup_headers():
     """Setup proper column headers in the Google Sheet based on current configuration"""
