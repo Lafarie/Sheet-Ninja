@@ -128,22 +128,77 @@ class ColumnManager:
             return False
     
     def interactive_column_setup(self):
-        """Interactive setup for column configuration"""
-        print("\n🔧 Interactive Column Configuration")
-        print("=" * 50)
+        """Interactive setup for column configuration with auto-detection"""
+        print("\n🔧 Interactive Column Configuration with Auto-Detection")
+        print("=" * 60)
         
+        # First, detect headers from the actual spreadsheet
         detected_headers = self.detect_current_headers()
         if not detected_headers:
-            print("❌ Cannot proceed without detecting headers")
+            print("❌ Cannot detect headers from spreadsheet. Please check:")
+            print("   - Spreadsheet ID is correct")
+            print("   - Service account has access to the sheet")
+            print("   - Worksheet name is correct")
             return False
+        
+        print(f"\n📊 Detected {len(detected_headers)} headers from your spreadsheet:")
+        for i, header in enumerate(detected_headers, 1):
+            print(f"   {i}. {header}")
+        
+        # Auto-map columns based on detected headers
+        print("\n🔍 Auto-mapping columns...")
+        auto_mappings = self.auto_map_columns()
+        
+        if auto_mappings:
+            print(f"\n✅ Auto-mapped {len(auto_mappings)} columns:")
+            for key, mapping in auto_mappings.items():
+                confidence_icon = "✅" if mapping["confidence"] == "exact" else "🔍"
+                print(f"   {confidence_icon} {key}: Column {mapping['new_index']} - '{mapping['header']}' ({mapping['confidence']} match)")
+        else:
+            print("\n⚠️ No automatic mappings found. You may need to map manually.")
+        
+        # Show current configuration
+        print("\n📋 Current configuration:")
+        for key, config_data in config.get_column_order():
+            auto_mapped = key in auto_mappings
+            status_icon = "✅" if auto_mapped else "❌"
+            print(f"   {status_icon} {key}: Column {config_data['index']} - '{config_data['header']}'")
+        
+        # Ask if user wants to apply auto-mappings
+        if auto_mappings:
+            print(f"\n💡 {len(auto_mappings)} columns can be auto-mapped.")
+            apply_auto = input("Apply auto-mappings? (y/n): ").strip().lower()
+            
+            if apply_auto == 'y':
+                return self.apply_mapping(auto_mappings, auto_apply=True)
+        
+        # Manual configuration option
+        print("\n🔧 Manual configuration options:")
+        print("1. Apply auto-mappings and continue with manual adjustments")
+        print("2. Start fresh with manual mapping")
+        print("3. Cancel and keep current configuration")
+        
+        choice = input("\nEnter choice (1-3): ").strip()
+        
+        if choice == '1':
+            # Apply auto-mappings first, then allow manual adjustments
+            if auto_mappings:
+                self.apply_mapping(auto_mappings, auto_apply=True)
+            return self.manual_column_adjustment(detected_headers)
+        elif choice == '2':
+            return self.manual_column_adjustment(detected_headers)
+        else:
+            print("❌ Configuration cancelled")
+            return False
+    
+    def manual_column_adjustment(self, detected_headers):
+        """Allow manual adjustment of column mappings"""
+        print("\n🔧 Manual Column Adjustment")
+        print("=" * 40)
         
         updated_config = self.current_config.copy()
         
-        print("\n📋 Current configuration:")
-        for key, config_data in config.get_column_order():
-            print(f"   {key}: Column {config_data['index']} - '{config_data['header']}'")
-        
-        print(f"\n📊 Detected headers in sheet:")
+        print(f"\n📊 Available columns in your sheet:")
         for i, header in enumerate(detected_headers, 1):
             print(f"   {i}. {header}")
         
