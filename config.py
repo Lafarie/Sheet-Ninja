@@ -8,22 +8,31 @@ from dotenv import load_dotenv
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Load environment variables from .env file in root directory
-load_dotenv(os.path.join(ROOT_DIR, '.env'))
+# In Docker, the .env file is mounted as config.env
+env_file_path = os.path.join(ROOT_DIR, '.env')
+if not os.path.exists(env_file_path):
+    # Try the Docker-mounted location
+    env_file_path = os.path.join(ROOT_DIR, 'config.env')
+
+load_dotenv(env_file_path)
 
 # GitLab Settings (from environment variables)
 GITLAB_URL = os.getenv('GITLAB_URL', 'https://sourcecontrol.hsenidmobile.com/api/v4/')
-PROJECT_ID = os.getenv('PROJECT_ID', '263')
+PROJECT_ID = os.getenv('PROJECT_ID', '98')
 GITLAB_TOKEN = os.getenv('GITLAB_TOKEN')  # Required - no default
 
-if not GITLAB_TOKEN:
-    raise ValueError("GITLAB_TOKEN environment variable is required. Please set it in your .env file.")
+# Only check for required variables if we're not in a Docker container or if the app is explicitly starting
+if not GITLAB_TOKEN and os.getenv('DOCKER_ENV') != 'true':
+    # Don't raise error during import - let the application handle missing config
+    pass
 
 # Google Sheets Settings (from environment variables)
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')  # Required - no default
 WORKSHEET_NAME = os.getenv('WORKSHEET_NAME', 'Sheet1')
 
-if not SPREADSHEET_ID:
-    raise ValueError("SPREADSHEET_ID environment variable is required. Please set it in your .env file.")
+if not SPREADSHEET_ID and os.getenv('DOCKER_ENV') != 'true':
+    # Don't raise error during import - let the application handle missing config
+    pass
 
 # Service Account Authentication (from environment variables)
 SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', 'service_account.json')
@@ -34,11 +43,25 @@ SCOPES = [
 ]
 
 # GitLab Issue Template Settings (from environment variables with defaults)
-DEFAULT_ASSIGNEE = os.getenv('DEFAULT_ASSIGNEE', 'farhad.l')
-DEFAULT_ESTIMATE = os.getenv('DEFAULT_ESTIMATE', '8h')
-DEFAULT_MILESTONE = os.getenv('DEFAULT_MILESTONE', '%milestone-name')
+DEFAULT_ASSIGNEE = os.getenv('DEFAULT_ASSIGNEE', '')
+DEFAULT_MILESTONE = os.getenv('DEFAULT_MILESTONE', '')
 DEFAULT_DUE_DATE = os.getenv('DEFAULT_DUE_DATE', '')
-DEFAULT_LABEL = os.getenv('DEFAULT_LABEL', '~task')
+DEFAULT_LABEL = os.getenv('DEFAULT_LABEL', '')
+
+# API Server Settings (from environment variables with defaults)
+API_SERVER_URL = os.getenv('API_SERVER_URL', 'http://localhost:5001')
+UI_SERVER_URL = os.getenv('UI_SERVER_URL', 'http://localhost:8000')
+
+# Date Range Filter Settings (from environment variables with defaults)
+ENABLE_DATE_FILTER = os.getenv('ENABLE_DATE_FILTER', 'false').lower() == 'true'
+START_DATE = os.getenv('START_DATE', '')
+END_DATE = os.getenv('END_DATE', '')
+
+# Task Closing Settings
+ENABLE_AUTO_CLOSE = os.getenv('ENABLE_AUTO_CLOSE', 'true').lower() == 'true'
+
+# Service Account Link Configuration
+SERVICE_ACCOUNT_LINK = os.getenv('SERVICE_ACCOUNT_LINK', 'https://github.com/Lafarie/scripts/tree/v2?tab=readme-ov-file#3-set-up-google-service-account')
 
 # Dynamic Column Configuration System
 # This allows for flexible column mapping that can adapt to sheet changes
