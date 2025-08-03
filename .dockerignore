@@ -1,0 +1,64 @@
+# Git and version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+ENV/
+
+# Environment files (will be mounted externally)
+.env
+.env.example
+service_account.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Test files
+test/
+tests/
+
+# Backup files
+*_backup_*
+column_config_backup_*.json
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Other
+Scripts/
+setup/ 

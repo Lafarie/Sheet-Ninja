@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  gitlab-sheets-sync:
+    build: .
+    container_name: gitlab-sheets-sync
+    ports:
+      - "5001:5001"  # Flask API
+      - "8000:8000"  # HTTP UI
+    volumes:
+      # Mount external .env file to a different location to avoid conflicts
+      - ./config/.env:/app/config.env:ro
+      # Mount external service_account.json
+      - ./config/service_account.json:/app/service_account.json:ro
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+      # Mount uploads directory for file uploads
+      - ./uploads:/app/uploads
+      # Create a writable temp directory
+      - temp_data:/app/temp
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DOCKER_ENV=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - gitlab-sync-network
+
+networks:
+  gitlab-sync-network:
+    driver: bridge
+
+volumes:
+  temp_data: 
