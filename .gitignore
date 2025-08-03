@@ -2,8 +2,11 @@
 .env
 .env.local
 .env.*.local
+temp_sync.env
+temp_custom_columns.json
 
 # Google Service Account Credentials
+temp/
 service_account.json
 *.json
 
