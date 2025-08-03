@@ -34,8 +34,31 @@ sync_status = {
 class ColumnManagerAPI:
     def __init__(self, spreadsheet_id=None, service_account_file=None, worksheet_name=None):
         self.spreadsheet_id = spreadsheet_id
-        self.service_account_file = service_account_file or 'service_account.json'
         self.worksheet_name = worksheet_name
+        
+        # Handle service account file path
+        if service_account_file:
+            self.service_account_file = service_account_file
+            print(f"🔐 Using provided service account file: {self.service_account_file}")
+        else:
+            # Check for uploaded file in temp location
+            is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
+            if is_docker:
+                temp_file = '/app/public/uploads/temp/service_account.json'
+            else:
+                temp_file = os.path.join(os.getcwd(), 'uploads', 'temp', 'service_account.json')
+            
+            print(f"🔍 Checking for uploaded service account file: {temp_file}")
+            
+            if os.path.exists(temp_file):
+                self.service_account_file = temp_file
+                print(f"✅ Found uploaded service account file: {self.service_account_file}")
+            else:
+                # Fallback to default location
+                self.service_account_file = 'service_account.json'
+                print(f"⚠️ No uploaded file found, using default: {self.service_account_file}")
+        
+        print(f"🔐 Final service account file path: {self.service_account_file}")
         self.service = self._authenticate()
         self.current_config = {}
     
@@ -376,6 +399,53 @@ def get_sheet_names():
             'error': str(e)
         }), 500
 
+@app.route('/api/upload-service-account', methods=['POST'])
+def upload_service_account():
+    """API endpoint to upload service_account.json file"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if file and file.filename.endswith('.json'):
+            # Determine if running in Docker or locally
+            is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
+            
+            if is_docker:
+                # Docker environment - save to public/uploads/temp directory
+                temp_dir = '/app/public/uploads/temp'
+                os.makedirs(temp_dir, exist_ok=True)
+                file_path = os.path.join(temp_dir, 'service_account.json')
+            else:
+                # Local development - save to uploads/temp directory
+                temp_dir = os.path.join(os.getcwd(), 'uploads', 'temp')
+                os.makedirs(temp_dir, exist_ok=True)
+                file_path = os.path.join(temp_dir, 'service_account.json')
+            
+            print(f"📁 Saving uploaded file to: {file_path}")
+            file.save(file_path)
+            print(f"✅ File saved successfully")
+            
+            # Verify the file is valid JSON
+            try:
+                with open(file_path, 'r') as f:
+                    json.load(f)
+                print(f"✅ Service account file uploaded successfully: {file_path}")
+                return jsonify({'success': True, 'message': 'Service account file uploaded successfully'})
+            except json.JSONDecodeError:
+                # Remove invalid file
+                os.remove(file_path)
+                print(f"❌ Invalid JSON file, removed: {file_path}")
+                return jsonify({'success': False, 'error': 'Invalid JSON file'}), 400
+        else:
+            return jsonify({'success': False, 'error': 'Please upload a valid JSON file'}), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # Sync process endpoints
 @app.route('/api/start-sync', methods=['POST'])
 def start_sync():
@@ -498,11 +568,31 @@ UI_SERVER_URL={config.UI_SERVER_URL}
                     "description": f"Column {value} mapping"
                 }
         
+        # Determine if running in Docker or locally
+        is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
+        
+        if is_docker:
+            # Docker environment paths
+            temp_env_file = '/app/temp/sync.env'
+            temp_columns_file = '/app/temp/custom_columns.json'
+            final_env_file = '/app/.env'
+            final_columns_file = '/app/custom_columns.json'
+        else:
+            # Local development paths
+            temp_env_file = os.path.join(os.getcwd(), 'temp_sync.env')
+            temp_columns_file = os.path.join(os.getcwd(), 'temp_custom_columns.json')
+            final_env_file = os.path.join(os.getcwd(), '.env')
+            final_columns_file = os.path.join(os.getcwd(), 'custom_columns.json')
+        
+        # Create temp directory if it doesn't exist (for Docker)
+        if is_docker:
+            os.makedirs('/app/temp', exist_ok=True)
+        
         # Write temporary files to writable locations
-        with open('/app/temp/sync.env', 'w') as f:
+        with open(temp_env_file, 'w') as f:
             f.write(env_content)
         
-        with open('/app/temp/custom_columns.json', 'w') as f:
+        with open(temp_columns_file, 'w') as f:
             json.dump(column_config, f, indent=2)
         
         # Reset sync status
@@ -524,8 +614,8 @@ UI_SERVER_URL={config.UI_SERVER_URL}
                 # Copy temporary files to expected locations for the sync script
                 import shutil
                 try:
-                    shutil.copy('/app/temp/sync.env', '/app/.env')
-                    shutil.copy('/app/temp/custom_columns.json', '/app/custom_columns.json')
+                    shutil.copy(temp_env_file, final_env_file)
+                    shutil.copy(temp_columns_file, final_columns_file)
                 except Exception as e:
                     print(f"Warning: Could not copy temp files: {e}")
                 
@@ -539,8 +629,8 @@ UI_SERVER_URL={config.UI_SERVER_URL}
                     universal_newlines=True,
                     env={
                         **os.environ,
-                        'ENV_FILE': '/app/temp/sync.env',
-                        'COLUMNS_FILE': '/app/temp/custom_columns.json'
+                        'ENV_FILE': final_env_file,
+                        'COLUMNS_FILE': final_columns_file
                     }
                 )
                 
