@@ -17,10 +17,19 @@ import re
 from dotenv import load_dotenv
 
 # Load environment variables from the temporary .env file created by the API
-temp_env_file = '/app/temp/sync.env'
-if os.path.exists(temp_env_file):
-    load_dotenv(temp_env_file)
-    print(f"✅ Loaded environment from temporary file: {temp_env_file}")
+# Check for environment variables first, then fall back to Docker/local paths
+env_file = os.getenv('ENV_FILE')
+if not env_file:
+    # Determine if running in Docker or locally
+    is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
+    if is_docker:
+        env_file = '/app/temp/sync.env'
+    else:
+        env_file = os.path.join(os.getcwd(), 'temp_sync.env')
+
+if os.path.exists(env_file):
+    load_dotenv(env_file)
+    print(f"✅ Loaded environment from file: {env_file}")
     
     # Debug: Check what's actually in the environment
     print("🔍 Debug - Environment variables loaded:")
@@ -33,7 +42,7 @@ if os.path.exists(temp_env_file):
     if os.getenv('SPREADSHEET_ID') == 'NOT_SET' or os.getenv('SPREADSHEET_ID') == config.SPREADSHEET_ID:
         print("⚠️ load_dotenv didn't work, trying manual file reading...")
         try:
-            with open(temp_env_file, 'r') as f:
+            with open(env_file, 'r') as f:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith('#') and '=' in line:
@@ -43,7 +52,7 @@ if os.path.exists(temp_env_file):
         except Exception as e:
             print(f"❌ Error reading env file manually: {e}")
 else:
-    print(f"⚠️ Temporary env file not found: {temp_env_file}")
+    print(f"⚠️ Environment file not found: {env_file}")
     print("Using default config values")
 
 # Get environment variables with fallback to config
@@ -80,13 +89,26 @@ class SheetsToGitLab:
     def _authenticate_google_sheets(self):
         """Authenticate with Google Sheets using Service Account"""
         try:
+            # Check for uploaded service account file first
+            is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
+            if is_docker:
+                service_account_file = '/app/public/uploads/temp/service_account.json'
+            else:
+                service_account_file = os.path.join(os.getcwd(), 'uploads', 'temp', 'service_account.json')
+            
+            # If uploaded file doesn't exist, fall back to default
+            if not os.path.exists(service_account_file):
+                service_account_file = config.SERVICE_ACCOUNT_FILE
+            
             # Check if service account file exists
-            if not os.path.exists(config.SERVICE_ACCOUNT_FILE):
-                raise FileNotFoundError(f"Service account file not found: {config.SERVICE_ACCOUNT_FILE}")
+            if not os.path.exists(service_account_file):
+                raise FileNotFoundError(f"Service account file not found: {service_account_file}")
+            
+            print(f"🔐 Using service account file: {service_account_file}")
             
             # Create credentials from service account file
             credentials = service_account.Credentials.from_service_account_file(
-                config.SERVICE_ACCOUNT_FILE,
+                service_account_file,
                 scopes=config.SCOPES
             )
             
@@ -96,7 +118,7 @@ class SheetsToGitLab:
             
         except Exception as e:
             print(f"❌ Failed to authenticate with Google Sheets: {e}")
-            print(f"💡 Make sure '{config.SERVICE_ACCOUNT_FILE}' exists and contains valid service account credentials")
+            print(f"💡 Make sure the service account file exists and contains valid credentials")
             raise
     
     def get_sheet_values(self, range_name):
@@ -111,12 +133,12 @@ class SheetsToGitLab:
             ).execute()
             
             values = result.get('values', [])
-            print(f"📋 Retrieved {len(values)} rows from sheet")
+            # print(f"📋 Retrieved {len(values)} rows from sheet")
             
             if values:
                 print(f"📝 First row (headers): {values[0]}")
                 if len(values) > 1:
-                    print(f"📝 Second row (first data): {values[1]}")
+                    print(f"📝 {len(values) - 1} active rows of data found")
                 else:
                     print("⚠️ Only headers found, no data rows")
             else:

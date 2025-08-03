@@ -609,30 +609,48 @@
         }
 
         // File upload handling
-        document.getElementById('serviceAccountFile').addEventListener('change', function(e) {
+        document.getElementById('serviceAccountFile').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (file) {
-                config.serviceAccountFile = file;
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        JSON.parse(e.target.result);
+                try {
+                    // Show loading state
+                    document.getElementById('serviceAccountStatus').innerHTML = 
+                        `<div class="alert alert-info">
+                            <i class="fas fa-spinner fa-spin"></i> Uploading service account file...
+                        </div>`;
+                    
+                    // Create FormData and upload to API
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch(`${API_BASE_URL}/api/upload-service-account`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        config.serviceAccountFile = file;
                         document.getElementById('serviceAccountStatus').innerHTML = 
                             `<div class="alert alert-success">
-                                <i class="fas fa-check"></i> Service account file loaded successfully
+                                <i class="fas fa-check"></i> Service account file uploaded successfully
                                 <br><small class="text-muted">File: ${file.name}</small>
                             </div>`;
                         document.getElementById('step1').classList.add('step-complete');
-                    } catch (error) {
-                        document.getElementById('serviceAccountStatus').innerHTML = 
-                            `<div class="alert alert-danger">
-                                <i class="fas fa-times"></i> Invalid JSON file
-                                <br><small class="text-muted">File: ${file.name}</small>
-                            </div>`;
-                        document.getElementById('step1').classList.add('step-error');
+                        showToast('Service account file uploaded successfully', 'success');
+                    } else {
+                        throw new Error(data.error || 'Upload failed');
                     }
-                };
-                reader.readAsText(file);
+                } catch (error) {
+                    document.getElementById('serviceAccountStatus').innerHTML = 
+                        `<div class="alert alert-danger">
+                            <i class="fas fa-times"></i> Upload failed: ${error.message}
+                            <br><small class="text-muted">File: ${file.name}</small>
+                        </div>`;
+                    document.getElementById('step1').classList.add('step-error');
+                    showToast('Failed to upload service account file', 'danger');
+                }
             }
         });
 

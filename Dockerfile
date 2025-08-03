@@ -49,7 +49,7 @@ COPY *.json ./
 COPY *.md ./
 
 # Create necessary directories
-RUN mkdir -p /app/uploads /app/logs /app/config /app/temp
+RUN mkdir -p /app/uploads /app/logs /app/config /app/temp /app/public/uploads/temp
 
 # Set ownership to appuser
 RUN chown -R appuser:appuser /app

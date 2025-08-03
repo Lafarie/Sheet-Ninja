@@ -159,7 +159,19 @@ DEFAULT_COLUMN_CONFIG = {
 }
 
 # Load custom column configuration if it exists
-CUSTOM_COLUMN_CONFIG_FILE = os.path.join(ROOT_DIR, 'custom_columns.json')
+# Check for environment variable first, then fall back to default location
+columns_file = os.getenv('COLUMNS_FILE')
+if not columns_file:
+    # Determine if running in Docker or locally
+    is_docker = os.path.exists('/app') and os.getenv('DOCKER_ENV') == 'true'
+    if is_docker:
+        columns_file = '/app/custom_columns.json'
+    else:
+        columns_file = os.path.join(ROOT_DIR, 'custom_columns.json')
+else:
+    columns_file = os.path.join(ROOT_DIR, 'custom_columns.json')
+
+CUSTOM_COLUMN_CONFIG_FILE = columns_file
 
 def load_column_config():
     """Load column configuration from custom file or use defaults"""

@@ -49,7 +49,7 @@ print_success "Docker and Docker Compose are installed"
 
 # Create necessary directories
 print_status "Creating directory structure..."
-mkdir -p config logs uploads temp
+mkdir -p config logs uploads
 
 # Check if .env file exists in config directory
 if [ ! -f "config/.env" ]; then
