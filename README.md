@@ -2,9 +2,32 @@
 
 Scripts to sync GitLab issues with Google Sheets using Service Account authentication and environment variables for secure configuration.
 
-## ✨ New Features
+## 🌐 New Web UI Available!
 
-### � Dynamic Column Management
+**Now with a modern web interface for easy configuration and management!**
+
+### Quick Start with Web UI
+```bash
+# Launch the web interface
+python demo.py
+# or
+cd web_ui && python run.py
+```
+
+The web UI provides:
+- 📊 **Dashboard** with system status
+- ⚙️ **Configuration management** with easy forms
+- 🗂️ **Visual column mapping** with drag & drop
+- 🔄 **Real-time sync monitoring** with progress tracking
+- 🧪 **Connection testing** with detailed diagnostics
+
+**👉 [See Web UI Documentation](web_ui/README.md)**
+
+---
+
+## ✨ Command Line Features
+
+### 🎯 Dynamic Column Management
 - **Flexible column mapping** that adapts to sheet changes
 - **Auto-detection** of column positions and headers
 - **Interactive configuration** tool for custom setups

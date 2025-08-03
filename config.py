@@ -15,15 +15,17 @@ GITLAB_URL = os.getenv('GITLAB_URL', 'https://sourcecontrol.hsenidmobile.com/api
 PROJECT_ID = os.getenv('PROJECT_ID', '263')
 GITLAB_TOKEN = os.getenv('GITLAB_TOKEN')  # Required - no default
 
-if not GITLAB_TOKEN:
-    raise ValueError("GITLAB_TOKEN environment variable is required. Please set it in your .env file.")
+# Only raise error if not in web UI mode
+if not GITLAB_TOKEN and not os.getenv('WEB_UI_MODE'):
+    print("⚠️  GITLAB_TOKEN not set. Please configure it via the web UI or .env file.")
 
 # Google Sheets Settings (from environment variables)
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')  # Required - no default
 WORKSHEET_NAME = os.getenv('WORKSHEET_NAME', 'Sheet1')
 
-if not SPREADSHEET_ID:
-    raise ValueError("SPREADSHEET_ID environment variable is required. Please set it in your .env file.")
+# Only raise error if not in web UI mode
+if not SPREADSHEET_ID and not os.getenv('WEB_UI_MODE'):
+    print("⚠️  SPREADSHEET_ID not set. Please configure it via the web UI or .env file.")
 
 # Service Account Authentication (from environment variables)
 SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', 'service_account.json')

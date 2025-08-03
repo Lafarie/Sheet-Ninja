@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Column Configuration - GitLab ↔ Sheets Sync</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .column-card {
+            transition: all 0.3s ease;
+        }
+        .column-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .required-badge {
+            background-color: #dc3545;
+            color: white;
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+        .column-type-badge {
+            font-size: 0.8em;
+        }
+        .drag-handle {
+            cursor: move;
+        }
+        .sortable-placeholder {
+            border: 2px dashed #007bff;
+            background-color: #f8f9fa;
+            height: 100px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-sync-alt me-2"></i>GitLab ↔ Sheets Sync
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('config_page') }}">
+                            <i class="fas fa-cog me-1"></i>Configuration
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('columns_page') }}">
+                            <i class="fas fa-columns me-1"></i>Columns
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('sync_page') }}">
+                            <i class="fas fa-sync me-1"></i>Sync
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('test_page') }}">
+                            <i class="fas fa-vial me-1"></i>Test
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="display-5 fw-bold text-primary">
+                    <i class="fas fa-columns me-3"></i>Column Configuration
+                </h1>
+                <p class="lead">Map columns between your Google Sheet and GitLab fields</p>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-primary" onclick="autoMapColumns()">
+                        <i class="fas fa-magic me-1"></i>Auto-Map Columns
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="saveColumnConfig()">
+                        <i class="fas fa-save me-1"></i>Save Configuration
+                    </button>
+                    <button type="button" class="btn btn-info" onclick="validateColumns()">
+                        <i class="fas fa-check me-1"></i>Validate
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="resetToDefaults()">
+                        <i class="fas fa-undo me-1"></i>Reset to Defaults
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detected Headers Section -->
+        {% if detected_headers %}
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-eye me-2"></i>Detected Sheet Headers</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Found {{ detected_headers|length }} columns in your Google Sheet:</p>
+                <div class="row">
+                    {% for header in detected_headers %}
+                    <div class="col-md-3 mb-2">
+                        <span class="badge bg-secondary">{{ loop.index }}. {{ header }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Column Configuration -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Column Mappings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="column-config-container" class="row">
+                            {% for key, config in column_config.items() %}
+                            <div class="col-md-6 col-lg-4 mb-3" data-column-key="{{ key }}">
+                                <div class="card column-card h-100">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="fas fa-grip-vertical drag-handle text-muted me-2"></i>
+                                            <strong>{{ key }}</strong>
+                                            {% if config.required %}
+                                            <span class="required-badge ms-1">REQUIRED</span>
+                                            {% endif %}
+                                        </div>
+                                        <span class="badge bg-info column-type-badge">{{ config.data_type }}</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-2">
+                                            <label class="form-label small">Column Index:</label>
+                                            <input type="number" class="form-control form-control-sm column-index" 
+                                                   value="{{ config.index }}" min="1" 
+                                                   {% if detected_headers %}max="{{ detected_headers|length }}"{% endif %}>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small">Header Name:</label>
+                                            <input type="text" class="form-control form-control-sm column-header" 
+                                                   value="{{ config.header }}">
+                                        </div>
+                                        <div class="mb-2">
+                                            <small class="text-muted">{{ config.description }}</small>
+                                        </div>
+                                        {% if config.example %}
+                                        <div class="mb-0">
+                                            <small class="text-success">
+                                                <i class="fas fa-lightbulb me-1"></i>Example: {{ config.example }}
+                                            </small>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dropdown Configuration -->
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="fas fa-project-diagram me-1"></i>Project Options</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="small">
+                            {% for key, project in project_options.items() %}
+                            <div class="d-flex justify-content-between border-bottom py-1">
+                                <span>{{ project.display }}</span>
+                                <small class="text-muted">ID: {{ project.project_id }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0"><i class="fas fa-tasks me-1"></i>Specific Projects</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="small">
+                            {% for option in specific_project_options %}
+                            <div class="py-1">
+                                <span class="badge bg-light text-dark">{{ option }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0"><i class="fas fa-flag me-1"></i>Status Options</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="small">
+                            {% for status in status_options %}
+                            <div class="py-1">
+                                <span class="badge bg-light text-dark">{{ status }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Column Configuration Help</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h6>Auto-Mapping</h6>
+                                <ul class="small">
+                                    <li>Automatically detects headers from your sheet</li>
+                                    <li>Matches them with predefined column mappings</li>
+                                    <li>Updates indexes based on detected positions</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Manual Configuration</h6>
+                                <ul class="small">
+                                    <li>Set column index (1-based position)</li>
+                                    <li>Update header names to match your sheet</li>
+                                    <li>Required columns must be mapped correctly</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Data Types</h6>
+                                <ul class="small">
+                                    <li><strong>date:</strong> Date values (YYYY-MM-DD)</li>
+                                    <li><strong>text:</strong> String values</li>
+                                    <li><strong>number:</strong> Numeric values</li>
+                                    <li><strong>dropdown:</strong> Predefined options</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-primary text-white text-center py-3 mt-5">
+        <div class="container">
+            <p class="mb-0">&copy; 2024 GitLab ↔ Google Sheets Sync Tool</p>
+        </div>
+    </footer>
+
+    <!-- Success/Error Modal -->
+    <div class="modal fade" id="messageModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="messageModalTitle">Result</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="messageModalBody">
+                    <!-- Message content -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+    
+    <script>
+        // Make columns sortable
+        $(document).ready(function() {
+            $("#column-config-container").sortable({
+                handle: ".drag-handle",
+                placeholder: "sortable-placeholder",
+                update: function(event, ui) {
+                    // Update column indexes based on new order
+                    updateColumnIndexes();
+                }
+            });
+        });
+
+        function updateColumnIndexes() {
+            $("#column-config-container .column-card").each(function(index) {
+                $(this).find('.column-index').val(index + 1);
+            });
+        }
+
+        function showMessage(title, message, isError = false) {
+            $('#messageModalTitle').text(title);
+            $('#messageModalBody').html(message);
+            $('#messageModal .modal-header').removeClass('bg-success bg-danger text-white');
+            if (!isError) {
+                $('#messageModal .modal-header').addClass('bg-success text-white');
+            } else {
+                $('#messageModal .modal-header').addClass('bg-danger text-white');
+            }
+            $('#messageModal').modal('show');
+        }
+
+        function autoMapColumns() {
+            $.ajax({
+                url: '/columns/auto-map',
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        showMessage('Success', response.message);
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        showMessage('Error', response.error, true);
+                    }
+                },
+                error: function() {
+                    showMessage('Error', 'Failed to auto-map columns', true);
+                }
+            });
+        }
+
+        function saveColumnConfig() {
+            const columnData = {};
+            
+            $('.column-card').each(function() {
+                const columnKey = $(this).closest('[data-column-key]').data('column-key');
+                const index = $(this).find('.column-index').val();
+                const header = $(this).find('.column-header').val();
+                
+                columnData[columnKey] = {
+                    index: parseInt(index),
+                    header: header
+                };
+            });
+
+            $.ajax({
+                url: '/columns/save',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(columnData),
+                success: function(response) {
+                    if (response.success) {
+                        showMessage('Success', response.message);
+                    } else {
+                        showMessage('Error', response.error, true);
+                    }
+                },
+                error: function() {
+                    showMessage('Error', 'Failed to save column configuration', true);
+                }
+            });
+        }
+
+        function validateColumns() {
+            // Simple client-side validation
+            const usedIndexes = [];
+            let isValid = true;
+            let errors = [];
+            const maxColumns = 50; // Default max columns
+
+            $('.column-index').each(function() {
+                const index = parseInt($(this).val());
+                const columnKey = $(this).closest('[data-column-key]').data('column-key');
+                
+                if (usedIndexes.includes(index)) {
+                    errors.push(`Duplicate column index ${index} for ${columnKey}`);
+                    isValid = false;
+                }
+                usedIndexes.push(index);
+                
+                if (index < 1 || index > maxColumns) {
+                    errors.push(`Invalid column index ${index} for ${columnKey}`);
+                    isValid = false;
+                }
+            });
+
+            if (isValid) {
+                showMessage('Validation Success', 'All column mappings are valid!');
+            } else {
+                showMessage('Validation Errors', errors.join('<br>'), true);
+            }
+        }
+
+        function resetToDefaults() {
+            if (confirm('Are you sure you want to reset all column mappings to defaults? This will lose your current configuration.')) {
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
