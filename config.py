@@ -28,7 +28,7 @@ if not SPREADSHEET_ID and not os.getenv('WEB_UI_MODE'):
     print("⚠️  SPREADSHEET_ID not set. Please configure it via the web UI or .env file.")
 
 # Service Account Authentication (from environment variables)
-SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', 'service_account.json')
+SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', os.path.join(ROOT_DIR, 'service_account.json'))
 
 # Google Sheets API Scopes
 SCOPES = [

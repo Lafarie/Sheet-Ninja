@@ -113,12 +113,33 @@
                     <button type="button" class="btn btn-info" onclick="validateColumns()">
                         <i class="fas fa-check me-1"></i>Validate
                     </button>
+                    <button type="button" class="btn btn-secondary" onclick="addNewColumn()">
+                        <i class="fas fa-plus me-1"></i>Add Column
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="debugSheetStructure()">
+                        <i class="fas fa-bug me-1"></i>Debug Sheet
+                    </button>
                     <button type="button" class="btn btn-warning" onclick="resetToDefaults()">
                         <i class="fas fa-undo me-1"></i>Reset to Defaults
                     </button>
                 </div>
             </div>
+        </div>        <!-- Debug Information -->
+        <div id="debug-info" class="alert alert-info" style="display: none;">
+            <h6><i class="fas fa-info-circle me-2"></i>Debug Information</h6>
+            <pre id="debug-output"></pre>
         </div>
+
+        <!-- Detection Error -->
+        {% if detection_error %}
+        <div class="alert alert-danger">
+            <h6><i class="fas fa-exclamation-triangle me-2"></i>Header Detection Error</h6>
+            <p>{{ detection_error }}</p>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="debugSheet()">
+                <i class="fas fa-bug me-1"></i>Debug This Issue
+            </button>
+        </div>
+        {% endif %}
 
         <!-- Detected Headers Section -->
         {% if detected_headers %}
@@ -159,20 +180,44 @@
                                             <span class="required-badge ms-1">REQUIRED</span>
                                             {% endif %}
                                         </div>
-                                        <span class="badge bg-info column-type-badge">{{ config.data_type }}</span>
+                                        <div>
+                                            <span class="badge bg-info column-type-badge me-2">{{ config.data_type }}</span>
+                                            {% if not config.required %}
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeColumn('{{ key }}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                     <div class="card-body">
                                         <div class="mb-2">
                                             <label class="form-label small">Column Index:</label>
                                             <input type="number" class="form-control form-control-sm column-index" 
                                                    value="{{ config.index }}" min="1" 
-                                                   {% if detected_headers %}max="{{ detected_headers|length }}"{% endif %}>
+                                                   {% if detected_headers %}max="{{ detected_headers|length }}"{% endif %}
+                                                   onchange="updateColumnMapping()">
                                         </div>
                                         <div class="mb-2">
                                             <label class="form-label small">Header Name:</label>
                                             <input type="text" class="form-control form-control-sm column-header" 
-                                                   value="{{ config.header }}">
+                                                   value="{{ config.header }}" onchange="updateColumnMapping()">
                                         </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small">Data Type:</label>
+                                            <select class="form-control form-control-sm column-data-type" onchange="updateColumnMapping()">
+                                                <option value="text" {% if config.data_type == 'text' %}selected{% endif %}>Text</option>
+                                                <option value="number" {% if config.data_type == 'number' %}selected{% endif %}>Number</option>
+                                                <option value="date" {% if config.data_type == 'date' %}selected{% endif %}>Date</option>
+                                                <option value="dropdown" {% if config.data_type == 'dropdown' %}selected{% endif %}>Dropdown</option>
+                                            </select>
+                                        </div>
+                                        {% if not config.required %}
+                                        <div class="mb-2">
+                                            <label class="form-label small">Required:</label>
+                                            <input type="checkbox" class="form-check-input column-required" 
+                                                   {% if config.required %}checked{% endif %} onchange="updateColumnMapping()">
+                                        </div>
+                                        {% endif %}
                                         <div class="mb-2">
                                             <small class="text-muted">{{ config.description }}</small>
                                         </div>
@@ -314,6 +359,55 @@
         </div>
     </div>
 
+    <!-- Add Column Modal -->
+    <div class="modal fade" id="addColumnModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Column</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addColumnForm">
+                        <div class="mb-3">
+                            <label for="newColumnName" class="form-label">Column Name *</label>
+                            <input type="text" class="form-control" id="newColumnName" required>
+                            <small class="form-text text-muted">Enter a unique name for this column</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newColumnHeader" class="form-label">Header Name</label>
+                            <input type="text" class="form-control" id="newColumnHeader">
+                            <small class="form-text text-muted">Header name in your Google Sheet (will use column name if empty)</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newColumnDataType" class="form-label">Data Type</label>
+                            <select class="form-control" id="newColumnDataType">
+                                <option value="text">Text</option>
+                                <option value="number">Number</option>
+                                <option value="date">Date</option>
+                                <option value="dropdown">Dropdown</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newColumnDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="newColumnDescription" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="newColumnRequired">
+                            <label class="form-check-label" for="newColumnRequired">
+                                Required Column
+                            </label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="submitNewColumn()">Add Column</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
@@ -356,7 +450,10 @@
                 success: function(response) {
                     if (response.success) {
                         showMessage('Success', response.message);
-                        setTimeout(() => location.reload(), 2000);
+                        // Refresh the page after a short delay to show updated mappings
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
                     } else {
                         showMessage('Error', response.error, true);
                     }
@@ -374,10 +471,14 @@
                 const columnKey = $(this).closest('[data-column-key]').data('column-key');
                 const index = $(this).find('.column-index').val();
                 const header = $(this).find('.column-header').val();
+                const dataType = $(this).find('.column-data-type').val();
+                const required = $(this).find('.column-required').is(':checked');
                 
                 columnData[columnKey] = {
                     index: parseInt(index),
-                    header: header
+                    header: header,
+                    data_type: dataType,
+                    required: required
                 };
             });
 
@@ -389,6 +490,10 @@
                 success: function(response) {
                     if (response.success) {
                         showMessage('Success', response.message);
+                        // Refresh the page after a short delay to show updated config
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
                     } else {
                         showMessage('Error', response.error, true);
                     }
@@ -423,16 +528,200 @@
             });
 
             if (isValid) {
-                showMessage('Validation Success', 'All column mappings are valid!');
+                showMessage('Success', 'Column configuration is valid!');
             } else {
                 showMessage('Validation Errors', errors.join('<br>'), true);
             }
+        }
+
+        function debugSheet() {
+            // Show loading state
+            $('#debug-info').show();
+            $('#debug-output').text('Loading debug information...');
+            
+            $.ajax({
+                url: '/api/debug/sheet',
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        const debugText = JSON.stringify(response, null, 2);
+                        $('#debug-output').text(debugText);
+                        showMessage('Debug Info', 'Debug information displayed below');
+                    } else {
+                        $('#debug-output').text('Error: ' + response.error);
+                        showMessage('Error', 'Failed to get debug information: ' + response.error, true);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#debug-output').text('Request failed: ' + error);
+                    showMessage('Error', 'Failed to get debug information', true);
+                }
+            });
+        }
+
+        function setupHeaders() {
+            if (!confirm('This will replace the first row of your Google Sheet with proper column headers. Continue?')) {
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/setup/headers',
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        showMessage('Success', response.message);
+                        // Refresh the page after a short delay to show updated headers
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else {
+                        showMessage('Error', response.error, true);
+                    }
+                },
+                error: function() {
+                    showMessage('Error', 'Failed to setup headers', true);
+                }
+            });
         }
 
         function resetToDefaults() {
             if (confirm('Are you sure you want to reset all column mappings to defaults? This will lose your current configuration.')) {
                 location.reload();
             }
+        }
+
+        function addNewColumn() {
+            // Clear the form
+            $('#addColumnForm')[0].reset();
+            // Show the modal
+            $('#addColumnModal').modal('show');
+        }
+
+        function submitNewColumn() {
+            const columnName = $('#newColumnName').val().trim();
+            const columnHeader = $('#newColumnHeader').val().trim() || columnName;
+            const dataType = $('#newColumnDataType').val();
+            const description = $('#newColumnDescription').val().trim() || `Custom column: ${columnName}`;
+            const required = $('#newColumnRequired').is(':checked');
+            
+            if (!columnName) {
+                showMessage('Error', 'Column name is required', true);
+                return;
+            }
+            
+            const columnConfig = {
+                index: getNextAvailableIndex(),
+                header: columnHeader,
+                data_type: dataType,
+                required: required,
+                description: description
+            };
+            
+            $.ajax({
+                url: '/api/columns/add',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    column_name: columnName,
+                    config: columnConfig
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        $('#addColumnModal').modal('hide');
+                        showMessage('Success', `Column "${columnName}" added successfully`);
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showMessage('Error', response.error, true);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    showMessage('Error', 'Failed to add column: ' + error, true);
+                }
+            });
+        }
+
+        function removeColumn(columnKey) {
+            if (!confirm(`Are you sure you want to remove column "${columnKey}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/columns/remove',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({column_name: columnKey}),
+                success: function(response) {
+                    if (response.success) {
+                        showMessage('Success', `Column "${columnKey}" removed successfully`);
+                        // Remove the column card from the UI immediately
+                        $(`[data-column-key="${columnKey}"]`).fadeOut(300, function() {
+                            $(this).remove();
+                        });
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showMessage('Error', response.error, true);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    let errorMsg = 'Failed to remove column';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    showMessage('Error', errorMsg, true);
+                }
+            });
+        }
+
+        function debugSheetStructure() {
+            $('#debug-info').show();
+            $('#debug-output').text('Loading sheet structure...');
+            
+            $.ajax({
+                url: '/api/debug/sheet-structure',
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        const debugText = JSON.stringify(response.data, null, 2);
+                        $('#debug-output').text(debugText);
+                        showMessage('Debug Info', 'Sheet structure displayed below');
+                    } else {
+                        $('#debug-output').text('Error: ' + response.error);
+                        showMessage('Error', 'Failed to get sheet structure: ' + response.error, true);
+                    }
+                },
+                error: function() {
+                    showMessage('Error', 'Failed to debug sheet structure', true);
+                }
+            });
+        }
+
+        function getNextAvailableIndex() {
+            const usedIndexes = [];
+            $('.column-index').each(function() {
+                usedIndexes.push(parseInt($(this).val()));
+            });
+            
+            let nextIndex = 1;
+            while (usedIndexes.includes(nextIndex)) {
+                nextIndex++;
+            }
+            return nextIndex;
+        }
+
+        function updateColumnMapping() {
+            // Clear any existing timeout
+            if (window.saveTimeout) {
+                clearTimeout(window.saveTimeout);
+            }
+            // Set a new timeout for auto-save (debounce by 2 seconds)
+            window.saveTimeout = setTimeout(function() {
+                console.log('Auto-saving column configuration...');
+                saveColumnConfig();
+            }, 2000);
         }
     </script>
 </body>

@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import traceback
+import importlib
 from datetime import datetime
 
 # Add parent directory to Python path to import config
@@ -44,7 +45,24 @@ class WebUIManager:
         try:
             if ColumnManager is None:
                 return False
+                
+            # Check if service account file exists in parent directory
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            service_account_file = os.path.join(project_root, 'service_account.json')
+            
+            if not os.path.exists(service_account_file):
+                print(f"❌ Service account file not found at: {service_account_file}")
+                return False
+                
+            # Temporarily set the correct path for the service account file
+            original_path = getattr(config, 'SERVICE_ACCOUNT_FILE', 'service_account.json')
+            config.SERVICE_ACCOUNT_FILE = service_account_file
+            
             self.column_manager = ColumnManager()
+            
+            # Restore original path
+            config.SERVICE_ACCOUNT_FILE = original_path
+            
             return True
         except Exception as e:
             print(f"❌ Service initialization failed: {e}")
@@ -145,9 +163,12 @@ def save_config():
         if ui_manager.update_env_file(form_data):
             flash('Configuration saved successfully!', 'success')
             
-            # Reload config module
+            # Reload config module to pick up new environment variables
             import importlib
             importlib.reload(config)
+            
+            # Re-initialize services with new config
+            ui_manager.initialize_services()
         else:
             flash('Failed to save configuration', 'error')
             
@@ -164,19 +185,27 @@ def columns_page():
             flash('Cannot connect to Google Sheets. Please check your configuration.', 'error')
             return redirect(url_for('config_page'))
         
+        # Reload config to get latest changes
+        import importlib
+        importlib.reload(config)
+        
         # Get current column configuration
         column_config = config.COLUMN_CONFIG
         
-        # Try to detect headers
+        # Try to detect headers with better error handling
         detected_headers = []
+        detection_error = None
         try:
             detected_headers = ui_manager.column_manager.detect_current_headers()
+            print(f"🔍 Detected headers: {detected_headers}")
         except Exception as e:
-            print(f"Warning: Could not detect headers: {e}")
+            detection_error = str(e)
+            print(f"❌ Error detecting headers: {e}")
         
         return render_template('columns.html', 
                              column_config=column_config,
                              detected_headers=detected_headers,
+                             detection_error=detection_error,
                              project_options=config.PROJECT_OPTIONS,
                              specific_project_options=config.SPECIFIC_PROJECT_OPTIONS,
                              status_options=config.STATUS_OPTIONS)
@@ -199,6 +228,10 @@ def auto_map_columns():
             success = ui_manager.column_manager.apply_mapping(mapping_suggestions, auto_apply=True)
             
             if success:
+                # Reload the config module to pick up changes
+                import importlib
+                importlib.reload(config)
+                
                 return jsonify({'success': True, 'message': 'Columns auto-mapped successfully'})
             else:
                 return jsonify({'success': False, 'error': 'Failed to apply column mapping'})
@@ -221,12 +254,19 @@ def save_columns():
             if column_key in updated_config:
                 updated_config[column_key]['index'] = int(column_info['index'])
                 updated_config[column_key]['header'] = column_info['header']
+                # Handle additional properties if they exist
+                if 'data_type' in column_info:
+                    updated_config[column_key]['data_type'] = column_info['data_type']
+                if 'required' in column_info:
+                    updated_config[column_key]['required'] = column_info['required']
         
         # Save configuration
         if config.save_column_config(updated_config):
-            # Reload config
-            config.COLUMN_CONFIG = updated_config
-            config.COLUMNS = {key: value["index"] for key, value in updated_config.items()}
+            # Reload config in memory - this is the key fix!
+            importlib.reload(config)
+            
+            # Reinitialize services with new config
+            ui_manager.initialize_services()
             
             return jsonify({'success': True, 'message': 'Column configuration saved successfully'})
         else:
@@ -405,6 +445,242 @@ def api_status():
         
     except Exception as e:
         return jsonify({'error': str(e)})
+
+@app.route('/api/columns')
+def api_columns():
+    """API endpoint to get current column configuration"""
+    try:
+        # Reload config to get latest changes
+        import importlib
+        importlib.reload(config)
+        
+        return jsonify({
+            'success': True,
+            'column_config': config.COLUMN_CONFIG,
+            'project_options': config.PROJECT_OPTIONS,
+            'specific_project_options': config.SPECIFIC_PROJECT_OPTIONS,
+            'status_options': config.STATUS_OPTIONS
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/debug/sheet', methods=['POST'])
+def debug_sheet():
+    """Debug endpoint to inspect sheet structure"""
+    try:
+        if not ui_manager.initialize_services():
+            return jsonify({'success': False, 'error': 'Cannot initialize services'})
+        
+        # Get detailed sheet information
+        sheet_info = {}
+        
+        # Try to read the first few rows directly
+        try:
+            service = ui_manager.column_manager.service
+            spreadsheet_id = config.SPREADSHEET_ID
+            worksheet_name = config.WORKSHEET_NAME
+            
+            # Read first 5 rows to see structure
+            range_name = f"{worksheet_name}!A1:Z5"
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=range_name
+            ).execute()
+            
+            values = result.get('values', [])
+            sheet_info['raw_data'] = values
+            sheet_info['total_rows'] = len(values)
+            sheet_info['first_row'] = values[0] if values else []
+            sheet_info['has_data'] = len(values) > 0
+            
+        except Exception as e:
+            sheet_info['error'] = str(e)
+        
+        # Try header detection
+        try:
+            detected_headers = ui_manager.column_manager.detect_current_headers()
+            sheet_info['detected_headers'] = detected_headers
+        except Exception as e:
+            sheet_info['header_detection_error'] = str(e)
+        
+        return jsonify({
+            'success': True,
+            'sheet_info': sheet_info,
+            'config': {
+                'spreadsheet_id': config.SPREADSHEET_ID,
+                'worksheet_name': config.WORKSHEET_NAME
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/debug/sheet-structure', methods=['POST'])
+def debug_sheet_structure():
+    """Get detailed sheet structure information"""
+    try:
+        if not ui_manager.initialize_services():
+            return jsonify({'success': False, 'error': 'Cannot initialize services'})
+        
+        service = ui_manager.column_manager.service
+        spreadsheet_id = config.SPREADSHEET_ID
+        worksheet_name = config.WORKSHEET_NAME
+        
+        # Get sheet metadata
+        sheet_metadata = service.spreadsheets().get(
+            spreadsheetId=spreadsheet_id
+        ).execute()
+        
+        # Get sheet data (more rows for analysis)
+        range_name = f"{worksheet_name}!A1:Z10"
+        values_result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=range_name
+        ).execute()
+        
+        values = values_result.get('values', [])
+        
+        data = {
+            'sheet_info': {
+                'title': sheet_metadata.get('properties', {}).get('title', 'Unknown'),
+                'id': spreadsheet_id,
+                'locale': sheet_metadata.get('properties', {}).get('locale', 'Unknown'),
+                'worksheet_name': worksheet_name
+            },
+            'raw_data': values,
+            'headers': values[0] if values else [],
+            'data_rows': len(values) - 1 if values else 0,
+            'column_count': len(values[0]) if values else 0,
+            'sample_rows': values[1:6] if len(values) > 1 else []
+        }
+        
+        return jsonify({"success": True, "data": data})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/columns/add', methods=['POST'])
+def add_column():
+    """Add a new column to the configuration"""
+    try:
+        data = request.get_json()
+        column_name = data.get('column_name')
+        column_config = data.get('config', {})
+        
+        if not column_name:
+            return jsonify({"success": False, "error": "Column name is required"})
+        
+        # Load current column configuration
+        current_config = config.COLUMN_CONFIG.copy()
+        
+        # Add new column
+        current_config[column_name] = {
+            'index': column_config.get('index', 1),
+            'header': column_config.get('header', column_name),
+            'data_type': column_config.get('data_type', 'text'),
+            'required': column_config.get('required', False),
+            'description': column_config.get('description', f'Custom column: {column_name}'),
+            'example': column_config.get('example', '')
+        }
+        
+        # Save updated configuration
+        if config.save_column_config(current_config):
+            # Reload the configuration
+            importlib.reload(config)
+            return jsonify({
+                "success": True, 
+                "message": f"Column '{column_name}' added successfully"
+            })
+        else:
+            return jsonify({"success": False, "error": "Failed to save column configuration"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/columns/remove', methods=['POST'])
+def remove_column():
+    """Remove a column from the configuration"""
+    try:
+        data = request.get_json()
+        column_name = data.get('column_name')
+        
+        if not column_name:
+            return jsonify({"success": False, "error": "Column name is required"})
+        
+        # Load current column configuration
+        current_config = config.COLUMN_CONFIG.copy()
+        
+        # Check if column exists and is not required
+        if column_name not in current_config:
+            return jsonify({"success": False, "error": f"Column '{column_name}' not found"})
+        
+        if current_config[column_name].get('required', False):
+            return jsonify({"success": False, "error": f"Cannot remove required column '{column_name}'"})
+        
+        # Remove column
+        del current_config[column_name]
+        
+        # Save updated configuration
+        if config.save_column_config(current_config):
+            # Reload the configuration
+            importlib.reload(config)
+            return jsonify({
+                "success": True, 
+                "message": f"Column '{column_name}' removed successfully"
+            })
+        else:
+            return jsonify({"success": False, "error": "Failed to save column configuration"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/setup/headers', methods=['POST'])
+def setup_headers():
+    """Setup proper column headers in the Google Sheet"""
+    try:
+        if not ui_manager.initialize_services():
+            return jsonify({'success': False, 'error': 'Cannot initialize services'})
+        
+        # Define the proper headers based on config
+        headers = []
+        for column_key, column_info in config.COLUMN_CONFIG.items():
+            headers.append(column_info['header'])
+        
+        # Write headers to the first row
+        service = ui_manager.column_manager.service
+        spreadsheet_id = config.SPREADSHEET_ID
+        worksheet_name = config.WORKSHEET_NAME
+        
+        # Clear the first row first
+        range_name = f"{worksheet_name}!1:1"
+        service.spreadsheets().values().clear(
+            spreadsheetId=spreadsheet_id,
+            range=range_name
+        ).execute()
+        
+        # Write new headers
+        range_name = f"{worksheet_name}!A1"
+        body = {
+            'values': [headers]
+        }
+        
+        result = service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=range_name,
+            valueInputOption='RAW',
+            body=body
+        ).execute()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully set up {len(headers)} column headers',
+            'headers': headers,
+            'updated_cells': result.get('updatedCells', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
