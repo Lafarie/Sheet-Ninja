@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitlab-sheets-sync-configs
+  namespace: sprout
+data:
+  .env.production: |
+    GITLAB_URL="https://sourcecontrol.hsenidmobile.com/api/v4/"
+    API_SERVER_URL="https:sprout-da.hsenidmobile.com"
+    UI_SERVER_URL="https:sprout-da.hsenidmobile.com"

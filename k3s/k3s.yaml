@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitlab-sheets-sync-service
+  namespace: sprout
+spec:
+  ports:
+  - name: api
+    port: 5001
+    targetPort: 5001
+    nodePort: 30501
+    protocol: TCP
+  - name: ui
+    port: 8000
+    targetPort: 8000
+    nodePort: 30800
+    protocol: TCP
+  type: NodePort
+  selector:
+    app: gitlab-sheets-sync
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitlab-sheets-sync-storage
+  namespace: sprout
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab-sheets-sync
+  namespace: sprout
+  labels:
+    app: gitlab-sheets-sync
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitlab-sheets-sync
+  template:
+    metadata:
+      labels:
+        app: gitlab-sheets-sync
+    spec:
+      volumes:
+        - name: gitlab-sheets-sync-config-volume
+          configMap:
+            name: gitlab-sheets-sync-configs
+        - name: gitlab-sheets-sync-storage
+          persistentVolumeClaim:
+            claimName: gitlab-sheets-sync-storage
+      containers:
+        - name: gitlab-sheets-sync
+          image: repo.hsenidmobile.com/charactor-bot/da-automation-tests:0.0.1
+          imagePullPolicy: Always
+          ports:
+            - name: api
+              containerPort: 5001
+            - name: ui
+              containerPort: 8000
+          volumeMounts:
+            - mountPath: /app/.env
+              subPath: .env
+              name: gitlab-sheets-sync-config-volume
+            - mountPath: /app/logs
+              subPath: logs
+              name: gitlab-sheets-sync-storage
+            - mountPath: /app/uploads
+              subPath: uploads
+              name: gitlab-sheets-sync-storage
+            - mountPath: /app/config
+              subPath: config
+              name: gitlab-sheets-sync-storage
+            - mountPath: /app/temp
+              subPath: temp
+              name: gitlab-sheets-sync-storage
+          env:
+            - name: TZ
+              value: Asia/Colombo
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 5001
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
