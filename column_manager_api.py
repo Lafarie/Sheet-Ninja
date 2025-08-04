@@ -587,14 +587,6 @@ UI_SERVER_URL={config.UI_SERVER_URL}
                 sync_status['status'] = 'running'
                 sync_status['progress'] = {'message': 'Reading Google Sheet...', 'current': 0, 'total': 0}
                 
-                # Copy temporary files to expected locations for the sync script
-                import shutil
-                try:
-                    shutil.copy(temp_env_file, final_env_file)
-                    shutil.copy(temp_columns_file, final_columns_file)
-                except Exception as e:
-                    print(f"Warning: Could not copy temp files: {e}")
-                
                 # Start the sheets_to_gitlab.py process
                 sync_process = subprocess.Popen(
                     [sys.executable, 'sheets_to_gitlab.py'],
@@ -605,8 +597,8 @@ UI_SERVER_URL={config.UI_SERVER_URL}
                     universal_newlines=True,
                     env={
                         **os.environ,
-                        'ENV_FILE': final_env_file,
-                        'COLUMNS_FILE': final_columns_file
+                        'ENV_FILE': temp_env_file,  # Use the actual file location instead of trying to copy
+                        'COLUMNS_FILE': temp_columns_file
                     }
                 )
                 
@@ -682,33 +674,69 @@ def get_sync_status():
 
 @app.route('/api/stop-sync', methods=['POST'])
 def stop_sync():
-    """API endpoint to stop the running sync process"""
+    """Stop the sync process"""
     global sync_process, sync_status
     
-    try:
-        # Check if there's a running process
-        if sync_process and sync_process.poll() is None:
-            # Process is running, terminate it
+    if sync_process and sync_process.poll() is None:
+        try:
             sync_process.terminate()
             sync_status['status'] = 'stopped'
-            sync_status['progress'] = {'message': 'Sync process stopped', 'current': 0, 'total': 0}
-            sync_status['error'] = None
             return jsonify({'success': True, 'message': 'Sync process stopped'})
-        elif sync_status['status'] in ['starting', 'running']:
-            # Process might be starting or in transition, mark as stopped
-            sync_status['status'] = 'stopped'
-            sync_status['progress'] = {'message': 'Sync process stopped', 'current': 0, 'total': 0}
-            sync_status['error'] = None
-            return jsonify({'success': True, 'message': 'Sync process stopped'})
-        else:
-            # No process running, but don't return an error
-            return jsonify({'success': True, 'message': 'No sync process was running'})
-            
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)})
+    else:
+        return jsonify({'success': False, 'error': 'No sync process running'})
+
+@app.route('/setup_ui.html')
+def serve_setup_ui():
+    """Serve the setup UI HTML with dynamic API URL injection"""
+    try:
+        # Read the HTML file
+        with open('setup_ui.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # Replace the hardcoded API_BASE_URL with the dynamic one from config
+        # Handle both the production URL and localhost fallback
+        html_content = html_content.replace(
+            "const API_BASE_URL = 'https://sprout-da.hsenidmobile.com/gitmeter';",
+            f"const API_BASE_URL = '{config.API_SERVER_URL}';"
+        )
+        
+        # Also replace the localhost fallback if it exists
+        html_content = html_content.replace(
+            "const API_BASE_URL = 'http://localhost:5001';",
+            f"const API_BASE_URL = '{config.API_SERVER_URL}';"
+        )
+        
+        # Also replace any remaining localhost references
+        html_content = html_content.replace(
+            "const API_BASE_URL = 'http://localhost:5001'; // This will be dynamically replaced by the server",
+            f"const API_BASE_URL = '{config.API_SERVER_URL}'; // Dynamically replaced by the server"
+        )
+        
+        return html_content, 200, {'Content-Type': 'text/html'}
     except Exception as e:
-        # Even if there's an error, try to reset the status
-        sync_status['status'] = 'stopped'
-        sync_status['error'] = str(e)
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return f"Error loading setup UI: {str(e)}", 500
+
+@app.route('/')
+def serve_index():
+    """Serve the setup UI as the index page"""
+    return serve_setup_ui()
+
+@app.route('/gitmeter')
+def serve_gitmeter():
+    """Serve the setup UI at the /gitmeter path for ingress routing"""
+    return serve_setup_ui()
+
+@app.route('/gitmeter/')
+def serve_gitmeter_slash():
+    """Serve the setup UI at the /gitmeter/ path"""
+    return serve_setup_ui()
+
+@app.route('/gitmeter/setup_ui.html')
+def serve_gitmeter_setup_ui():
+    """Serve the setup UI at the /gitmeter/setup_ui.html path"""
+    return serve_setup_ui()
 
 if __name__ == '__main__':
     print("🚀 Starting Setup API server...")

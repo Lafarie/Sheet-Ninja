@@ -16,6 +16,16 @@ from googleapiclient.errors import HttpError
 import re
 from dotenv import load_dotenv
 
+# Create a session for better WAF handling
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'GitLab-Sheets-Sync/1.0',
+    'Accept': 'application/json',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+})
+
 # Load environment variables from the temporary .env file created by the API
 # Check for environment variables first, then fall back to centralized paths
 env_file = os.getenv('ENV_FILE')
@@ -23,7 +33,13 @@ if not env_file:
     env_file = config.PATHS['env_file']
 
 if os.path.exists(env_file):
-    load_dotenv(env_file)
+    # Clear any existing environment variables that might interfere
+    for key in ['SPREADSHEET_ID', 'WORKSHEET_NAME', 'GITLAB_URL', 'GITLAB_TOKEN', 'PROJECT_ID', 
+                'DEFAULT_ASSIGNEE', 'DEFAULT_MILESTONE', 'DEFAULT_LABEL']:
+        if key in os.environ:
+            del os.environ[key]
+    
+    load_dotenv(env_file, override=True)
     print(f"✅ Loaded environment from file: {env_file}")
     
     # Debug: Check what's actually in the environment
@@ -50,12 +66,27 @@ else:
     print(f"⚠️ Environment file not found: {env_file}")
     print("Using default config values")
 
-# Get environment variables with fallback to config
-SPREADSHEET_ID = os.getenv('SPREADSHEET_ID', config.SPREADSHEET_ID)
-WORKSHEET_NAME = os.getenv('WORKSHEET_NAME', config.WORKSHEET_NAME)
-GITLAB_URL = os.getenv('GITLAB_URL', config.GITLAB_URL)
-GITLAB_TOKEN = os.getenv('GITLAB_TOKEN', config.GITLAB_TOKEN)
-PROJECT_ID = os.getenv('PROJECT_ID', config.PROJECT_ID)
+# Get environment variables with fallback to config ONLY if not set in env file
+SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
+if not SPREADSHEET_ID:
+    SPREADSHEET_ID = config.SPREADSHEET_ID
+
+WORKSHEET_NAME = os.getenv('WORKSHEET_NAME')
+if not WORKSHEET_NAME:
+    WORKSHEET_NAME = config.WORKSHEET_NAME
+
+GITLAB_URL = os.getenv('GITLAB_URL')
+if not GITLAB_URL:
+    GITLAB_URL = config.GITLAB_URL
+
+GITLAB_TOKEN = os.getenv('GITLAB_TOKEN')
+if not GITLAB_TOKEN:
+    GITLAB_TOKEN = config.GITLAB_TOKEN
+
+PROJECT_ID = os.getenv('PROJECT_ID')
+if not PROJECT_ID:
+    PROJECT_ID = config.PROJECT_ID
+
 DEFAULT_ASSIGNEE = os.getenv('DEFAULT_ASSIGNEE', config.DEFAULT_ASSIGNEE)
 DEFAULT_MILESTONE = os.getenv('DEFAULT_MILESTONE', config.DEFAULT_MILESTONE)
 DEFAULT_LABEL = os.getenv('DEFAULT_LABEL', config.DEFAULT_LABEL)
@@ -284,34 +315,118 @@ class SheetsToGitLab:
             if default_label:
                 issue_data['labels'] = [default_label.replace('~', '')]  # Remove ~ prefix
             
-            # Make the API request
+            # Make the API request with retry logic
             headers = {
                 'PRIVATE-TOKEN': gitlab_token,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'User-Agent': 'GitLab-Sheets-Sync/1.0',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
             }
             
-            response = requests.post(
-                f"{gitlab_url}projects/{project_id}/issues",
-                headers=headers,
-                json=issue_data
-            )
-            
-            if response.status_code == 201:
-                issue = response.json()
-                issue_id = issue['iid']
-                print(f"│   ✅ Created issue #{issue_id}: {title}")
+            # Try up to 3 times with delays
+            for attempt in range(3):
+                if attempt > 0:
+                    print(f"│   🔄 Retry attempt {attempt + 1}/3...")
+                    import time
+                    time.sleep(2)  # Wait 2 seconds between retries
                 
-                # Add time estimation if provided
-                if planned_estimation:
-                    self.add_time_to_gitlab(issue_id, planned_estimation, project_name)
+                response = session.post(
+                    f"{gitlab_url}projects/{project_id}/issues",
+                    headers=headers,
+                    json=issue_data,
+                    timeout=30
+                )
                 
-                # Add actual time if provided
-                if actual_estimation:
-                    self.add_time_to_gitlab(issue_id, actual_estimation, project_name)
+                # Handle WAF challenges
+                if self.handle_waf_challenge(response):
+                    if attempt < 2:  # Retry after WAF challenge
+                        continue
                 
-                return str(issue_id)
+                # Accept both 201 (Created) and 202 (Accepted) as success
+                if response.status_code in [201, 202]:
+                    if response.status_code == 201 and response.json():
+                        issue = response.json()
+                        issue_id = issue['iid']
+                        print(f"│   ✅ Created issue #{issue_id}: {title}")
+                    else:
+                        # For 202 status, we need to extract the issue ID from the response or headers
+                        # Try to get the issue ID from the Location header or response
+                        location_header = response.headers.get('Location', '')
+                        if location_header:
+                            # Extract issue ID from Location header like: /api/v4/projects/98/issues/1234
+                            issue_id_match = re.search(r'/issues/(\d+)$', location_header)
+                            if issue_id_match:
+                                issue_id = issue_id_match.group(1)
+                                print(f"│   ✅ Created issue #{issue_id}: {title} (Status: 202)")
+                            else:
+                                print(f"│   ⚠️ Issue created (Status: 202) but couldn't extract ID from Location header: {location_header}")
+                                return None
+                        else:
+                            # For 202 status without Location header, we'll need to search for the issue
+                            print(f"│   ⚠️ Issue created (Status: 202) but no Location header found")
+                            print(f"│   🔍 Response headers: {dict(response.headers)}")
+                            print(f"│   🔍 Response body: {response.text}")
+                            # Try to extract from response body if it contains JSON
+                            try:
+                                if response.text and response.text.strip():
+                                    response_data = response.json()
+                                    if 'iid' in response_data:
+                                        issue_id = response_data['iid']
+                                        print(f"│   ✅ Created issue #{issue_id}: {title} (Status: 202 - extracted from response)")
+                                    else:
+                                        print(f"│   ⚠️ Issue created (Status: 202) but no issue ID in response")
+                                        return None
+                                else:
+                                    print(f"│   ⚠️ Issue created (Status: 202) but empty response body")
+                                    # Wait a bit before searching to allow the issue to be created
+                                    print(f"│   ⏳ Waiting 3 seconds before searching for created issue...")
+                                    import time
+                                    time.sleep(3)
+                                    # Try to find the issue by title as a last resort
+                                    print(f"│   🔍 Searching for created issue by title...")
+                                    found_issue_id = self.find_issue_by_title(title, project_id)
+                                    if found_issue_id:
+                                        issue_id = found_issue_id
+                                        print(f"│   ✅ Found created issue #{issue_id}: {title} (Status: 202 - found by search)")
+                                    else:
+                                        print(f"│   ❌ Could not find created issue by title - sync may be incomplete")
+                                        return None
+                            except Exception as e:
+                                print(f"│   ⚠️ Issue created (Status: 202) but couldn't parse response: {e}")
+                                # Wait a bit before searching to allow the issue to be created
+                                print(f"│   ⏳ Waiting 3 seconds before searching for created issue...")
+                                import time
+                                time.sleep(3)
+                                # Try to find the issue by title as a last resort
+                                print(f"│   🔍 Searching for created issue by title...")
+                                found_issue_id = self.find_issue_by_title(title, project_id)
+                                if found_issue_id:
+                                    issue_id = found_issue_id
+                                    print(f"│   ✅ Found created issue #{issue_id}: {title} (Status: 202 - found by search)")
+                                else:
+                                    print(f"│   ❌ Could not find created issue by title - sync may be incomplete")
+                                    return None
+                    
+                    # Add time estimation if provided
+                    if planned_estimation:
+                        self.add_time_to_gitlab(issue_id, planned_estimation, project_name)
+                    
+                    # Add actual time if provided
+                    if actual_estimation:
+                        self.add_time_to_gitlab(issue_id, actual_estimation, project_name)
+                    
+                    return str(issue_id)
+                else:
+                    print(f"│   ❌ Failed to create issue (Status: {response.status_code}) Response: {response.text}")
+                    if attempt < 2:  # Don't print retry message on last attempt
+                        continue
+                    else:
+                        return None
             else:
-                print(f"│   ❌ Failed to create issue (Status: {response.status_code}) Response: {response.text}")
+                print(f"│   ❌ Failed to create issue after 3 attempts")
                 return None
                 
         except Exception as e:
@@ -492,8 +607,14 @@ class SheetsToGitLab:
                 headers=headers
             )
             
-            if response.status_code == 200:
-                return response.json()
+            # Accept both 200 (OK) and 202 (Accepted) as success
+            if response.status_code in [200, 202]:
+                if response.status_code == 200 and response.json():
+                    return response.json()
+                else:
+                    # For 202 status, the issue might be processing
+                    print(f"│   ⚠️ Issue #{issue_id} is being processed (Status: 202)")
+                    return None
             else:
                 print(f"│   ❌ Failed to get issue details (Status: {response.status_code})")
                 return None
@@ -524,8 +645,12 @@ class SheetsToGitLab:
                 json=data
             )
             
-            if response.status_code == 200:
-                print(f"│   ✅ Closed issue #{issue_id}")
+            # Accept both 200 (OK) and 202 (Accepted) as success
+            if response.status_code in [200, 202]:
+                if response.status_code == 200:
+                    print(f"│   ✅ Closed issue #{issue_id}")
+                else:
+                    print(f"│   ✅ Closed issue #{issue_id} (Status: 202 - Accepted)")
                 return True
             else:
                 print(f"│   ❌ Failed to close issue #{issue_id} (Status: {response.status_code})")
@@ -600,7 +725,8 @@ class SheetsToGitLab:
         
         try:
             response = requests.put(url, headers=headers, json=updates_needed, timeout=30)
-            if response.status_code == 200:
+            # Accept both 200 (OK) and 202 (Accepted) as success
+            if response.status_code in [200, 202]:
                 action = "updated"
                 if state_event == "close":
                     action = "closed"
@@ -610,7 +736,10 @@ class SheetsToGitLab:
                     # If no state_event in updates_needed, it was already open so just say "updated"
                 
                 updated_fields = list(updates_needed.keys())
-                print(f"✅ Successfully {action} GitLab issue #{issue_id} in project {project_id}")
+                if response.status_code == 200:
+                    print(f"✅ Successfully {action} GitLab issue #{issue_id} in project {project_id}")
+                else:
+                    print(f"✅ Successfully {action} GitLab issue #{issue_id} in project {project_id} (Status: 202 - Accepted)")
                 print(f"   📝 Updated fields: {', '.join(updated_fields)}")
                 return True
             else:
@@ -643,8 +772,12 @@ class SheetsToGitLab:
                 json=data
             )
             
-            if response.status_code == 201:
-                print(f"│   ⏱️ Added {hours}h to issue #{issue_id}")
+            # Accept both 201 (Created) and 202 (Accepted) as success
+            if response.status_code in [201, 202]:
+                if response.status_code == 201:
+                    print(f"│   ⏱️ Added {hours}h to issue #{issue_id}")
+                else:
+                    print(f"│   ⏱️ Added {hours}h to issue #{issue_id} (Status: 202 - Accepted)")
                 return True
             else:
                 print(f"│   ❌ Failed to add time to issue #{issue_id} (Status: {response.status_code})")
@@ -947,6 +1080,93 @@ class SheetsToGitLab:
         print("   • Use auto-detection to map columns automatically")
         print("   • Configure custom column mappings interactively")
         print(f"   • Current configuration uses {len(config.COLUMNS)} mapped columns")
+
+    def find_issue_by_title(self, title, project_id):
+        """Search for an issue by title in the project"""
+        try:
+            headers = {
+                'PRIVATE-TOKEN': GITLAB_TOKEN,
+                'Content-Type': 'application/json',
+                'User-Agent': 'GitLab-Sheets-Sync/1.0',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+            
+            # Search for issues with the exact title
+            response = session.get(
+                f"{GITLAB_URL}projects/{project_id}/issues",
+                headers=headers,
+                params={'search': title, 'state': 'opened'}
+            )
+            
+            print(f"│   🔍 Search response status: {response.status_code}")
+            print(f"│   🔍 Search response headers: {dict(response.headers)}")
+            
+            if response.status_code in [200, 202]:
+                # Check if response is actually JSON
+                if response.text and response.text.strip():
+                    try:
+                        issues = response.json()
+                        if issues:
+                            for issue in issues:
+                                if issue['title'] == title:
+                                    print(f"│   ✅ Found issue #{issue['iid']} by title search")
+                                    return issue['iid']
+                        else:
+                            print(f"│   ⚠️ No issues found with title: {title}")
+                    except Exception as e:
+                        print(f"│   ⚠️ Could not parse search response as JSON: {e}")
+                        print(f"│   🔍 Search response body: {response.text[:200]}...")
+                else:
+                    print(f"│   ⚠️ Empty search response body")
+            else:
+                print(f"│   ❌ Search failed with status: {response.status_code}")
+                print(f"│   🔍 Search response body: {response.text[:200]}...")
+            
+            # If search fails, try a different approach - get all open issues and filter
+            print(f"│   🔍 Trying alternative search method...")
+            response = session.get(
+                f"{GITLAB_URL}projects/{project_id}/issues",
+                headers=headers,
+                params={'state': 'opened', 'per_page': 100}
+            )
+            
+            if response.status_code in [200, 202]:
+                if response.text and response.text.strip():
+                    try:
+                        issues = response.json()
+                        if issues:
+                            for issue in issues:
+                                if issue['title'] == title:
+                                    print(f"│   ✅ Found issue #{issue['iid']} by alternative search")
+                                    return issue['iid']
+                        else:
+                            print(f"│   ⚠️ No open issues found in project")
+                    except Exception as e:
+                        print(f"│   ⚠️ Could not parse alternative search response: {e}")
+                else:
+                    print(f"│   ⚠️ Empty alternative search response")
+            else:
+                print(f"│   ❌ Alternative search failed with status: {response.status_code}")
+            
+            print(f"│   ❌ Could not find issue with title: {title}")
+            return None
+            
+        except Exception as e:
+            print(f"│   ❌ Error searching for issue by title: {e}")
+            return None
+
+    def handle_waf_challenge(self, response):
+        """Handle WAF challenges by detecting them and adding delays"""
+        if 'x-amzn-waf-action' in response.headers:
+            waf_action = response.headers.get('x-amzn-waf-action', '')
+            if waf_action == 'challenge':
+                print(f"│   🛡️ WAF challenge detected, waiting 5 seconds...")
+                time.sleep(5)
+                return True
+        return False
 
 if __name__ == "__main__":
     sync = SheetsToGitLab()
