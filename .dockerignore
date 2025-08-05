@@ -45,6 +45,7 @@ logs/
 docs/
 *.md
 !README.md
+README.md
 
 # Test files
 test/
