@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: gitlab-proxy-service
-  namespace: sp
+  namespace: gitlab
 spec:
   ports:
   - port: 8080
@@ -15,7 +15,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gitlab-proxy
-  namespace: sp
+  namespace: gitlab
 spec:
   replicas: 1
   selector:
@@ -45,7 +45,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: gitlab-proxy-config
-  namespace: sp
+  namespace: gitlab
 data:
   nginx.conf: |
     events {

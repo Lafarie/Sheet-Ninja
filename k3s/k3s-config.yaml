@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: gitlab-sheets-sync-configs
-  namespace: sp
+  namespace: gitlab
 data:
   .env: |
     # GitLab Configuration

@@ -38,7 +38,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gitlab-sheets-sync
-  namespace: sp
+  namespace: gitlab
   labels:
     app: gitlab-sheets-sync
 spec:
