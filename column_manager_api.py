@@ -15,6 +15,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import sys
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for web UI
@@ -30,6 +31,55 @@ sync_status = {
     'output': '',
     'error': None
 }
+
+def monitor_sync_process(process):
+    """Monitor the sync process and update status"""
+    global sync_status
+    
+    output_lines = []
+    for line in iter(process.stdout.readline, ''):
+        if line:
+            line = line.strip()
+            output_lines.append(line)
+            sync_status['output'] = '\n'.join(output_lines[-50:])  # Keep last 50 lines
+            
+            # Update progress based on output
+            if 'Starting Google Sheets to GitLab sync' in line:
+                sync_status['progress'] = {'message': 'Reading Google Sheet...', 'current': 0, 'total': 0}
+            elif 'Creating GitLab Issues' in line:
+                sync_status['progress'] = {'message': 'Creating GitLab Issues...', 'current': 0, 'total': 0}
+            elif 'Updating Sheet with GIT ID' in line:
+                sync_status['progress'] = {'message': 'Updating Sheet with GIT ID...', 'current': 0, 'total': 0}
+            elif 'Sync Completed' in line:
+                sync_status['status'] = 'completed'
+                sync_status['progress'] = {'message': 'Sync completed successfully!', 'current': 0, 'total': 0}
+            elif 'Sync Failed' in line:
+                sync_status['status'] = 'failed'
+                sync_status['error'] = 'Sync process failed'
+            elif 'Progress:' in line:
+                # Extract progress information
+                try:
+                    if 'new issues created' in line:
+                        parts = line.split('Progress:')[1].split('/')
+                        current = int(parts[0].strip())
+                        total = int(parts[1].split()[0])
+                        sync_status['progress'] = {'message': 'Creating GitLab Issues...', 'current': current, 'total': total}
+                    elif 'existing issues updated' in line:
+                        parts = line.split('Progress:')[1].split('/')
+                        current = int(parts[0].strip())
+                        total = int(parts[1].split()[0])
+                        sync_status['progress'] = {'message': 'Updating existing issues...', 'current': current, 'total': total}
+                except:
+                    pass
+    
+    # Process completed
+    return_code = process.wait()
+    if return_code == 0:
+        sync_status['status'] = 'completed'
+        sync_status['progress'] = {'message': 'Sync completed successfully!', 'current': 0, 'total': 0}
+    else:
+        sync_status['status'] = 'failed'
+        sync_status['error'] = f'Sync process failed with return code {return_code}'
 
 class ColumnManagerAPI:
     def __init__(self, spreadsheet_id=None, service_account_file=None, worksheet_name=None):
@@ -579,79 +629,51 @@ UI_SERVER_URL={config.UI_SERVER_URL}
             'error': None
         })
         
-        # Start the sync process in a separate thread
-        def run_sync():
-            global sync_process, sync_status
+        # Start the sync process
+        try:
+            print(f"🚀 Starting sync process...")
             
-            try:
-                sync_status['status'] = 'running'
-                sync_status['progress'] = {'message': 'Reading Google Sheet...', 'current': 0, 'total': 0}
-                
-                # Start the sheets_to_gitlab.py process
-                sync_process = subprocess.Popen(
-                    [sys.executable, 'sheets_to_gitlab.py'],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1,
-                    universal_newlines=True,
-                    env={
-                        **os.environ,
-                        'ENV_FILE': temp_env_file,  # Use the actual file location instead of trying to copy
-                        'COLUMNS_FILE': temp_columns_file
-                    }
-                )
-                
-                # Monitor the process output
-                output_lines = []
-                for line in iter(sync_process.stdout.readline, ''):
-                    if line:
-                        output_lines.append(line.strip())
-                        sync_status['output'] = '\n'.join(output_lines[-50:])  # Keep last 50 lines
-                        
-                        # Update progress based on output
-                        if 'Processing row' in line:
-                            try:
-                                # Extract progress from output like "Processing row 5 of 25"
-                                parts = line.split()
-                                if len(parts) >= 5:
-                                    current = int(parts[2])
-                                    total = int(parts[4])
-                                    sync_status['progress'] = {
-                                        'message': 'Creating GitLab issues...',
-                                        'current': current,
-                                        'total': total
-                                    }
-                            except:
-                                pass
-                        elif 'Created issue' in line:
-                            sync_status['progress']['message'] = 'Creating GitLab issues...'
-                        elif 'Error' in line or 'Failed' in line:
-                            sync_status['progress']['message'] = 'Encountered errors...'
-                
-                # Wait for process to complete
-                return_code = sync_process.wait()
-                
-                if return_code == 0:
-                    sync_status['status'] = 'completed'
-                    sync_status['progress'] = {'message': 'Sync completed successfully!', 'current': 0, 'total': 0}
-                else:
-                    sync_status['status'] = 'failed'
-                    sync_status['error'] = f'Process exited with code {return_code}'
-                
-            except Exception as e:
-                sync_status['status'] = 'failed'
-                sync_status['error'] = str(e)
-            finally:
-                sync_process = None
-        
-        # Start the sync thread
-        sync_thread = threading.Thread(target=run_sync, daemon=True)
-        sync_thread.start()
-        
-        print("✅ Sync process started successfully")
-        return jsonify({'success': True, 'message': 'Sync process started'})
-        
+            # Use the original sheets_to_gitlab.py sync script
+            sync_script = '/app/sheets_to_gitlab.py'
+            
+            # Set environment variables for the subprocess
+            env = os.environ.copy()
+            env['ENV_FILE'] = '/app/temp/sync.env'
+            env['COLUMNS_FILE'] = '/app/temp/custom_columns.json'
+            
+            # Start the sync process with output capture
+            process = subprocess.Popen(
+                ['python', sync_script],
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            # Store process info
+            global sync_process
+            sync_process = process
+            
+            # Update sync status
+            sync_status.update({
+                'status': 'running',
+                'progress': {'message': 'Starting sync process...', 'current': 0, 'total': 0},
+                'output': '',
+                'error': None
+            })
+            
+            # Start monitoring the process in a separate thread
+            threading.Thread(target=monitor_sync_process, args=(process,), daemon=True).start()
+            
+            print(f"✅ Sync process started successfully")
+            return jsonify({'success': True, 'message': 'Sync process started'})
+            
+        except Exception as e:
+            print(f"❌ Error starting sync process: {e}")
+            return jsonify({'success': False, 'error': f'Failed to start sync: {str(e)}'}), 500
+
     except Exception as e:
         print(f"❌ Error in start_sync: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
