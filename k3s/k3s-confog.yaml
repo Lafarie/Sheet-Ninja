@@ -2,9 +2,36 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: gitlab-sheets-sync-configs
-  namespace: sprout
+  namespace: sp
 data:
-  .env.production: |
+  .env: |
+    # GitLab Configuration
+    #GITLAB_URL=http://gitlab-proxy-service:8080/api/v4/
     GITLAB_URL="https://sourcecontrol.hsenidmobile.com/api/v4/"
-    API_SERVER_URL="https:sprout-da.hsenidmobile.com"
-    UI_SERVER_URL="https:sprout-da.hsenidmobile.com"
+    PROJECT_ID="263"
+    
+    # Google Sheets Configuration
+    WORKSHEET_NAME="Sheet1"
+    SERVICE_ACCOUNT_FILE="service_account.json"
+    
+    # GitLab Issue Settings
+    DEFAULT_ASSIGNEE="@username"
+    DEFAULT_MILESTONE="%milestone_name"
+    DEFAULT_DUE_DATE=""
+    DEFAULT_LABEL="~label_name"
+    
+    # Date Range Filter Settings
+    ENABLE_DATE_FILTER="false"
+    START_DATE=""
+    END_DATE=""
+    
+    # Server Configuration (for sprout-da.hsenidmobile.com/gitmeter)
+    API_SERVER_URL="https://sprout-da.hsenidmobile.com"
+    UI_SERVER_URL="https://sprout-da.hsenidmobile.com"
+    
+    # Python Environment
+    PYTHONUNBUFFERED="1"
+    DOCKER_ENV="true"
+    FLASK_APP="column_manager_api.py"
+    FLASK_ENV="production"
+    TZ="Asia/Colombo"

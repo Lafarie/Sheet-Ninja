@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: gitlab-sheets-sync-service
-  namespace: sprout
+  namespace: sp
 spec:
   ports:
   - name: api
@@ -12,7 +12,7 @@ spec:
     protocol: TCP
   - name: ui
     port: 8000
-    targetPort: 8000
+    targetPort: 5001
     nodePort: 30800
     protocol: TCP
   type: NodePort
@@ -24,7 +24,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: gitlab-sheets-sync-storage
-  namespace: sprout
+  namespace: sp
 spec:
   accessModes:
     - ReadWriteOnce
@@ -38,7 +38,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gitlab-sheets-sync
-  namespace: sprout
+  namespace: sp
   labels:
     app: gitlab-sheets-sync
 spec:
@@ -60,7 +60,7 @@ spec:
             claimName: gitlab-sheets-sync-storage
       containers:
         - name: gitlab-sheets-sync
-          image: repo.hsenidmobile.com/charactor-bot/da-automation-tests:0.0.1
+          image: repo.hsenidmobile.com/charactor-bot/da-automation-tests:git-0.0.4
           imagePullPolicy: Always
           ports:
             - name: api
