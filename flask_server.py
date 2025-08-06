@@ -302,6 +302,106 @@ def gitlab_project_issues(project_id):
         logger.error(f"Error fetching GitLab issues: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/gitlab/analyze-columns', methods=['POST'])
+def gitlab_analyze_columns():
+    """Analyze sheet columns for GitLab field mapping"""
+    global gitlab_service
+    
+    if not gitlab_service:
+        return jsonify({'error': 'GitLab not authenticated. Please authenticate first.'}), 401
+    
+    if not sheets_service.service:
+        return jsonify({'error': 'Google Sheets not authenticated. Please authenticate first.'}), 401
+    
+    try:
+        data = request.get_json()
+        spreadsheet_id = data.get('spreadsheet_id')
+        sheet_name = data.get('sheet_name')
+        
+        if not all([spreadsheet_id, sheet_name]):
+            return jsonify({'error': 'Missing required parameters: spreadsheet_id, sheet_name'}), 400
+        
+        # Get sheet data (just first few rows for analysis)
+        sheet_data = sheets_service.get_sheet_data(spreadsheet_id, sheet_name, f"{sheet_name}!A1:Z10")
+        if not sheet_data:
+            return jsonify({'error': 'No data found in the specified sheet'}), 404
+        
+        # Analyze columns
+        result = gitlab_service.analyze_sheet_columns(sheet_data)
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error analyzing columns: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gitlab/create-issues-mapped', methods=['POST'])
+def gitlab_create_issues_mapped():
+    """Create GitLab issues with custom field mapping and date filtering"""
+    global gitlab_service
+    
+    if not gitlab_service:
+        return jsonify({'error': 'GitLab not authenticated. Please authenticate first.'}), 401
+    
+    if not sheets_service.service:
+        return jsonify({'error': 'Google Sheets not authenticated. Please authenticate first.'}), 401
+    
+    try:
+        data = request.get_json()
+        project_id = data.get('project_id')
+        spreadsheet_id = data.get('spreadsheet_id')
+        sheet_name = data.get('sheet_name')
+        field_mapping = data.get('field_mapping', {})
+        date_filter = data.get('date_filter')
+        
+        if not all([project_id, spreadsheet_id, sheet_name]):
+            return jsonify({'error': 'Missing required parameters: project_id, spreadsheet_id, sheet_name'}), 400
+        
+        # Get sheet data
+        sheet_data = sheets_service.get_sheet_data(spreadsheet_id, sheet_name)
+        if not sheet_data:
+            return jsonify({'error': 'No data found in the specified sheet'}), 404
+        
+        # Parse with mapping and create issues
+        parse_result = gitlab_service.parse_sheet_data_with_mapping(sheet_data, field_mapping, date_filter)
+        if not parse_result['success']:
+            return jsonify({'error': parse_result['error']}), 400
+        
+        issues_data = parse_result['issues']
+        results = {
+            'total_processed': len(issues_data),
+            'successful': 0,
+            'failed': 0,
+            'created_issues': [],
+            'errors': []
+        }
+        
+        for issue_data in issues_data:
+            result = gitlab_service.create_issue(project_id, issue_data)
+            
+            if result['success']:
+                results['successful'] += 1
+                results['created_issues'].append({
+                    'row': issue_data['row_number'],
+                    'title': issue_data['title'][:50] + '...' if len(issue_data['title']) > 50 else issue_data['title'],
+                    'issue_url': result['issue']['url'],
+                    'issue_id': result['issue']['iid'],
+                    'labels': result['issue']['labels']
+                })
+            else:
+                results['failed'] += 1
+                results['errors'].append({
+                    'row': issue_data['row_number'],
+                    'title': issue_data['title'][:50] + '...' if len(issue_data['title']) > 50 else issue_data['title'],
+                    'error': result['error']
+                })
+        
+        results['success'] = True
+        return jsonify(results)
+        
+    except Exception as e:
+        logger.error(f"Error creating mapped GitLab issues: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/gitlab/create-issues', methods=['POST'])
 def gitlab_create_issues():
     """Create GitLab issues from Google Sheets data"""
