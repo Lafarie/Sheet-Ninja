@@ -98,8 +98,8 @@ sheets_service = GoogleSheetsService()
 
 @app.route('/')
 def index():
-    """Serve the main web client"""
-    return send_from_directory('.', 'web_client.html')
+    """Serve the single-page application"""
+    return send_from_directory('.', 'single_page.html')
 
 @app.route('/<path:filename>')
 def serve_static(filename):
@@ -239,7 +239,7 @@ if __name__ == '__main__':
     print("=" * 40)
     print(f"📡 Server running on http://localhost:{port}")
     print("🌐 Open your browser to start using the app")
-    print("� Upload your Google Sheets API credentials")
+    print("📤 Upload your Google Sheets API credentials")
     print("📊 Fetch real spreadsheet data")
     print("💡 Press Ctrl+C to stop the server")
     print()

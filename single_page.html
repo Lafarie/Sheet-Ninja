@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Sheets API - Complete Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 40px 0;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .section {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-5px);
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 20px 30px;
+            font-size: 1.4em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-content {
+            padding: 30px;
+        }
+
+        .status-bar {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: #fafafa;
+            margin-bottom: 20px;
+        }
+
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: #f0f8f0;
+            transform: scale(1.02);
+        }
+
+        .upload-area h3 {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .input-group input, .input-group textarea, .input-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group textarea:focus, .input-group select:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+        }
+
+        .textarea-json {
+            min-height: 150px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .sheets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .sheet-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .sheet-card:hover, .sheet-card.selected {
+            border-color: #4CAF50;
+            background: #f0f8f0;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .sheet-card h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .sheet-info {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .data-preview {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+
+        .data-table th {
+            background: #4CAF50;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .progress-bar {
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            height: 20px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8em;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            gap: 20px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            background: #f0f0f0;
+            color: #666;
+            font-weight: bold;
+        }
+
+        .step.active {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .step.completed {
+            background: #28a745;
+            color: white;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .download-section {
+            background: #e8f5e8;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .section-content {
+                padding: 20px;
+            }
+            
+            .sheets-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .step-indicator {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🚀 Google Sheets API</h1>
+            <p>Complete Interface for Sheet Data Management</p>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="step-indicator">
+            <div class="step" id="step1">
+                <span>📤</span>
+                <span>Upload Credentials</span>
+            </div>
+            <div class="step" id="step2">
+                <span>🔗</span>
+                <span>Connect Sheet</span>
+            </div>
+            <div class="step" id="step3">
+                <span>📊</span>
+                <span>Select Data</span>
+            </div>
+            <div class="step" id="step4">
+                <span>💾</span>
+                <span>Download</span>
+            </div>
+        </div>
+
+        <!-- Section 1: Authentication -->
+        <div class="section">
+            <div class="section-header">
+                <span>📤</span>
+                <span>Step 1: Upload Google Sheets API Credentials</span>
+            </div>
+            <div class="section-content">
+                <div class="status-bar">
+                    <strong>Status:</strong> <span id="auth-status">Not authenticated</span>
+                </div>
+
+                <div class="upload-area" id="uploadArea">
+                    <h3>📁 Drag & Drop JSON File or Click to Browse</h3>
+                    <p>Upload your Google Sheets API service account credentials</p>
+                    <input type="file" id="fileInput" class="file-input" accept=".json">
+                    <button class="btn" onclick="document.getElementById('fileInput').click()">
+                        📂 Choose File
+                    </button>
+                </div>
+
+                <div class="input-group">
+                    <label for="jsonPaste">Or Paste JSON Content:</label>
+                    <textarea id="jsonPaste" class="textarea-json" placeholder="Paste your credentials.json content here..."></textarea>
+                </div>
+
+                <button class="btn" onclick="authenticateCredentials()">
+                    🔐 Authenticate
+                </button>
+
+                <div id="authResult"></div>
+            </div>
+        </div>
+
+        <!-- Section 2: Spreadsheet Connection -->
+        <div class="section">
+            <div class="section-header">
+                <span>🔗</span>
+                <span>Step 2: Connect to Google Spreadsheet</span>
+            </div>
+            <div class="section-content">
+                <div class="input-group">
+                    <label for="sheetUrl">Google Sheets URL or ID:</label>
+                    <input type="text" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/SHEET_ID/edit or just SHEET_ID">
+                </div>
+
+                <button class="btn btn-secondary" onclick="connectToSheet()">
+                    🔌 Connect to Sheet
+                </button>
+
+                <div id="sheetConnectionResult"></div>
+                <div id="spreadsheetInfo" class="hidden"></div>
+            </div>
+        </div>
+
+        <!-- Section 3: Sheet Selection -->
+        <div class="section">
+            <div class="section-header">
+                <span>📋</span>
+                <span>Step 3: Select Sheet and Data Options</span>
+            </div>
+            <div class="section-content">
+                <div id="sheetsContainer" class="hidden">
+                    <h4>Available Sheets:</h4>
+                    <div id="sheetsGrid" class="sheets-grid"></div>
+                    
+                    <div class="input-group">
+                        <label>Data Options:</label>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn" onclick="fetchHeaders()">
+                                📋 Get Headers Only
+                            </button>
+                            <button class="btn btn-secondary" onclick="fetchAllData()">
+                                📊 Get All Data
+                            </button>
+                            <button class="btn btn-secondary" onclick="fetchLimitedData()">
+                                🔢 Get Limited Data (100 rows)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="dataResult"></div>
+                <div id="dataPreview" class="hidden"></div>
+            </div>
+        </div>
+
+        <!-- Section 4: Data Preview and Download -->
+        <div class="section">
+            <div class="section-header">
+                <span>📊</span>
+                <span>Step 4: Data Preview and Download</span>
+            </div>
+            <div class="section-content">
+                <div id="statsContainer" class="hidden">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="statSheets">0</div>
+                            <div class="stat-label">Sheets Available</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="statHeaders">0</div>
+                            <div class="stat-label">Headers Found</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="statRows">0</div>
+                            <div class="stat-label">Data Rows</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="statSize">0</div>
+                            <div class="stat-label">Data Size (KB)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="previewContainer" class="hidden">
+                    <h4>📋 Data Preview:</h4>
+                    <div id="tableContainer" class="data-preview"></div>
+                </div>
+
+                <div id="downloadContainer" class="download-section hidden">
+                    <h4>💾 Download Your Data</h4>
+                    <p>Your data is ready for download in JSON format</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px;">
+                        <button class="btn" onclick="downloadData('headers')">
+                            📋 Download Headers
+                        </button>
+                        <button class="btn btn-secondary" onclick="downloadData('data')">
+                            📊 Download Full Data
+                        </button>
+                        <button class="btn btn-danger" onclick="resetAll()">
+                            🔄 Start Over
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Help and Information -->
+        <div class="section">
+            <div class="section-header">
+                <span>ℹ️</span>
+                <span>Help & Information</span>
+            </div>
+            <div class="section-content">
+                <h4>🔧 How to Get Google Sheets API Credentials:</h4>
+                <ol style="padding-left: 20px; margin: 15px 0;">
+                    <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+                    <li>Create a new project or select existing one</li>
+                    <li>Enable the Google Sheets API</li>
+                    <li>Create credentials (Service Account)</li>
+                    <li>Download the JSON file</li>
+                </ol>
+
+                <h4>📋 Supported Features:</h4>
+                <ul style="padding-left: 20px; margin: 15px 0;">
+                    <li>✅ Multiple sheet support</li>
+                    <li>✅ Headers and full data export</li>
+                    <li>✅ JSON format download</li>
+                    <li>✅ Real-time data preview</li>
+                    <li>✅ Drag & drop file upload</li>
+                    <li>✅ Mobile-responsive design</li>
+                </ul>
+
+                <div class="alert alert-info">
+                    <strong>💡 Tip:</strong> Make sure to share your Google Sheet with the service account email address found in your credentials JSON file.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let isAuthenticated = false;
+        let currentSpreadsheetId = '';
+        let currentSheetName = '';
+        let fetchedData = null;
+        let spreadsheetInfo = null;
+
+        // Initialize drag and drop
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            // Drag and drop events
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileUpload(files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+
+            updateStepStatus();
+        });
+
+        function handleFileUpload(file) {
+            if (file.type !== 'application/json') {
+                showAlert('Please upload a JSON file.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('jsonPaste').value = e.target.result;
+                showAlert('File loaded successfully!', 'success');
+            };
+            reader.readAsText(file);
+        }
+
+        async function authenticateCredentials() {
+            const jsonContent = document.getElementById('jsonPaste').value;
+            
+            if (!jsonContent.trim()) {
+                showAlert('Please provide credentials JSON content.', 'error');
+                return;
+            }
+
+            try {
+                const credentials = JSON.parse(jsonContent);
+                
+                showLoading('authResult', 'Authenticating...');
+
+                const response = await fetch('/api/authenticate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ credentials: credentials })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    isAuthenticated = true;
+                    document.getElementById('auth-status').textContent = `Authenticated as ${result.service_account}`;
+                    showAlert(`✅ Authentication successful!<br>Service Account: ${result.service_account}<br>Project: ${result.project_id}`, 'success', 'authResult');
+                    updateStepStatus();
+                } else {
+                    showAlert(`❌ Authentication failed: ${result.error}`, 'error', 'authResult');
+                }
+            } catch (error) {
+                showAlert(`❌ Invalid JSON format: ${error.message}`, 'error', 'authResult');
+            }
+        }
+
+        async function connectToSheet() {
+            if (!isAuthenticated) {
+                showAlert('Please authenticate first!', 'error');
+                return;
+            }
+
+            const sheetUrl = document.getElementById('sheetUrl').value.trim();
+            if (!sheetUrl) {
+                showAlert('Please enter a Google Sheets URL or ID.', 'error');
+                return;
+            }
+
+            // Extract spreadsheet ID from URL
+            const spreadsheetId = extractSpreadsheetId(sheetUrl);
+            if (!spreadsheetId) {
+                showAlert('Invalid Google Sheets URL or ID format.', 'error');
+                return;
+            }
+
+            currentSpreadsheetId = spreadsheetId;
+            
+            showLoading('sheetConnectionResult', 'Connecting to spreadsheet...');
+
+            try {
+                const response = await fetch(`/api/spreadsheet/${spreadsheetId}/info`);
+                const result = await response.json();
+
+                if (response.ok) {
+                    spreadsheetInfo = result;
+                    displaySpreadsheetInfo(result);
+                    showAlert(`✅ Connected to: ${result.title}`, 'success', 'sheetConnectionResult');
+                    updateStepStatus();
+                } else {
+                    showAlert(`❌ Connection failed: ${result.error}`, 'error', 'sheetConnectionResult');
+                }
+            } catch (error) {
+                showAlert(`❌ Connection error: ${error.message}`, 'error', 'sheetConnectionResult');
+            }
+        }
+
+        function displaySpreadsheetInfo(info) {
+            const container = document.getElementById('spreadsheetInfo');
+            const sheetsContainer = document.getElementById('sheetsContainer');
+            const sheetsGrid = document.getElementById('sheetsGrid');
+            
+            container.innerHTML = `
+                <div class="alert alert-success">
+                    <strong>📄 Spreadsheet:</strong> ${info.title}<br>
+                    <strong>📋 Sheets Available:</strong> ${info.sheets.length}
+                </div>
+            `;
+            
+            // Display sheets
+            sheetsGrid.innerHTML = '';
+            info.sheets.forEach(sheet => {
+                const sheetCard = document.createElement('div');
+                sheetCard.className = 'sheet-card';
+                sheetCard.onclick = () => selectSheet(sheet.name, sheetCard);
+                sheetCard.innerHTML = `
+                    <h4>📋 ${sheet.name}</h4>
+                    <div class="sheet-info">
+                        <div>🔢 Rows: ${sheet.rows}</div>
+                        <div>📊 Columns: ${sheet.columns}</div>
+                        <div>🆔 ID: ${sheet.id}</div>
+                    </div>
+                `;
+                sheetsGrid.appendChild(sheetCard);
+            });
+
+            // Update stats
+            document.getElementById('statSheets').textContent = info.sheets.length;
+            document.getElementById('statsContainer').classList.remove('hidden');
+            
+            container.classList.remove('hidden');
+            sheetsContainer.classList.remove('hidden');
+        }
+
+        function selectSheet(sheetName, cardElement) {
+            // Remove previous selection
+            document.querySelectorAll('.sheet-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Select current sheet
+            cardElement.classList.add('selected');
+            currentSheetName = sheetName;
+            
+            showAlert(`📋 Selected sheet: ${sheetName}`, 'info', 'dataResult');
+            updateStepStatus();
+        }
+
+        async function fetchHeaders() {
+            if (!currentSheetName) {
+                showAlert('Please select a sheet first!', 'error');
+                return;
+            }
+
+            showLoading('dataResult', 'Fetching headers...');
+
+            try {
+                const response = await fetch(`/api/spreadsheet/${currentSpreadsheetId}/sheet/${encodeURIComponent(currentSheetName)}/headers`);
+                const result = await response.json();
+
+                if (response.ok) {
+                    fetchedData = {
+                        type: 'headers',
+                        data: result.headers,
+                        sheetName: currentSheetName
+                    };
+                    
+                    displayHeaders(result.headers);
+                    document.getElementById('statHeaders').textContent = result.headers.length;
+                    document.getElementById('statRows').textContent = '0 (Headers only)';
+                    document.getElementById('statSize').textContent = Math.round(JSON.stringify(result.headers).length / 1024);
+                    
+                    showAlert(`✅ Fetched ${result.headers.length} headers from ${currentSheetName}`, 'success', 'dataResult');
+                    updateStepStatus();
+                } else {
+                    showAlert(`❌ Failed to fetch headers: ${result.error}`, 'error', 'dataResult');
+                }
+            } catch (error) {
+                showAlert(`❌ Error fetching headers: ${error.message}`, 'error', 'dataResult');
+            }
+        }
+
+        async function fetchAllData() {
+            if (!currentSheetName) {
+                showAlert('Please select a sheet first!', 'error');
+                return;
+            }
+
+            showLoading('dataResult', 'Fetching all data...');
+
+            try {
+                const response = await fetch(`/api/spreadsheet/${currentSpreadsheetId}/sheet/${encodeURIComponent(currentSheetName)}/data`);
+                const result = await response.json();
+
+                if (response.ok) {
+                    fetchedData = {
+                        type: 'data',
+                        data: result.data,
+                        headers: result.headers,
+                        sheetName: currentSheetName
+                    };
+                    
+                    displayDataTable(result.data);
+                    document.getElementById('statHeaders').textContent = result.headers.length;
+                    document.getElementById('statRows').textContent = result.rows;
+                    document.getElementById('statSize').textContent = Math.round(JSON.stringify(result.data).length / 1024);
+                    
+                    showAlert(`✅ Fetched ${result.rows} rows from ${currentSheetName}`, 'success', 'dataResult');
+                    updateStepStatus();
+                } else {
+                    showAlert(`❌ Failed to fetch data: ${result.error}`, 'error', 'dataResult');
+                }
+            } catch (error) {
+                showAlert(`❌ Error fetching data: ${error.message}`, 'error', 'dataResult');
+            }
+        }
+
+        async function fetchLimitedData() {
+            if (!currentSheetName) {
+                showAlert('Please select a sheet first!', 'error');
+                return;
+            }
+
+            showLoading('dataResult', 'Fetching limited data...');
+
+            try {
+                const response = await fetch(`/api/spreadsheet/${currentSpreadsheetId}/sheet/${encodeURIComponent(currentSheetName)}/data?limit=100`);
+                const result = await response.json();
+
+                if (response.ok) {
+                    fetchedData = {
+                        type: 'data',
+                        data: result.data,
+                        headers: result.headers,
+                        sheetName: currentSheetName,
+                        limited: result.limited
+                    };
+                    
+                    displayDataTable(result.data);
+                    document.getElementById('statHeaders').textContent = result.headers.length;
+                    document.getElementById('statRows').textContent = `${result.rows}${result.limited ? ' (Limited)' : ''}`;
+                    document.getElementById('statSize').textContent = Math.round(JSON.stringify(result.data).length / 1024);
+                    
+                    showAlert(`✅ Fetched ${result.rows} rows from ${currentSheetName} ${result.limited ? '(Limited to 100 rows)' : ''}`, 'success', 'dataResult');
+                    updateStepStatus();
+                } else {
+                    showAlert(`❌ Failed to fetch data: ${result.error}`, 'error', 'dataResult');
+                }
+            } catch (error) {
+                showAlert(`❌ Error fetching data: ${error.message}`, 'error', 'dataResult');
+            }
+        }
+
+        function displayHeaders(headers) {
+            const container = document.getElementById('previewContainer');
+            const tableContainer = document.getElementById('tableContainer');
+            
+            let tableHtml = '<table class="data-table"><thead><tr>';
+            headers.forEach(header => {
+                tableHtml += `<th>${escapeHtml(header)}</th>`;
+            });
+            tableHtml += '</tr></thead></table>';
+            
+            tableContainer.innerHTML = tableHtml;
+            container.classList.remove('hidden');
+            document.getElementById('downloadContainer').classList.remove('hidden');
+        }
+
+        function displayDataTable(data) {
+            const container = document.getElementById('previewContainer');
+            const tableContainer = document.getElementById('tableContainer');
+            
+            if (data.length === 0) {
+                tableContainer.innerHTML = '<p>No data found.</p>';
+                container.classList.remove('hidden');
+                return;
+            }
+            
+            let tableHtml = '<table class="data-table"><thead><tr>';
+            // Headers
+            const headers = data[0];
+            headers.forEach(header => {
+                tableHtml += `<th>${escapeHtml(header)}</th>`;
+            });
+            tableHtml += '</tr></thead><tbody>';
+            
+            // Data rows (limit to first 10 for preview)
+            const previewRows = data.slice(1, 11);
+            previewRows.forEach(row => {
+                tableHtml += '<tr>';
+                for (let i = 0; i < headers.length; i++) {
+                    tableHtml += `<td>${escapeHtml(row[i] || '')}</td>`;
+                }
+                tableHtml += '</tr>';
+            });
+            
+            if (data.length > 11) {
+                tableHtml += `<tr><td colspan="${headers.length}" style="text-align: center; font-style: italic; color: #666;">... and ${data.length - 11} more rows</td></tr>`;
+            }
+            
+            tableHtml += '</tbody></table>';
+            
+            tableContainer.innerHTML = tableHtml;
+            container.classList.remove('hidden');
+            document.getElementById('downloadContainer').classList.remove('hidden');
+        }
+
+        function downloadData(type) {
+            if (!fetchedData) {
+                showAlert('No data to download!', 'error');
+                return;
+            }
+
+            let dataToDownload, filename;
+            
+            if (type === 'headers') {
+                if (fetchedData.type === 'headers') {
+                    dataToDownload = fetchedData.data;
+                } else {
+                    dataToDownload = fetchedData.headers;
+                }
+                filename = `${fetchedData.sheetName}_headers.json`;
+            } else {
+                dataToDownload = fetchedData.data;
+                filename = `${fetchedData.sheetName}_data.json`;
+            }
+
+            const jsonContent = JSON.stringify(dataToDownload, null, 2);
+            const blob = new Blob([jsonContent], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showAlert(`📥 Downloaded: ${filename}`, 'success');
+        }
+
+        function resetAll() {
+            if (confirm('Are you sure you want to reset everything? This will clear all data and start over.')) {
+                isAuthenticated = false;
+                currentSpreadsheetId = '';
+                currentSheetName = '';
+                fetchedData = null;
+                spreadsheetInfo = null;
+                
+                // Reset form fields
+                document.getElementById('jsonPaste').value = '';
+                document.getElementById('sheetUrl').value = '';
+                
+                // Reset status
+                document.getElementById('auth-status').textContent = 'Not authenticated';
+                
+                // Hide sections
+                document.getElementById('spreadsheetInfo').classList.add('hidden');
+                document.getElementById('sheetsContainer').classList.add('hidden');
+                document.getElementById('previewContainer').classList.add('hidden');
+                document.getElementById('downloadContainer').classList.add('hidden');
+                document.getElementById('statsContainer').classList.add('hidden');
+                
+                // Clear results
+                document.getElementById('authResult').innerHTML = '';
+                document.getElementById('sheetConnectionResult').innerHTML = '';
+                document.getElementById('dataResult').innerHTML = '';
+                
+                // Reset sheet selection
+                document.querySelectorAll('.sheet-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                
+                updateStepStatus();
+                showAlert('🔄 Reset complete! Start from step 1.', 'info');
+            }
+        }
+
+        function updateStepStatus() {
+            const steps = ['step1', 'step2', 'step3', 'step4'];
+            
+            // Reset all steps
+            steps.forEach(stepId => {
+                const step = document.getElementById(stepId);
+                step.classList.remove('active', 'completed');
+            });
+            
+            // Update step status
+            if (isAuthenticated) {
+                document.getElementById('step1').classList.add('completed');
+                
+                if (currentSpreadsheetId) {
+                    document.getElementById('step2').classList.add('completed');
+                    
+                    if (currentSheetName) {
+                        document.getElementById('step3').classList.add('completed');
+                        
+                        if (fetchedData) {
+                            document.getElementById('step4').classList.add('completed');
+                        } else {
+                            document.getElementById('step4').classList.add('active');
+                        }
+                    } else {
+                        document.getElementById('step3').classList.add('active');
+                    }
+                } else {
+                    document.getElementById('step2').classList.add('active');
+                }
+            } else {
+                document.getElementById('step1').classList.add('active');
+            }
+        }
+
+        function extractSpreadsheetId(url) {
+            const regex = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/;
+            const match = url.match(regex);
+            return match ? match[1] : (url.length > 20 ? url : null);
+        }
+
+        function showAlert(message, type, containerId = null) {
+            const alertHtml = `<div class="alert alert-${type}">${message}</div>`;
+            
+            if (containerId) {
+                document.getElementById(containerId).innerHTML = alertHtml;
+            } else {
+                // Show in the current active section
+                const activeSection = document.querySelector('.section:not(.hidden)');
+                if (activeSection) {
+                    const content = activeSection.querySelector('.section-content');
+                    const existingAlert = content.querySelector('.alert');
+                    if (existingAlert) {
+                        existingAlert.remove();
+                    }
+                    content.insertAdjacentHTML('afterbegin', alertHtml);
+                }
+            }
+        }
+
+        function showLoading(containerId, message) {
+            const loadingHtml = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.getElementById(containerId).innerHTML = loadingHtml;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

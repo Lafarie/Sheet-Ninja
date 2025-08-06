@@ -12,3 +12,4 @@ break the code into sections dont write all code in one file make easy to read a
 use simple terms
 make able to view from browser
 make sure oganization to folder and files is clear
+use port 8000

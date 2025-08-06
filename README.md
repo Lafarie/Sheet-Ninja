@@ -26,21 +26,12 @@
 └── 🚫 .gitignore         # Git ignore rules
 ```
 
-## 🚀 Quick Start
+## 🚀 **Ready to Use:**
 
-**Simple 3-step process:**
-
-1. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Start the application:**
-   ```bash
-   python flask_server.py
-   ```
-
-3. **Open browser:** `http://localhost:8000` and start using!
+1. **Install dependencies:** `pip install -r requirements.txt`
+2. **Start server:** `python flask_server.py`
+3. **Open browser:** `http://localhost:8000`
+4. **Upload credentials & fetch your Google Sheets data!**
 
 ## 📖 Setup Instructions
 
@@ -125,10 +116,8 @@ python main.py
    - Get headers only or full data
    - Download as JSON files
 
-### Available Interfaces:
-- **Main App:** `http://localhost:8000` - Full-featured application
-- **Simple View:** `http://localhost:8000/index.html` - Basic interface
-- **Upload Form:** `http://localhost:8000/upload_form.html` - Credential upload only
+### Single Web Interface:
+- **Main App:** `http://localhost:8000` - Complete single-page application
 
 ## 🌐 API Endpoints
 
