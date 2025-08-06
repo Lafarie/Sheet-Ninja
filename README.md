@@ -33,6 +33,25 @@
 3. **Open browser:** `http://localhost:8000`
 4. **Upload credentials & fetch your Google Sheets data!**
 
+## 📋 **Expected Data Format for GitLab Integration:**
+
+Your Google Sheets should have headers like:
+```
+Date | GIT ID | Project Name | Specific Project Name | Task Description | Status | Actual Start Date | Planned Estimation (H) | Actual Spent Time (H) | Actual End Date
+```
+
+**Key Fields:**
+- **Task Description:** Becomes the GitLab issue title
+- **Status:** Used for issue labels (completed, in-progress, pending)
+- **Project Name:** Added as project label
+- **Other fields:** Included in issue description
+
+## 🦊 **GitLab Setup Requirements:**
+
+1. **Personal Access Token** with `api` scope
+2. **Developer role** or higher in target project
+3. **Issues feature** enabled in project settings
+
 ## 📖 Setup Instructions
 
 ### Step 1: Get Google Sheets API Credentials
@@ -116,17 +135,32 @@ python main.py
    - Get headers only or full data
    - Download as JSON files
 
+4. **🦊 GitLab Integration (Optional):**
+   - Connect to GitLab with personal access token
+   - Convert sheet rows to GitLab issues
+   - Supports project management workflows
+
 ### Single Web Interface:
-- **Main App:** `http://localhost:8000` - Complete single-page application
+- **Main App:** `http://localhost:8000` - Complete single-page application with GitLab integration
 
 ## 🌐 API Endpoints
 
 The Flask server provides REST API endpoints:
 
+**Google Sheets:**
 - `POST /api/authenticate` - Authenticate with credentials
 - `GET /api/spreadsheet/{id}/info` - Get spreadsheet information
 - `GET /api/spreadsheet/{id}/sheet/{name}/headers` - Get sheet headers
 - `GET /api/spreadsheet/{id}/sheet/{name}/data` - Get sheet data
+
+**GitLab Integration:**
+- `GET /api/gitlab/setup` - Get setup instructions
+- `POST /api/gitlab/authenticate` - Authenticate with GitLab
+- `GET /api/gitlab/projects` - Get accessible projects
+- `GET /api/gitlab/project/{id}/issues` - Get project issues
+- `POST /api/gitlab/create-issues` - Create issues from sheet data
+
+**System:**
 - `GET /api/health` - Health check
 
 ## 🌐 Web Features

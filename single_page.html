@@ -422,6 +422,10 @@
                 <span>💾</span>
                 <span>Download</span>
             </div>
+            <div class="step" id="step5">
+                <span>🦊</span>
+                <span>GitLab (Optional)</span>
+            </div>
         </div>
 
         <!-- Section 1: Authentication -->
@@ -561,7 +565,89 @@
             </div>
         </div>
 
-        <!-- Section 5: Help and Information -->
+        <!-- Section 5: GitLab Integration -->
+        <div class="section">
+            <div class="section-header">
+                <span>🦊</span>
+                <span>Step 5: GitLab Integration (Optional)</span>
+            </div>
+            <div class="section-content">
+                <div class="alert alert-info">
+                    <strong>🚀 Create GitLab Issues:</strong> Convert your Google Sheets tasks into GitLab issues automatically!
+                </div>
+
+                <div id="gitlabAuthSection">
+                    <h4>🔐 GitLab Authentication:</h4>
+                    <div class="input-group">
+                        <label for="gitlabUrl">GitLab URL:</label>
+                        <input type="text" id="gitlabUrl" placeholder="https://gitlab.com or https://your-gitlab-domain.com">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="gitlabToken">Personal Access Token:</label>
+                        <input type="password" id="gitlabToken" placeholder="Your GitLab personal access token">
+                    </div>
+
+                    <button class="btn btn-secondary" onclick="authenticateGitLab()">
+                        🦊 Connect to GitLab
+                    </button>
+
+                    <div id="gitlabAuthResult"></div>
+                </div>
+
+                <div id="gitlabProjectSection" class="hidden">
+                    <h4>📋 Select GitLab Project:</h4>
+                    <div class="input-group">
+                        <label for="gitlabProject">Choose Project:</label>
+                        <select id="gitlabProject">
+                            <option value="">Select a project...</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Create Issues Options:</label>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn" onclick="createGitLabIssues()">
+                                🚀 Create Issues from Current Sheet
+                            </button>
+                            <button class="btn btn-secondary" onclick="previewGitLabIssues()">
+                                👁️ Preview Issues
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="gitlabResult"></div>
+                </div>
+
+                <div id="gitlabSetupInfo">
+                    <h4>📋 How to Setup GitLab Integration:</h4>
+                    <ol style="padding-left: 20px; margin: 15px 0;">
+                        <li><strong>Personal Access Token:</strong>
+                            <ul style="padding-left: 20px; margin: 5px 0;">
+                                <li>Go to GitLab → Settings → Access Tokens</li>
+                                <li>Create token with "api" scope</li>
+                                <li>Copy and save the token securely</li>
+                            </ul>
+                        </li>
+                        <li><strong>Project Access:</strong>
+                            <ul style="padding-left: 20px; margin: 5px 0;">
+                                <li>Must have Developer role or higher</li>
+                                <li>Issues feature must be enabled</li>
+                            </ul>
+                        </li>
+                        <li><strong>Data Format:</strong>
+                            <ul style="padding-left: 20px; margin: 5px 0;">
+                                <li>Expected headers: Date, GIT ID, Project Name, Task Description, Status, etc.</li>
+                                <li>Task Description becomes issue title</li>
+                                <li>Other fields become issue description</li>
+                            </ul>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 6: Help and Information -->
         <div class="section">
             <div class="section-header">
                 <span>ℹ️</span>
@@ -601,6 +687,8 @@
         let currentSheetName = '';
         let fetchedData = null;
         let spreadsheetInfo = null;
+        let isGitLabAuthenticated = false;
+        let gitlabProjects = [];
 
         // Initialize drag and drop
         document.addEventListener('DOMContentLoaded', function() {
@@ -978,10 +1066,15 @@
                 currentSheetName = '';
                 fetchedData = null;
                 spreadsheetInfo = null;
+                isGitLabAuthenticated = false;
+                gitlabProjects = [];
                 
                 // Reset form fields
                 document.getElementById('jsonPaste').value = '';
                 document.getElementById('sheetUrl').value = '';
+                document.getElementById('gitlabUrl').value = '';
+                document.getElementById('gitlabToken').value = '';
+                document.getElementById('gitlabProject').innerHTML = '<option value="">Select a project...</option>';
                 
                 // Reset status
                 document.getElementById('auth-status').textContent = 'Not authenticated';
@@ -992,11 +1085,14 @@
                 document.getElementById('previewContainer').classList.add('hidden');
                 document.getElementById('downloadContainer').classList.add('hidden');
                 document.getElementById('statsContainer').classList.add('hidden');
+                document.getElementById('gitlabProjectSection').classList.add('hidden');
                 
                 // Clear results
                 document.getElementById('authResult').innerHTML = '';
                 document.getElementById('sheetConnectionResult').innerHTML = '';
                 document.getElementById('dataResult').innerHTML = '';
+                document.getElementById('gitlabAuthResult').innerHTML = '';
+                document.getElementById('gitlabResult').innerHTML = '';
                 
                 // Reset sheet selection
                 document.querySelectorAll('.sheet-card').forEach(card => {
@@ -1009,7 +1105,7 @@
         }
 
         function updateStepStatus() {
-            const steps = ['step1', 'step2', 'step3', 'step4'];
+            const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
             
             // Reset all steps
             steps.forEach(stepId => {
@@ -1029,6 +1125,12 @@
                         
                         if (fetchedData) {
                             document.getElementById('step4').classList.add('completed');
+                            
+                            if (isGitLabAuthenticated) {
+                                document.getElementById('step5').classList.add('completed');
+                            } else {
+                                document.getElementById('step5').classList.add('active');
+                            }
                         } else {
                             document.getElementById('step4').classList.add('active');
                         }
@@ -1041,6 +1143,231 @@
             } else {
                 document.getElementById('step1').classList.add('active');
             }
+        }
+
+        // GitLab Integration Functions
+        async function authenticateGitLab() {
+            const gitlabUrl = document.getElementById('gitlabUrl').value.trim();
+            const gitlabToken = document.getElementById('gitlabToken').value.trim();
+            
+            if (!gitlabUrl || !gitlabToken) {
+                showAlert('Please provide both GitLab URL and access token.', 'error');
+                return;
+            }
+
+            showLoading('gitlabAuthResult', 'Connecting to GitLab...');
+
+            try {
+                const response = await fetch('/api/gitlab/authenticate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        gitlab_url: gitlabUrl,
+                        access_token: gitlabToken
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    isGitLabAuthenticated = true;
+                    showAlert(`✅ GitLab authentication successful!<br>Connected as: ${result.user} (@${result.username})`, 'success', 'gitlabAuthResult');
+                    
+                    // Load projects
+                    await loadGitLabProjects();
+                    document.getElementById('gitlabProjectSection').classList.remove('hidden');
+                    updateStepStatus();
+                } else {
+                    showAlert(`❌ GitLab authentication failed: ${result.error}`, 'error', 'gitlabAuthResult');
+                }
+            } catch (error) {
+                showAlert(`❌ GitLab connection error: ${error.message}`, 'error', 'gitlabAuthResult');
+            }
+        }
+
+        async function loadGitLabProjects() {
+            try {
+                const response = await fetch('/api/gitlab/projects');
+                const result = await response.json();
+
+                if (response.ok) {
+                    gitlabProjects = result.projects;
+                    const projectSelect = document.getElementById('gitlabProject');
+                    projectSelect.innerHTML = '<option value="">Select a project...</option>';
+                    
+                    result.projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.id;
+                        option.textContent = `${project.name} (${project.path})`;
+                        projectSelect.appendChild(option);
+                    });
+                } else {
+                    showAlert(`❌ Failed to load projects: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`❌ Error loading projects: ${error.message}`, 'error');
+            }
+        }
+
+        async function previewGitLabIssues() {
+            if (!currentSpreadsheetId || !currentSheetName) {
+                showAlert('Please select a Google Sheet first!', 'error');
+                return;
+            }
+
+            const projectId = document.getElementById('gitlabProject').value;
+            if (!projectId) {
+                showAlert('Please select a GitLab project first!', 'error');
+                return;
+            }
+
+            showLoading('gitlabResult', 'Generating preview...');
+
+            try {
+                // Get current sheet data for preview
+                const response = await fetch(`/api/spreadsheet/${currentSpreadsheetId}/sheet/${encodeURIComponent(currentSheetName)}/data`);
+                const result = await response.json();
+
+                if (response.ok) {
+                    displayGitLabPreview(result.data);
+                } else {
+                    showAlert(`❌ Failed to get sheet data: ${result.error}`, 'error', 'gitlabResult');
+                }
+            } catch (error) {
+                showAlert(`❌ Error generating preview: ${error.message}`, 'error', 'gitlabResult');
+            }
+        }
+
+        function displayGitLabPreview(sheetData) {
+            if (!sheetData || sheetData.length < 2) {
+                showAlert('No data available for preview.', 'error', 'gitlabResult');
+                return;
+            }
+
+            const headers = sheetData[0];
+            const rows = sheetData.slice(1, 6); // Preview first 5 rows
+
+            let previewHtml = `
+                <div class="alert alert-info">
+                    <h4>🔍 Preview of GitLab Issues to be Created:</h4>
+                    <p>Showing first 5 rows. Total rows: ${sheetData.length - 1}</p>
+                </div>
+                <div class="data-preview">
+            `;
+
+            rows.forEach((row, index) => {
+                const taskDescription = row[headers.indexOf('Task Description')] || row[4] || 'No description';
+                const status = row[headers.indexOf('Status')] || row[5] || 'Unknown';
+                const projectName = row[headers.indexOf('Project Name')] || row[2] || 'Unknown';
+
+                previewHtml += `
+                    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 10px 0; background: #f9f9f9;">
+                        <h4>📋 Issue ${index + 1}: ${escapeHtml(taskDescription.substring(0, 80))}${taskDescription.length > 80 ? '...' : ''}</h4>
+                        <p><strong>Project:</strong> ${escapeHtml(projectName)}</p>
+                        <p><strong>Status:</strong> ${escapeHtml(status)}</p>
+                        <p><strong>Labels:</strong> project:${projectName.replace(/\s+/g, '-').toLowerCase()}, ${status.toLowerCase()}</p>
+                    </div>
+                `;
+            });
+
+            previewHtml += '</div>';
+            document.getElementById('gitlabResult').innerHTML = previewHtml;
+        }
+
+        async function createGitLabIssues() {
+            if (!currentSpreadsheetId || !currentSheetName) {
+                showAlert('Please select a Google Sheet first!', 'error');
+                return;
+            }
+
+            const projectId = document.getElementById('gitlabProject').value;
+            if (!projectId) {
+                showAlert('Please select a GitLab project first!', 'error');
+                return;
+            }
+
+            if (!confirm('This will create GitLab issues from your sheet data. Continue?')) {
+                return;
+            }
+
+            showLoading('gitlabResult', 'Creating GitLab issues...');
+
+            try {
+                const response = await fetch('/api/gitlab/create-issues', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        project_id: parseInt(projectId),
+                        spreadsheet_id: currentSpreadsheetId,
+                        sheet_name: currentSheetName
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    displayGitLabResults(result);
+                } else {
+                    showAlert(`❌ Failed to create issues: ${result.error}`, 'error', 'gitlabResult');
+                }
+            } catch (error) {
+                showAlert(`❌ Error creating issues: ${error.message}`, 'error', 'gitlabResult');
+            }
+        }
+
+        function displayGitLabResults(result) {
+            let resultHtml = `
+                <div class="alert alert-success">
+                    <h4>🎉 GitLab Issues Creation Complete!</h4>
+                    <p><strong>Total Processed:</strong> ${result.total_processed}</p>
+                    <p><strong>Successfully Created:</strong> ${result.successful}</p>
+                    <p><strong>Failed:</strong> ${result.failed}</p>
+                </div>
+            `;
+
+            if (result.created_issues.length > 0) {
+                resultHtml += `
+                    <div style="margin: 20px 0;">
+                        <h4>✅ Successfully Created Issues:</h4>
+                        <div class="data-preview">
+                `;
+                
+                result.created_issues.forEach(issue => {
+                    resultHtml += `
+                        <div style="border: 1px solid #28a745; border-radius: 8px; padding: 10px; margin: 5px 0; background: #d4edda;">
+                            <strong>Row ${issue.row}:</strong> ${escapeHtml(issue.title)}
+                            <br><a href="${issue.issue_url}" target="_blank">🔗 View Issue #${issue.issue_id}</a>
+                        </div>
+                    `;
+                });
+                
+                resultHtml += '</div></div>';
+            }
+
+            if (result.errors.length > 0) {
+                resultHtml += `
+                    <div style="margin: 20px 0;">
+                        <h4>❌ Failed Issues:</h4>
+                        <div class="data-preview">
+                `;
+                
+                result.errors.forEach(error => {
+                    resultHtml += `
+                        <div style="border: 1px solid #dc3545; border-radius: 8px; padding: 10px; margin: 5px 0; background: #f8d7da;">
+                            <strong>Row ${error.row}:</strong> ${escapeHtml(error.title)}
+                            <br><small>${escapeHtml(error.error)}</small>
+                        </div>
+                    `;
+                });
+                
+                resultHtml += '</div></div>';
+            }
+
+            document.getElementById('gitlabResult').innerHTML = resultHtml;
         }
 
         function extractSpreadsheetId(url) {

@@ -1,5 +1,5 @@
 """
-Flask web server with Google Sheets API integration
+Flask web server with Google Sheets API and GitLab integration
 """
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
@@ -9,6 +9,7 @@ import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import logging
+from gitlab_integration import GitLabIntegration, validate_gitlab_config, get_gitlab_setup_instructions
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -93,8 +94,9 @@ class GoogleSheetsService:
             logger.error(f"Error getting sheet data: {e}")
             raise e
 
-# Global service instance
+# Global service instances
 sheets_service = GoogleSheetsService()
+gitlab_service = None
 
 @app.route('/')
 def index():
@@ -223,13 +225,126 @@ def get_sheet_data(spreadsheet_id, sheet_name):
         logger.error(f"Error getting sheet data: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/gitlab/setup', methods=['GET'])
+def gitlab_setup():
+    """Get GitLab setup instructions"""
+    return jsonify(get_gitlab_setup_instructions())
+
+@app.route('/api/gitlab/authenticate', methods=['POST'])
+def gitlab_authenticate():
+    """Authenticate with GitLab"""
+    global gitlab_service
+    
+    try:
+        data = request.get_json()
+        gitlab_url = data.get('gitlab_url', '').strip()
+        access_token = data.get('access_token', '').strip()
+        
+        # Validate configuration
+        validation = validate_gitlab_config(gitlab_url, access_token)
+        if not validation['success']:
+            return jsonify({'error': validation['error']}), 400
+        
+        # Test connection
+        gitlab_service = GitLabIntegration(gitlab_url, access_token)
+        test_result = gitlab_service.test_connection()
+        
+        if test_result['success']:
+            return jsonify({
+                'success': True,
+                'message': 'GitLab authentication successful',
+                'user': test_result['user'],
+                'username': test_result['username']
+            })
+        else:
+            gitlab_service = None
+            return jsonify({'error': test_result['error']}), 401
+            
+    except Exception as e:
+        gitlab_service = None
+        logger.error(f"GitLab authentication error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gitlab/projects', methods=['GET'])
+def gitlab_projects():
+    """Get GitLab projects"""
+    global gitlab_service
+    
+    if not gitlab_service:
+        return jsonify({'error': 'GitLab not authenticated. Please authenticate first.'}), 401
+    
+    try:
+        result = gitlab_service.get_projects()
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+    except Exception as e:
+        logger.error(f"Error fetching GitLab projects: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gitlab/project/<int:project_id>/issues', methods=['GET'])
+def gitlab_project_issues(project_id):
+    """Get issues from GitLab project"""
+    global gitlab_service
+    
+    if not gitlab_service:
+        return jsonify({'error': 'GitLab not authenticated. Please authenticate first.'}), 401
+    
+    try:
+        state = request.args.get('state', 'opened')
+        result = gitlab_service.get_project_issues(project_id, state)
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+    except Exception as e:
+        logger.error(f"Error fetching GitLab issues: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gitlab/create-issues', methods=['POST'])
+def gitlab_create_issues():
+    """Create GitLab issues from Google Sheets data"""
+    global gitlab_service
+    
+    if not gitlab_service:
+        return jsonify({'error': 'GitLab not authenticated. Please authenticate first.'}), 401
+    
+    if not sheets_service.service:
+        return jsonify({'error': 'Google Sheets not authenticated. Please authenticate first.'}), 401
+    
+    try:
+        data = request.get_json()
+        project_id = data.get('project_id')
+        spreadsheet_id = data.get('spreadsheet_id')
+        sheet_name = data.get('sheet_name')
+        
+        if not all([project_id, spreadsheet_id, sheet_name]):
+            return jsonify({'error': 'Missing required parameters: project_id, spreadsheet_id, sheet_name'}), 400
+        
+        # Get sheet data
+        sheet_data = sheets_service.get_sheet_data(spreadsheet_id, sheet_name)
+        if not sheet_data:
+            return jsonify({'error': 'No data found in the specified sheet'}), 404
+        
+        # Create issues
+        result = gitlab_service.create_issues_from_sheet(project_id, sheet_data)
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error creating GitLab issues: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'service': 'Google Sheets API Server',
-        'authenticated': sheets_service.service is not None
+        'service': 'Google Sheets API Server with GitLab Integration',
+        'authenticated': {
+            'google_sheets': sheets_service.service is not None,
+            'gitlab': gitlab_service is not None
+        }
     })
 
 if __name__ == '__main__':
