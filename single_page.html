@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Sheets API - Complete Interface</title>
+    <title>GitLab ↔ Google Sheets Sync - Enhanced Interface</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -30,6 +32,9 @@
             color: white;
             margin-bottom: 40px;
             padding: 40px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
         }
 
         .header h1 {
@@ -41,6 +46,149 @@
         .header p {
             font-size: 1.2em;
             opacity: 0.9;
+        }
+
+        /* Enhanced Progress Steps */
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 30px auto;
+            max-width: 800px;
+            position: relative;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .progress-steps::before {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 60px;
+            right: 60px;
+            height: 3px;
+            background-color: #e9ecef;
+            z-index: 1;
+        }
+        
+        .progress-steps::after {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 60px;
+            height: 3px;
+            background-color: #007bff;
+            z-index: 1;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+        
+        .progress-steps.step-1::after { width: 0%; }
+        .progress-steps.step-2::after { width: 20%; }
+        .progress-steps.step-3::after { width: 40%; }
+        .progress-steps.step-4::after { width: 60%; }
+        .progress-steps.step-5::after { width: 80%; }
+        .progress-steps.step-6::after { width: 100%; }
+        
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+            flex: 1;
+            padding: 10px;
+        }
+        
+        .step-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+            border: 3px solid #e9ecef;
+            position: relative;
+            font-size: 1.2em;
+        }
+        
+        .step.active .step-icon {
+            background-color: #007bff;
+            border-color: #007bff;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .step.completed .step-icon {
+            background-color: #28a745;
+            border-color: #28a745;
+            color: white;
+        }
+        
+        .step.error .step-icon {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        
+        .step.completed .step-icon::after,
+        .step.error .step-icon::after {
+            content: '✓';
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #28a745;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            border: 2px solid white;
+        }
+        
+        .step.error .step-icon::after {
+            content: '✗';
+            background-color: #dc3545;
+        }
+        
+        .step-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-align: center;
+            color: #6c757d;
+            transition: color 0.3s ease;
+            margin-top: 5px;
+        }
+        
+        .step.active .step-label {
+            color: #007bff;
+            font-weight: 600;
+        }
+        
+        .step.completed .step-label {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .step.error .step-label {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
         }
 
         .section {
@@ -551,6 +699,118 @@
             border-color: #f5c6cb;
         }
 
+        /* Toast Notification System */
+        .toast-container { 
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            z-index: 1050; 
+        }
+
+        .custom-toast {
+            min-width: 300px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Enhanced File Upload Area */
+        .file-upload-area { 
+            border: 2px dashed #dee2e6; 
+            border-radius: 12px; 
+            padding: 40px; 
+            text-align: center; 
+            background-color: #f8f9fa;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .file-upload-area:hover { 
+            border-color: #007bff; 
+            background-color: #e7f3ff; 
+            transform: translateY(-2px);
+        }
+
+        .file-upload-area.dragover {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+
+        /* Enhanced Input Styling */
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 2px solid #e0e6ed;
+            padding: 12px 15px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            outline: none;
+        }
+
+        /* Enhanced Button Styling */
+        .btn {
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+
+        /* Configuration Output Styling */
+        .config-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 1.5rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* Loading Animation */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Enhanced Responsive Design */
         @media (max-width: 768px) {
             .field-mapping {
                 grid-template-columns: 1fr;
@@ -563,38 +823,85 @@
             .preview-grid {
                 grid-template-columns: 1fr;
             }
+
+            .progress-steps {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .progress-steps::before,
+            .progress-steps::after {
+                display: none;
+            }
+
+            .step {
+                flex-direction: row;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .step-icon {
+                margin-bottom: 0;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .container {
+                padding: 10px;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Toast Container -->
+    <div class="toast-container"></div>
+
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🚀 Google Sheets API</h1>
-            <p>Complete Interface for Sheet Data Management</p>
+            <h1><i class="fas fa-sync-alt"></i> GitLab ↔ Google Sheets Sync</h1>
+            <p>Enhanced Interface for Sheet Data Management & Issue Creation</p>
         </div>
 
-        <!-- Progress Steps -->
-        <div class="step-indicator">
+        <!-- Enhanced Progress Steps -->
+        <div class="progress-steps step-1" id="progressSteps">
             <div class="step" id="step1">
-                <span>📤</span>
-                <span>Upload Credentials</span>
+                <div class="step-icon">
+                    <i class="fas fa-upload"></i>
+                </div>
+                <div class="step-label">Upload JSON</div>
             </div>
             <div class="step" id="step2">
-                <span>🔗</span>
-                <span>Connect Sheet</span>
+                <div class="step-icon">
+                    <i class="fas fa-table"></i>
+                </div>
+                <div class="step-label">Select Sheet</div>
             </div>
             <div class="step" id="step3">
-                <span>📊</span>
-                <span>Select Data</span>
+                <div class="step-icon">
+                    <i class="fab fa-gitlab"></i>
+                </div>
+                <div class="step-label">GitLab Setup</div>
             </div>
             <div class="step" id="step4">
-                <span>💾</span>
-                <span>Download</span>
+                <div class="step-icon">
+                    <i class="fas fa-cogs"></i>
+                </div>
+                <div class="step-label">Configure</div>
             </div>
             <div class="step" id="step5">
-                <span>🦊</span>
-                <span>GitLab (Optional)</span>
+                <div class="step-icon">
+                    <i class="fas fa-eye"></i>
+                </div>
+                <div class="step-label">Preview</div>
+            </div>
+            <div class="step" id="step6">
+                <div class="step-icon">
+                    <i class="fas fa-rocket"></i>
+                </div>
+                <div class="step-label">Create Issues</div>
             </div>
         </div>
 
@@ -609,22 +916,22 @@
                     <strong>Status:</strong> <span id="auth-status">Not authenticated</span>
                 </div>
 
-                <div class="upload-area" id="uploadArea">
-                    <h3>📁 Drag & Drop JSON File or Click to Browse</h3>
+                <div class="file-upload-area" id="uploadArea">
+                    <h3><i class="fas fa-cloud-upload-alt"></i> Drag & Drop JSON File or Click to Browse</h3>
                     <p>Upload your Google Sheets API service account credentials</p>
                     <input type="file" id="fileInput" class="file-input" accept=".json">
-                    <button class="btn" onclick="document.getElementById('fileInput').click()">
-                        📂 Choose File
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-folder-open"></i> Choose File
                     </button>
                 </div>
 
-                <div class="input-group">
-                    <label for="jsonPaste">Or Paste JSON Content:</label>
-                    <textarea id="jsonPaste" class="textarea-json" placeholder="Paste your credentials.json content here..."></textarea>
+                <div class="input-group mb-3">
+                    <label for="jsonPaste" class="form-label">Or Paste JSON Content:</label>
+                    <textarea id="jsonPaste" class="form-control textarea-json" placeholder="Paste your credentials.json content here..." rows="4"></textarea>
                 </div>
 
-                <button class="btn" onclick="authenticateCredentials()">
-                    🔐 Authenticate
+                <button class="btn btn-success" onclick="authenticateCredentials()">
+                    <i class="fas fa-key"></i> Authenticate
                 </button>
 
                 <div id="authResult"></div>
@@ -769,28 +1076,31 @@
                     <h4>📋 Select GitLab Project:</h4>
                     <div class="input-group">
                         <label for="gitlabProject">Choose Project:</label>
-                        <select id="gitlabProject">
+                        <select id="gitlabProject" onchange="onProjectChange()">
                             <option value="">Select a project...</option>
                         </select>
                     </div>
 
+                    <!-- Smart Mapping Section - Always Visible -->
+                    <div class="section-card" style="background: #e8f5e8; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                        <h4><i class="fas fa-magic"></i> Smart Column Mapping</h4>
+                        <p>Automatically detect and map your sheet columns to GitLab issue fields</p>
+                        <button class="btn btn-primary" onclick="analyzeSheetColumns()">
+                            <i class="fas fa-search"></i> Analyze Sheet Columns
+                        </button>
+                    </div>
+
+                    <div id="columnAnalysis" class="hidden">
+                        <h4>📊 Column Analysis & Field Mapping:</h4>
+                        <div id="fieldMapping" class="field-mapping"></div>
+                    </div>
+
                     <div class="toggle-section" onclick="toggleAdvancedOptions()">
-                        <h4>🔧 Smart Field Mapping & Filtering</h4>
-                        <p>Auto-detect sheet columns and customize GitLab field mapping</p>
+                        <h4>🔧 Advanced Options & Filtering</h4>
+                        <p>Configure additional options for issue creation</p>
                     </div>
 
                     <div id="advancedOptions" class="advanced-options hidden">
-                        <div class="input-group">
-                            <button class="btn" onclick="analyzeSheetColumns()">
-                                🔍 Analyze Sheet Columns
-                            </button>
-                        </div>
-
-                        <div id="columnAnalysis" class="hidden">
-                            <h4>📊 Column Analysis & Field Mapping:</h4>
-                            <div id="fieldMapping" class="field-mapping"></div>
-                        </div>
-
                         <div class="toggle-section" onclick="toggleDateFilter()">
                             <h4>📅 Date Range Filter (Optional)</h4>
                             <p>Filter data by date range before creating issues - Click to expand</p>
@@ -947,7 +1257,179 @@
         </div>
     </div>
 
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script>
+        // Enhanced Toast Notification System
+        function showToast(message, type = 'info', duration = 5000) {
+            const toastContainer = document.querySelector('.toast-container');
+            const toastId = 'toast-' + Date.now();
+            
+            const iconMap = {
+                'success': 'fas fa-check-circle',
+                'error': 'fas fa-exclamation-circle', 
+                'warning': 'fas fa-exclamation-triangle',
+                'info': 'fas fa-info-circle',
+                'danger': 'fas fa-times-circle'
+            };
+
+            const colorMap = {
+                'success': 'success',
+                'error': 'danger',
+                'warning': 'warning', 
+                'info': 'primary',
+                'danger': 'danger'
+            };
+
+            const toast = document.createElement('div');
+            toast.id = toastId;
+            toast.className = `toast custom-toast align-items-center text-white bg-${colorMap[type]} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="${iconMap[type]}"></i> ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast, {
+                autohide: duration > 0,
+                delay: duration
+            });
+            
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                toast.remove();
+            });
+
+            return toastId;
+        }
+
+        // Enhanced Progress Step Management
+        function updateProgressStep(stepNumber) {
+            const progressSteps = document.getElementById('progressSteps');
+            const steps = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'];
+            
+            // Reset all steps
+            steps.forEach(stepId => {
+                const step = document.getElementById(stepId);
+                step.classList.remove('active', 'completed', 'error');
+            });
+            
+            // Update progress line
+            progressSteps.className = `progress-steps step-${stepNumber}`;
+            
+            // Mark completed steps
+            for (let i = 1; i < stepNumber; i++) {
+                document.getElementById(`step${i}`).classList.add('completed');
+            }
+            
+            // Mark current step as active
+            if (stepNumber <= steps.length) {
+                document.getElementById(`step${stepNumber}`).classList.add('active');
+            }
+        }
+
+        function markStepAsError(stepNumber) {
+            document.getElementById(`step${stepNumber}`).classList.remove('active');
+            document.getElementById(`step${stepNumber}`).classList.add('error');
+        }
+
+        function markStepAsCompleted(stepNumber) {
+            document.getElementById(`step${stepNumber}`).classList.remove('active');
+            document.getElementById(`step${stepNumber}`).classList.add('completed');
+        }
+
+        // Enhanced File Upload with Drag & Drop
+        function setupFileUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+            });
+
+            uploadArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    handleFileUpload(files[0]);
+                }
+            }
+        }
+
+        function handleFileUpload(file) {
+            if (file && file.type === 'application/json') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const jsonData = JSON.parse(e.target.result);
+                        document.getElementById('jsonPaste').value = JSON.stringify(jsonData, null, 2);
+                        showToast('JSON file loaded successfully!', 'success');
+                    } catch (error) {
+                        showToast('Error parsing JSON file: ' + error.message, 'error');
+                    }
+                };
+                reader.readAsText(file);
+            } else {
+                showToast('Please upload a valid JSON file', 'warning');
+            }
+        }
+
+        // Enhanced Loading States
+        function showLoadingState(elementId, message = 'Loading...') {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <div class="loading-spinner me-2"></div>
+                        <span>${message}</span>
+                    </div>
+                `;
+            }
+        }
+
+        function hideLoadingState(elementId, content = '') {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.innerHTML = content;
+            }
+        }
+
+        // Initialize enhanced features
+        document.addEventListener('DOMContentLoaded', function() {
+            setupFileUpload();
+            updateProgressStep(1); // Start at step 1
+            
+            // Setup file input change handler
+            document.getElementById('fileInput').addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+        });
+
         // Global variables
         let isAuthenticated = false;
         let currentSpreadsheetId = '';
@@ -1094,14 +1576,14 @@
             const jsonContent = document.getElementById('jsonPaste').value;
             
             if (!jsonContent.trim()) {
-                showAlert('Please provide credentials JSON content.', 'error');
+                showToast('Please provide credentials JSON content.', 'warning');
                 return;
             }
 
             try {
                 const credentials = JSON.parse(jsonContent);
                 
-                showLoading('authResult', 'Authenticating...');
+                showLoadingState('authResult', 'Authenticating with Google Sheets API...');
 
                 const response = await fetch('/api/authenticate', {
                     method: 'POST',
@@ -1116,38 +1598,60 @@
                 if (response.ok) {
                     isAuthenticated = true;
                     document.getElementById('auth-status').textContent = `Authenticated as ${result.service_account}`;
-                    showAlert(`✅ Authentication successful!<br>Service Account: ${result.service_account}<br>Project: ${result.project_id}`, 'success', 'authResult');
-                    updateStepStatus();
+                    
+                    hideLoadingState('authResult', `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> Authentication successful!<br>
+                            <strong>Service Account:</strong> ${result.service_account}<br>
+                            <strong>Project:</strong> ${result.project_id}
+                        </div>
+                    `);
+                    
+                    showToast('Google Sheets authentication successful!', 'success');
+                    markStepAsCompleted(1);
+                    updateProgressStep(2);
                 } else {
-                    showAlert(`❌ Authentication failed: ${result.error}`, 'error', 'authResult');
+                    hideLoadingState('authResult', `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i> Authentication failed: ${result.error}
+                        </div>
+                    `);
+                    showToast('Authentication failed: ' + result.error, 'error');
+                    markStepAsError(1);
                 }
             } catch (error) {
-                showAlert(`❌ Invalid JSON format: ${error.message}`, 'error', 'authResult');
+                hideLoadingState('authResult', `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i> Invalid JSON format: ${error.message}
+                    </div>
+                `);
+                showToast('Invalid JSON format: ' + error.message, 'error');
+                markStepAsError(1);
             }
         }
 
         async function connectToSheet() {
             if (!isAuthenticated) {
-                showAlert('Please authenticate first!', 'error');
+                showToast('Please authenticate first!', 'warning');
                 return;
             }
 
             const sheetUrl = document.getElementById('sheetUrl').value.trim();
             if (!sheetUrl) {
-                showAlert('Please enter a Google Sheets URL or ID.', 'error');
+                showToast('Please enter a Google Sheets URL or ID.', 'warning');
                 return;
             }
 
             // Extract spreadsheet ID from URL
             const spreadsheetId = extractSpreadsheetId(sheetUrl);
             if (!spreadsheetId) {
-                showAlert('Invalid Google Sheets URL or ID format.', 'error');
+                showToast('Invalid Google Sheets URL or ID format.', 'error');
                 return;
             }
 
             currentSpreadsheetId = spreadsheetId;
             
-            showLoading('sheetConnectionResult', 'Connecting to spreadsheet...');
+            showLoadingState('sheetConnectionResult', 'Connecting to spreadsheet...');
 
             try {
                 const response = await fetch(`/api/spreadsheet/${spreadsheetId}/info`);
@@ -1156,13 +1660,33 @@
                 if (response.ok) {
                     spreadsheetInfo = result;
                     displaySpreadsheetInfo(result);
-                    showAlert(`✅ Connected to: ${result.title}`, 'success', 'sheetConnectionResult');
-                    updateStepStatus();
+                    
+                    hideLoadingState('sheetConnectionResult', `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> Connected to: ${result.title}
+                        </div>
+                    `);
+                    
+                    showToast(`Connected to spreadsheet: ${result.title}`, 'success');
+                    markStepAsCompleted(2);
+                    updateProgressStep(3);
                 } else {
-                    showAlert(`❌ Connection failed: ${result.error}`, 'error', 'sheetConnectionResult');
+                    hideLoadingState('sheetConnectionResult', `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i> Connection failed: ${result.error}
+                        </div>
+                    `);
+                    showToast('Connection failed: ' + result.error, 'error');
+                    markStepAsError(2);
                 }
             } catch (error) {
-                showAlert(`❌ Connection error: ${error.message}`, 'error', 'sheetConnectionResult');
+                hideLoadingState('sheetConnectionResult', `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i> Connection error: ${error.message}
+                    </div>
+                `);
+                showToast('Connection error: ' + error.message, 'error');
+                markStepAsError(2);
             }
         }
 
@@ -1604,11 +2128,11 @@
 
         async function analyzeSheetColumns() {
             if (!currentSpreadsheetId || !currentSheetName) {
-                showAlert('Please select a Google Sheet first!', 'error');
+                showToast('Please select a Google Sheet first!', 'warning');
                 return;
             }
 
-            showLoading('columnAnalysis', 'Analyzing sheet columns...');
+            showLoadingState('columnAnalysis', 'Analyzing sheet columns and detecting field mappings...');
 
             try {
                 const response = await fetch('/api/gitlab/analyze-columns', {
@@ -1632,11 +2156,25 @@
                     
                     // Populate date column selector
                     populateDateColumnSelector(result.columns);
+                    
+                    showToast(`Successfully analyzed ${result.columns.length} columns with ${Object.keys(result.suggestions).length} auto-mapped fields!`, 'success');
+                    markStepAsCompleted(4);
+                    updateProgressStep(5);
                 } else {
-                    showAlert(`❌ Failed to analyze columns: ${result.error}`, 'error');
+                    hideLoadingState('columnAnalysis', `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i> Failed to analyze columns: ${result.error}
+                        </div>
+                    `);
+                    showToast('Failed to analyze columns: ' + result.error, 'error');
                 }
             } catch (error) {
-                showAlert(`❌ Error analyzing columns: ${error.message}`, 'error');
+                hideLoadingState('columnAnalysis', `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i> Error analyzing columns: ${error.message}
+                    </div>
+                `);
+                showToast('Error analyzing columns: ' + error.message, 'error');
             }
         }
 
@@ -1644,30 +2182,48 @@
             const container = document.getElementById('fieldMapping');
             
             const gitlabFields = [
-                { key: 'title', label: 'Issue Title', required: true },
-                { key: 'assignee', label: 'Assignee', required: false },
-                { key: 'status', label: 'Status/State', required: false },
-                { key: 'priority', label: 'Priority', required: false },
-                { key: 'labels', label: 'Labels', required: false },
-                { key: 'due_date', label: 'Due Date', required: false },
-                { key: 'start_date', label: 'Start Date', required: false },
-                { key: 'estimation', label: 'Time Estimation', required: false },
-                { key: 'project', label: 'Project Name', required: false },
-                { key: 'milestone', label: 'Milestone', required: false }
+                { key: 'title', label: 'Issue Title', required: true, icon: '📝' },
+                { key: 'assignee', label: 'Assignee', required: false, icon: '👤' },
+                { key: 'status', label: 'Status/State', required: false, icon: '📊' },
+                { key: 'priority', label: 'Priority', required: false, icon: '⚡' },
+                { key: 'labels', label: 'Labels', required: false, icon: '🏷️' },
+                { key: 'due_date', label: 'Due Date', required: false, icon: '📅' },
+                { key: 'start_date', label: 'Start Date', required: false, icon: '🗓️' },
+                { key: 'estimation', label: 'Time Estimation', required: false, icon: '⏱️' },
+                { key: 'project', label: 'Project Name', required: false, icon: '📁' },
+                { key: 'milestone', label: 'Milestone', required: false, icon: '🎯' }
             ];
 
-            let mappingHtml = '';
+            // Add a summary header
+            const autoMapped = Object.keys(analysis.suggestions).length;
+            const totalFields = gitlabFields.length;
+            
+            let mappingHtml = `
+                <div class="alert alert-info mb-3">
+                    <h5><i class="fas fa-robot"></i> Smart Mapping Results</h5>
+                    <p><strong>Auto-detected:</strong> ${autoMapped}/${totalFields} fields</p>
+                    <p><strong>Sheet Columns:</strong> ${analysis.columns.length} total</p>
+                    <p><strong>Confidence:</strong> Based on column names and patterns</p>
+                </div>
+                <div class="row">
+            `;
 
             gitlabFields.forEach(field => {
                 const suggestion = analysis.suggestions[field.key];
                 const selectedIndex = suggestion ? suggestion.index : '';
                 const confidence = suggestion ? suggestion.confidence : 0;
+                const isRequired = field.required;
 
                 mappingHtml += `
-                    <div class="field-mapping-item">
-                        <label>${field.label} ${field.required ? '(Required)' : '(Optional)'}</label>
-                        <select id="field_${field.key}" onchange="updateFieldMapping('${field.key}', this.value)">
-                            <option value="">-- Select Column --</option>
+                    <div class="col-md-6 mb-3">
+                        <div class="card ${isRequired ? 'border-warning' : ''}">
+                            <div class="card-body">
+                                <label class="form-label">
+                                    ${field.icon} ${field.label} 
+                                    ${isRequired ? '<span class="badge bg-warning text-dark">Required</span>' : '<span class="badge bg-secondary">Optional</span>'}
+                                </label>
+                                <select class="form-select" id="field_${field.key}" onchange="updateFieldMapping('${field.key}', this.value)">
+                                    <option value="">-- Select Column --</option>
                 `;
 
                 analysis.columns.forEach((col, idx) => {
@@ -1678,16 +2234,33 @@
                 mappingHtml += `</select>`;
 
                 if (suggestion) {
-                    const confidenceClass = confidence >= 80 ? 'high' : confidence >= 50 ? 'medium' : 'low';
+                    const confidenceClass = confidence >= 80 ? 'success' : confidence >= 50 ? 'warning' : 'danger';
                     mappingHtml += `
-                        <div class="mapping-suggestion ${confidenceClass}-confidence">
-                            Confidence: ${confidence}% - ${suggestion.header}
+                        <div class="mt-2">
+                            <span class="badge bg-${confidenceClass}">
+                                <i class="fas fa-robot"></i> Auto-mapped: ${confidence}% confidence
+                            </span>
+                            <small class="text-muted d-block">Column: "${suggestion.header}"</small>
+                        </div>
+                    `;
+                } else {
+                    mappingHtml += `
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i> No automatic mapping found - select manually
+                            </small>
                         </div>
                     `;
                 }
 
-                mappingHtml += '</div>';
+                mappingHtml += `
+                            </div>
+                        </div>
+                    </div>
+                `;
             });
+
+            mappingHtml += '</div>';
 
             container.innerHTML = mappingHtml;
 

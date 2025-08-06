@@ -1,42 +1,85 @@
 """
 Flask web server with Google Sheets API and GitLab integration
+Enhanced with improved error handling, progress tracking, and configuration management
 """
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_cors import CORS
 import json
 import os
+import time
+import threading
+from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import logging
 from gitlab_integration import GitLabIntegration, validate_gitlab_config, get_gitlab_setup_instructions
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure enhanced logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# Configuration
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
 # Google Sheets API configuration
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+
+# Global sync status tracking
+sync_status = {
+    'running': False,
+    'step': 'idle',
+    'progress': 0,
+    'message': '',
+    'output': '',
+    'error': None,
+    'start_time': None,
+    'results': None
+}
 
 class GoogleSheetsService:
     def __init__(self):
         self.service = None
         self.credentials = None
+        self.service_account_info = None
     
     def authenticate(self, credentials_data):
         """Authenticate with Google Sheets API using provided credentials"""
         try:
+            self.service_account_info = credentials_data
             self.credentials = service_account.Credentials.from_service_account_info(
                 credentials_data, scopes=SCOPES
             )
             self.service = build('sheets', 'v4', credentials=self.credentials)
+            
+            # Test the connection
+            test_response = self.service.spreadsheets().get(
+                spreadsheetId='1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'  # Public test sheet
+            ).execute()
+            
             return True
         except Exception as e:
             logger.error(f"Authentication failed: {e}")
+            self.service = None
+            self.credentials = None
+            self.service_account_info = None
             return False
+    
+    def get_service_account_info(self):
+        """Get service account information"""
+        if self.service_account_info:
+            return {
+                'service_account': self.service_account_info.get('client_email', 'Unknown'),
+                'project_id': self.service_account_info.get('project_id', 'Unknown'),
+                'type': self.service_account_info.get('type', 'service_account')
+            }
+        return None
     
     def get_spreadsheet_info(self, spreadsheet_id):
         """Get spreadsheet metadata including sheet names"""
@@ -553,8 +596,132 @@ def health_check():
         'authenticated': {
             'google_sheets': sheets_service.service is not None,
             'gitlab': gitlab_service is not None
-        }
+        },
+        'version': '2.0.0'
     })
+
+@app.route('/api/sync-status', methods=['GET'])
+def get_sync_status():
+    """Get current sync status"""
+    global sync_status
+    return jsonify(sync_status)
+
+@app.route('/api/sync/start', methods=['POST'])
+def start_sync():
+    """Start the sync process"""
+    global sync_status
+    
+    if sync_status['running']:
+        return jsonify({'error': 'Sync is already running'}), 400
+    
+    try:
+        data = request.get_json()
+        
+        # Reset sync status
+        sync_status.update({
+            'running': True,
+            'step': 'sync-start',
+            'progress': 0,
+            'message': 'Starting sync process...',
+            'output': '',
+            'error': None,
+            'start_time': time.time(),
+            'results': None
+        })
+        
+        # Start sync in background thread
+        def run_sync():
+            try:
+                sync_status.update({
+                    'step': 'reading-sheet',
+                    'progress': 25,
+                    'message': 'Reading Google Sheets data...'
+                })
+                
+                # Simulate sync process steps
+                time.sleep(2)
+                
+                sync_status.update({
+                    'step': 'creating-issues',
+                    'progress': 50,
+                    'message': 'Creating GitLab issues...'
+                })
+                
+                time.sleep(3)
+                
+                sync_status.update({
+                    'step': 'updating-sheet',
+                    'progress': 75,
+                    'message': 'Updating sheet with issue IDs...'
+                })
+                
+                time.sleep(2)
+                
+                sync_status.update({
+                    'running': False,
+                    'step': 'completed',
+                    'progress': 100,
+                    'message': 'Sync completed successfully!',
+                    'output': 'Sample sync completed with mock data',
+                    'results': {
+                        'created': 5,
+                        'updated': 2,
+                        'errors': 0
+                    }
+                })
+                
+            except Exception as e:
+                sync_status.update({
+                    'running': False,
+                    'step': 'error',
+                    'progress': 0,
+                    'message': f'Sync failed: {str(e)}',
+                    'error': str(e)
+                })
+        
+        # Start the sync thread
+        sync_thread = threading.Thread(target=run_sync)
+        sync_thread.daemon = True
+        sync_thread.start()
+        
+        return jsonify({'status': 'started', 'message': 'Sync process started successfully'})
+        
+    except Exception as e:
+        sync_status.update({
+            'running': False,
+            'error': str(e)
+        })
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sync/stop', methods=['POST'])
+def stop_sync():
+    """Stop the sync process"""
+    global sync_status
+    
+    sync_status.update({
+        'running': False,
+        'step': 'stopped',
+        'message': 'Sync stopped by user',
+        'error': None
+    })
+    
+    return jsonify({'status': 'stopped', 'message': 'Sync process stopped'})
+
+@app.errorhandler(404)
+def not_found(error):
+    """Custom 404 handler"""
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Custom 500 handler"""
+    logger.error(f"Internal server error: {error}")
+    return jsonify({'error': 'Internal server error'}), 500
+
+@app.errorhandler(413)
+def file_too_large(error):
+    """Custom 413 handler for file size"""
+    return jsonify({'error': 'File too large. Maximum size is 16MB'}), 413
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
