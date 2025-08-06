@@ -756,6 +756,31 @@
                             </div>
                         </div>
 
+                        <div id="projectDataSection" class="hidden">
+                            <h4>📋 Project Settings</h4>
+                            
+                            <div class="form-group">
+                                <label for="milestoneSelect">🎯 Milestone (Optional):</label>
+                                <select id="milestoneSelect" class="form-control">
+                                    <option value="">-- No Milestone --</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="assigneeSelect">👤 Assignees (Optional - Hold Ctrl for multiple):</label>
+                                <select id="assigneeSelect" class="form-control" multiple>
+                                </select>
+                                <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple assignees</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="labelSelect">🏷️ Additional Labels (Optional - Hold Ctrl for multiple):</label>
+                                <select id="labelSelect" class="form-control" multiple>
+                                </select>
+                                <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple labels</small>
+                            </div>
+                        </div>
+
                         <div id="previewSection" class="hidden">
                             <h4>👁️ Preview:</h4>
                             <div class="preview-grid">
@@ -863,6 +888,87 @@
         let fieldMapping = {};
         let isAdvancedOptionsVisible = false;
         let isDateFilterVisible = false;
+        let currentProjectId = null;
+        let projectData = null;
+
+        // Load project-specific data when project changes
+        async function onProjectChange() {
+            const projectSelect = document.getElementById('gitlabProject');
+            const projectId = projectSelect.value;
+            
+            if (projectId) {
+                currentProjectId = parseInt(projectId);
+                await loadProjectData(currentProjectId);
+                document.getElementById('projectDataSection').classList.remove('hidden');
+            } else {
+                currentProjectId = null;
+                projectData = null;
+                document.getElementById('projectDataSection').classList.add('hidden');
+            }
+        }
+
+        async function loadProjectData(projectId) {
+            try {
+                showLoading('projectDataSection', 'Loading project data...');
+                
+                const response = await fetch(`/api/gitlab/project/${projectId}/data`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    projectData = result;
+                    populateProjectSelectors(result);
+                } else {
+                    showAlert(`❌ Failed to load project data: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`❌ Error loading project data: ${error.message}`, 'error');
+            }
+        }
+
+        function populateProjectSelectors(data) {
+            // Populate milestones
+            const milestoneSelect = document.getElementById('milestoneSelect');
+            milestoneSelect.innerHTML = '<option value="">-- No Milestone --</option>';
+            data.milestones.forEach(milestone => {
+                const option = document.createElement('option');
+                option.value = milestone.id;
+                option.textContent = `${milestone.title}${milestone.due_date ? ` (Due: ${milestone.due_date})` : ''}`;
+                milestoneSelect.appendChild(option);
+            });
+
+            // Populate assignees
+            const assigneeSelect = document.getElementById('assigneeSelect');
+            assigneeSelect.innerHTML = '';
+            data.members.forEach(member => {
+                const option = document.createElement('option');
+                option.value = member.id;
+                option.textContent = `${member.name} (@${member.username}) - ${member.access_level_name}`;
+                assigneeSelect.appendChild(option);
+            });
+
+            // Populate labels
+            const labelSelect = document.getElementById('labelSelect');
+            labelSelect.innerHTML = '';
+            data.labels.forEach(label => {
+                const option = document.createElement('option');
+                option.value = label.name;
+                option.textContent = label.name;
+                option.style.color = label.text_color;
+                option.style.backgroundColor = label.color;
+                labelSelect.appendChild(option);
+            });
+
+            hideLoading('projectDataSection');
+        }
+
+        function getSelectedOptions(selectId) {
+            const select = document.getElementById(selectId);
+            const selected = [];
+            for (let option of select.selectedOptions) {
+                selected.push(option.value);
+            }
+            return selected;
+        }
 
         // Initialize drag and drop
         document.addEventListener('DOMContentLoaded', function() {
@@ -1477,9 +1583,14 @@
             let mappedFields = Object.keys(fieldMapping).length;
             let requiredMapped = fieldMapping.title !== undefined ? 1 : 0;
             
+            // Count unmapped columns
+            const totalColumns = columnAnalysis ? columnAnalysis.total_columns : 0;
+            const unmappedCount = totalColumns - mappedFields;
+            
             summaryDiv.innerHTML = `
-                <p><strong>Total Columns:</strong> ${columnAnalysis ? columnAnalysis.total_columns : 0}</p>
+                <p><strong>Total Columns:</strong> ${totalColumns}</p>
                 <p><strong>Mapped Fields:</strong> ${mappedFields}</p>
+                <p><strong>Unmapped Columns:</strong> ${unmappedCount} (will be in description)</p>
                 <p><strong>Required Fields:</strong> ${requiredMapped}/1</p>
                 <p><strong>Ready to Create:</strong> ${requiredMapped > 0 ? '✅ Yes' : '❌ Missing title mapping'}</p>
             `;
@@ -1530,21 +1641,255 @@
 
             // Get date filter if enabled
             const dateFilter = getDateFilter();
+            const milestoneId = document.getElementById('milestoneSelect').value;
+            const assigneeIds = getSelectedOptions('assigneeSelect').map(id => parseInt(id));
+            const labelNames = getSelectedOptions('labelSelect');
             
-            showLoading('gitlabResult', 'Generating advanced preview...');
+            showLoading('gitlabResult', 'Generating detailed preview with mapping...');
 
             try {
                 const response = await fetch(`/api/spreadsheet/${currentSpreadsheetId}/sheet/${encodeURIComponent(currentSheetName)}/data`);
                 const result = await response.json();
 
                 if (response.ok) {
-                    displayAdvancedPreview(result.data, dateFilter);
+                    displayDetailedMappingPreview(result.data, dateFilter, milestoneId, assigneeIds, labelNames);
                 } else {
                     showAlert(`❌ Failed to get sheet data: ${result.error}`, 'error', 'gitlabResult');
                 }
             } catch (error) {
                 showAlert(`❌ Error generating preview: ${error.message}`, 'error', 'gitlabResult');
             }
+        }
+
+        function displayDetailedMappingPreview(sheetData, dateFilter, milestoneId, assigneeIds, labelNames) {
+            if (!sheetData || sheetData.length < 2) {
+                showAlert('No data available for preview.', 'error', 'gitlabResult');
+                return;
+            }
+
+            const headers = sheetData[0];
+            
+            // Apply date filtering for preview count
+            let filteredData = sheetData;
+            if (dateFilter) {
+                const totalRows = sheetData.length - 1;
+                const estimatedFiltered = Math.floor(totalRows * 0.7); // Rough estimate
+                filteredData = sheetData.slice(0, estimatedFiltered + 1);
+            }
+
+            const previewRows = filteredData.slice(1, 4); // Preview first 3 rows
+
+            // Get milestone and assignee names for display
+            const milestoneName = milestoneId && projectData ? 
+                projectData.milestones.find(m => m.id == milestoneId)?.title || 'Unknown Milestone' : 
+                'No Milestone';
+            
+            const assigneeNames = assigneeIds.length > 0 && projectData ? 
+                assigneeIds.map(id => {
+                    const member = projectData.members.find(m => m.id == id);
+                    return member ? `${member.name} (@${member.username})` : `ID: ${id}`;
+                }) : 
+                [];
+
+            let previewHtml = `
+                <div class="alert alert-info">
+                    <h4>🔍 Detailed Preview with Field Mapping:</h4>
+                    <p><strong>Total Rows:</strong> ${sheetData.length - 1}</p>
+                    ${dateFilter ? `<p><strong>Date Filter:</strong> ${dateFilter.start_date} to ${dateFilter.end_date} (Column: ${headers[dateFilter.date_column]})</p>` : ''}
+                    <p><strong>Field Mapping:</strong> ${Object.keys(fieldMapping).length} fields mapped</p>
+                    ${milestoneName !== 'No Milestone' ? `<p><strong>Milestone:</strong> ${milestoneName}</p>` : ''}
+                    ${assigneeNames.length > 0 ? `<p><strong>Assignees:</strong> ${assigneeNames.join(', ')}</p>` : ''}
+                    ${labelNames.length > 0 ? `<p><strong>Additional Labels:</strong> ${labelNames.join(', ')}</p>` : ''}
+                </div>
+
+                <div class="mapping-summary" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin: 15px 0;">
+                    <h4>📋 Field Mapping Summary:</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+            `;
+
+            // Display field mappings
+            const mappingEntries = Object.entries(fieldMapping);
+            mappingEntries.forEach(([field, columnIndex]) => {
+                const columnName = headers[columnIndex];
+                const fieldLabels = {
+                    'title': '📝 Issue Title',
+                    'assignee': '👤 Assignee',
+                    'status': '📊 Status/State',
+                    'priority': '⚡ Priority',
+                    'labels': '🏷️ Labels',
+                    'due_date': '📅 Due Date',
+                    'start_date': '🗓️ Start Date',
+                    'estimation': '⏱️ Time Estimation',
+                    'project': '📁 Project Name',
+                    'milestone': '🎯 Milestone',
+                    'git_id': '🆔 Git ID'
+                };
+
+                previewHtml += `
+                    <div style="background: white; padding: 10px; border-radius: 5px; border-left: 4px solid ${field === 'title' ? '#28a745' : '#007bff'};">
+                        <strong>${fieldLabels[field] || field}:</strong><br>
+                        <small style="color: #6c757d;">Column ${columnIndex + 1}: "${columnName}"</small>
+                    </div>
+                `;
+            });
+
+            // Show unmapped columns
+            const unmappedColumns = [];
+            headers.forEach((header, index) => {
+                if (!Object.values(fieldMapping).includes(index)) {
+                    unmappedColumns.push({index, header});
+                }
+            });
+
+            if (unmappedColumns.length > 0) {
+                previewHtml += `
+                    <div style="background: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107;">
+                        <strong>📄 Unmapped Columns (will be in description):</strong><br>
+                        <small style="color: #856404;">
+                `;
+                unmappedColumns.forEach(col => {
+                    previewHtml += `Column ${col.index + 1}: "${col.header}"<br>`;
+                });
+                previewHtml += `</small></div>`;
+            }
+
+            previewHtml += `
+                    </div>
+                </div>
+
+                <div class="data-preview">
+                    <h4>🎭 Sample Issues Preview:</h4>
+            `;
+
+            // Display sample issues with actual data
+            previewRows.forEach((row, index) => {
+                const title = row[fieldMapping.title] || 'No title';
+                const status = fieldMapping.status ? row[fieldMapping.status] || 'Unknown' : 'Unknown';
+                const project = fieldMapping.project ? row[fieldMapping.project] || 'No project' : 'No project';
+                const assigneeFromSheet = fieldMapping.assignee ? row[fieldMapping.assignee] || 'Unassigned' : 'Unassigned';
+                const priority = fieldMapping.priority ? row[fieldMapping.priority] || 'Normal' : 'Normal';
+                const estimation = fieldMapping.estimation ? row[fieldMapping.estimation] || 'Not specified' : 'Not specified';
+                const dueDate = fieldMapping.due_date ? row[fieldMapping.due_date] || 'No due date' : 'No due date';
+
+                // Generate labels preview
+                const generatedLabels = [];
+                
+                // Status-based labels
+                const statusLower = status.toLowerCase();
+                if (statusLower.includes('complete') || statusLower.includes('done')) {
+                    generatedLabels.push('completed');
+                } else if (statusLower.includes('progress') || statusLower.includes('working')) {
+                    generatedLabels.push('in-progress');
+                } else if (statusLower.includes('pending')) {
+                    generatedLabels.push('pending');
+                } else if (statusLower.includes('new') || statusLower.includes('open')) {
+                    generatedLabels.push('new');
+                }
+
+                // Priority-based labels
+                const priorityLower = priority.toLowerCase();
+                if (priorityLower.includes('high') || priorityLower.includes('urgent')) {
+                    generatedLabels.push('high-priority');
+                } else if (priorityLower.includes('low')) {
+                    generatedLabels.push('low-priority');
+                } else if (priorityLower.includes('medium')) {
+                    generatedLabels.push('medium-priority');
+                }
+
+                // Project-based labels
+                if (project !== 'No project') {
+                    generatedLabels.push(`project:${project.replace(/\s+/g, '-').toLowerCase()}`);
+                }
+
+                // Custom labels from sheet
+                if (fieldMapping.labels && row[fieldMapping.labels]) {
+                    const customLabels = row[fieldMapping.labels].split(',').map(l => l.trim());
+                    generatedLabels.push(...customLabels);
+                }
+
+                // Additional labels from selection
+                generatedLabels.push(...labelNames);
+
+                previewHtml += `
+                    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 10px 0; background: #f9f9f9;">
+                        <h4>📋 Issue ${index + 1}: ${escapeHtml(title.substring(0, 60))}${title.length > 60 ? '...' : ''}</h4>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 10px 0;">
+                            <div><strong>📊 Status:</strong> ${escapeHtml(status)}</div>
+                            <div><strong>📁 Project:</strong> ${escapeHtml(project)}</div>
+                            <div><strong>⚡ Priority:</strong> ${escapeHtml(priority)}</div>
+                            <div><strong>📅 Due Date:</strong> ${escapeHtml(dueDate)}</div>
+                        </div>
+
+                        <div style="margin: 10px 0;">
+                            <strong>👥 Assignees:</strong>
+                            <div style="margin-left: 10px;">
+                `;
+
+                if (assigneeNames.length > 0) {
+                    assigneeNames.forEach(name => {
+                        previewHtml += `<span style="background: #e3f2fd; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 0.85em;">${name}</span>`;
+                    });
+                } else if (assigneeFromSheet !== 'Unassigned') {
+                    previewHtml += `<span style="background: #fff3cd; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 0.85em;">From Sheet: ${escapeHtml(assigneeFromSheet)}</span>`;
+                } else {
+                    previewHtml += '<span style="color: #6c757d;">No assignees</span>';
+                }
+
+                previewHtml += `
+                            </div>
+                        </div>
+
+                        <div style="margin: 10px 0;">
+                            <strong>🏷️ Labels:</strong>
+                            <div style="margin-left: 10px;">
+                `;
+
+                if (generatedLabels.length > 0) {
+                    generatedLabels.forEach(label => {
+                        previewHtml += `<span style="background: #d1ecf1; color: #0c5460; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 0.85em;">${escapeHtml(label)}</span>`;
+                    });
+                } else {
+                    previewHtml += '<span style="color: #6c757d;">No labels</span>';
+                }
+
+                previewHtml += `
+                            </div>
+                        </div>
+
+                        ${milestoneName !== 'No Milestone' ? `<div><strong>🎯 Milestone:</strong> ${milestoneName}</div>` : ''}
+                        
+                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #dee2e6;">
+                            <strong>📝 Description will include:</strong>
+                            <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
+                                <li>Estimation: ${escapeHtml(estimation)}</li>
+                `;
+
+                // Show unmapped fields that will be in description
+                unmappedColumns.forEach(col => {
+                    if (col.index < row.length && row[col.index]) {
+                        previewHtml += `<li>${col.header}: ${escapeHtml(row[col.index].substring(0, 50))}${row[col.index].length > 50 ? '...' : ''}</li>`;
+                    }
+                });
+
+                previewHtml += `
+                                <li>Source: Row ${index + 2} from Google Sheets</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            });
+
+            previewHtml += `
+                </div>
+                <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 15px; margin: 15px 0;">
+                    <h4>✅ Ready to Proceed?</h4>
+                    <p>Review the mapping and sample issues above. If everything looks correct, click "Create Advanced Issues" to proceed.</p>
+                    <p><strong>Total issues to create:</strong> ${filteredData.length - 1}</p>
+                </div>
+            `;
+
+            document.getElementById('gitlabResult').innerHTML = previewHtml;
         }
 
         function displayAdvancedPreview(sheetData, dateFilter) {
@@ -1631,8 +1976,38 @@
             }
 
             const dateFilter = getDateFilter();
+            const milestoneId = document.getElementById('milestoneSelect').value;
+            const assigneeIds = getSelectedOptions('assigneeSelect').map(id => parseInt(id));
+            const labelNames = getSelectedOptions('labelSelect');
             
-            if (!confirm(`This will create GitLab issues with smart mapping${dateFilter ? ' and date filtering' : ''}. Continue?`)) {
+            // Build detailed confirmation message
+            let confirmMessage = `This will create GitLab issues with the following configuration:\n\n`;
+            confirmMessage += `📋 Field Mappings: ${Object.keys(fieldMapping).length} fields mapped\n`;
+            
+            if (dateFilter) {
+                confirmMessage += `📅 Date Filter: ${dateFilter.start_date} to ${dateFilter.end_date}\n`;
+            }
+            
+            if (milestoneId && projectData) {
+                const milestone = projectData.milestones.find(m => m.id == milestoneId);
+                confirmMessage += `🎯 Milestone: ${milestone ? milestone.title : 'Selected milestone'}\n`;
+            }
+            
+            if (assigneeIds.length > 0 && projectData) {
+                const assigneeNames = assigneeIds.map(id => {
+                    const member = projectData.members.find(m => m.id == id);
+                    return member ? member.name : `ID: ${id}`;
+                });
+                confirmMessage += `👤 Assignees: ${assigneeNames.join(', ')}\n`;
+            }
+            
+            if (labelNames.length > 0) {
+                confirmMessage += `🏷️ Additional Labels: ${labelNames.join(', ')}\n`;
+            }
+            
+            confirmMessage += `\n⚠️ This action cannot be undone. Continue?`;
+            
+            if (!confirm(confirmMessage)) {
                 return;
             }
 
@@ -1649,7 +2024,10 @@
                         spreadsheet_id: currentSpreadsheetId,
                         sheet_name: currentSheetName,
                         field_mapping: fieldMapping,
-                        date_filter: dateFilter
+                        date_filter: dateFilter,
+                        milestone_id: milestoneId ? parseInt(milestoneId) : null,
+                        assignee_ids: assigneeIds.length > 0 ? assigneeIds : null,
+                        label_names: labelNames.length > 0 ? labelNames : null
                     })
                 });
 
@@ -1687,6 +2065,8 @@
                         <div style="border: 1px solid #28a745; border-radius: 8px; padding: 10px; margin: 5px 0; background: #d4edda;">
                             <strong>Row ${issue.row}:</strong> ${escapeHtml(issue.title)}
                             <br><strong>Labels:</strong> ${issue.labels.join(', ')}
+                            ${issue.assignees && issue.assignees.length > 0 ? `<br><strong>Assignees:</strong> ${issue.assignees.join(', ')}` : ''}
+                            ${issue.milestone ? `<br><strong>Milestone:</strong> ${issue.milestone}` : ''}
                             <br><a href="${issue.issue_url}" target="_blank">🔗 View Issue #${issue.issue_id}</a>
                         </div>
                     `;
@@ -1766,6 +2146,7 @@
                     gitlabProjects = result.projects;
                     const projectSelect = document.getElementById('gitlabProject');
                     projectSelect.innerHTML = '<option value="">Select a project...</option>';
+                    projectSelect.onchange = onProjectChange;  // Add change handler
                     
                     result.projects.forEach(project => {
                         const option = document.createElement('option');

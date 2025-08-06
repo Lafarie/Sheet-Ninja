@@ -85,6 +85,150 @@ class GitLabIntegration:
                 'error': f'Error fetching projects: {str(e)}'
             }
     
+    def get_project_milestones(self, project_id):
+        """Get list of milestones for a project"""
+        try:
+            response = requests.get(
+                f"{self.gitlab_url}/api/v4/projects/{project_id}/milestones",
+                headers=self.headers,
+                params={'state': 'active', 'per_page': 100},
+                timeout=10
+            )
+            if response.status_code == 200:
+                milestones = response.json()
+                return {
+                    'success': True,
+                    'milestones': [
+                        {
+                            'id': m['id'],
+                            'title': m['title'],
+                            'description': m.get('description', ''),
+                            'state': m['state'],
+                            'due_date': m.get('due_date'),
+                            'web_url': m.get('web_url')
+                        }
+                        for m in milestones
+                    ]
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to fetch milestones: {response.status_code}'
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error fetching milestones: {str(e)}'
+            }
+    
+    def get_project_labels(self, project_id):
+        """Get list of labels for a project"""
+        try:
+            response = requests.get(
+                f"{self.gitlab_url}/api/v4/projects/{project_id}/labels",
+                headers=self.headers,
+                params={'per_page': 100},
+                timeout=10
+            )
+            if response.status_code == 200:
+                labels = response.json()
+                return {
+                    'success': True,
+                    'labels': [
+                        {
+                            'id': l['id'],
+                            'name': l['name'],
+                            'description': l.get('description', ''),
+                            'color': l['color'],
+                            'text_color': l.get('text_color', '#FFFFFF')
+                        }
+                        for l in labels
+                    ]
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to fetch labels: {response.status_code}'
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error fetching labels: {str(e)}'
+            }
+    
+    def get_project_members(self, project_id):
+        """Get list of project members who can be assigned to issues"""
+        try:
+            response = requests.get(
+                f"{self.gitlab_url}/api/v4/projects/{project_id}/members",
+                headers=self.headers,
+                params={'per_page': 100},
+                timeout=10
+            )
+            if response.status_code == 200:
+                members = response.json()
+                return {
+                    'success': True,
+                    'members': [
+                        {
+                            'id': m['id'],
+                            'username': m['username'],
+                            'name': m['name'],
+                            'email': m.get('email', ''),
+                            'avatar_url': m.get('avatar_url', ''),
+                            'access_level': m['access_level'],
+                            'access_level_name': self._get_access_level_name(m['access_level'])
+                        }
+                        for m in members
+                        if m['access_level'] >= 20  # Reporter level or higher
+                    ]
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to fetch members: {response.status_code}'
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error fetching members: {str(e)}'
+            }
+    
+    def _get_access_level_name(self, access_level):
+        """Convert access level number to name"""
+        levels = {
+            10: 'Guest',
+            20: 'Reporter',
+            30: 'Developer',
+            40: 'Maintainer',
+            50: 'Owner'
+        }
+        return levels.get(access_level, 'Unknown')
+    
+    def get_all_project_data(self, project_id):
+        """Get all project data: milestones, labels, and members"""
+        try:
+            milestones_result = self.get_project_milestones(project_id)
+            labels_result = self.get_project_labels(project_id)
+            members_result = self.get_project_members(project_id)
+            
+            return {
+                'success': True,
+                'milestones': milestones_result.get('milestones', []) if milestones_result['success'] else [],
+                'labels': labels_result.get('labels', []) if labels_result['success'] else [],
+                'members': members_result.get('members', []) if members_result['success'] else [],
+                'errors': {
+                    'milestones': None if milestones_result['success'] else milestones_result.get('error'),
+                    'labels': None if labels_result['success'] else labels_result.get('error'),
+                    'members': None if members_result['success'] else members_result.get('error')
+                }
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error fetching project data: {str(e)}'
+            }
+    
     def analyze_sheet_columns(self, sheet_data):
         """
         Analyze sheet columns and suggest mappings for GitLab fields
@@ -312,13 +456,16 @@ class GitLabIntegration:
         except (IndexError, AttributeError):
             return ''
     
-    def create_issue(self, project_id, issue_data):
+    def create_issue(self, project_id, issue_data, milestone_id=None, assignee_ids=None, label_names=None):
         """
-        Create a single GitLab issue with enhanced mapping
+        Create a single GitLab issue with enhanced mapping and multiple assignees/labels
         
         Args:
             project_id (int): GitLab project ID
             issue_data (dict): Issue data from sheet with mapping
+            milestone_id (int): Optional milestone ID
+            assignee_ids (list): Optional list of user IDs to assign
+            label_names (list): Optional list of additional label names
         """
         try:
             # Prepare issue title
@@ -389,10 +536,17 @@ class GitLabIntegration:
                 project_label = issue_data['project'].replace(' ', '-').lower()[:50]  # GitLab label limit
                 labels.append(f"project:{project_label}")
             
-            # Custom labels
+            # Custom labels from sheet
             if issue_data.get('labels'):
                 custom_labels = [label.strip() for label in issue_data['labels'].split(',') if label.strip()]
                 labels.extend(custom_labels)
+            
+            # Additional labels from parameter
+            if label_names:
+                labels.extend(label_names)
+            
+            # Remove duplicates and empty labels
+            labels = list(set([label for label in labels if label.strip()]))
             
             # Create issue payload
             payload = {
@@ -401,16 +555,16 @@ class GitLabIntegration:
                 'labels': ','.join(labels) if labels else None
             }
             
-            # Add assignee if provided and valid
-            if issue_data.get('assignee'):
-                # For now, we'll add assignee info to description
-                # GitLab API requires user ID for assignee, not username
-                pass
-            
             # Add milestone if provided
-            if issue_data.get('milestone'):
-                # Would need milestone ID, for now add to description
-                pass
+            if milestone_id:
+                payload['milestone_id'] = milestone_id
+            
+            # Add assignees if provided
+            if assignee_ids:
+                if len(assignee_ids) == 1:
+                    payload['assignee_id'] = assignee_ids[0]
+                else:
+                    payload['assignee_ids'] = assignee_ids
             
             # Add due date if provided and valid
             if issue_data.get('due_date'):
@@ -444,7 +598,9 @@ class GitLabIntegration:
                         'iid': issue['iid'],
                         'title': issue['title'],
                         'url': issue['web_url'],
-                        'labels': labels
+                        'labels': labels,
+                        'assignees': issue.get('assignees', []),
+                        'milestone': issue.get('milestone')
                     }
                 }
             else:
@@ -459,6 +615,59 @@ class GitLabIntegration:
                 'error': f'Error creating issue: {str(e)}'
             }
     
+    def create_issues_with_options(self, project_id, sheet_data, field_mapping, date_filter=None, 
+                                 milestone_id=None, assignee_ids=None, label_names=None):
+        """
+        Create multiple GitLab issues from Google Sheets data with options
+        
+        Args:
+            project_id (int): GitLab project ID
+            sheet_data (list): Google Sheets data
+            field_mapping (dict): Field mapping configuration
+            date_filter (dict): Optional date filtering
+            milestone_id (int): Optional milestone ID for all issues
+            assignee_ids (list): Optional list of assignee IDs for all issues
+            label_names (list): Optional list of additional labels for all issues
+        """
+        # Parse sheet data with mapping
+        parse_result = self.parse_sheet_data_with_mapping(sheet_data, field_mapping, date_filter)
+        if not parse_result['success']:
+            return parse_result
+        
+        issues_data = parse_result['issues']
+        results = {
+            'total_processed': len(issues_data),
+            'successful': 0,
+            'failed': 0,
+            'created_issues': [],
+            'errors': []
+        }
+        
+        for issue_data in issues_data:
+            result = self.create_issue(project_id, issue_data, milestone_id, assignee_ids, label_names)
+            
+            if result['success']:
+                results['successful'] += 1
+                results['created_issues'].append({
+                    'row': issue_data['row_number'],
+                    'title': issue_data['title'][:50] + ('...' if len(issue_data['title']) > 50 else ''),
+                    'issue_url': result['issue']['url'],
+                    'issue_id': result['issue']['iid'],
+                    'labels': result['issue']['labels'],
+                    'assignees': [a.get('name', a.get('username', '')) for a in result['issue'].get('assignees', [])],
+                    'milestone': result['issue'].get('milestone', {}).get('title') if result['issue'].get('milestone') else None
+                })
+            else:
+                results['failed'] += 1
+                results['errors'].append({
+                    'row': issue_data['row_number'],
+                    'title': issue_data['title'][:50] + ('...' if len(issue_data['title']) > 50 else ''),
+                    'error': result['error']
+                })
+        
+        results['success'] = True
+        return results
+
     def create_issues_from_sheet(self, project_id, sheet_data, batch_size=5):
         """
         Create multiple GitLab issues from Google Sheets data

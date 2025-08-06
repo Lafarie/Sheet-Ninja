@@ -225,6 +225,98 @@ def get_sheet_data(spreadsheet_id, sheet_name):
         logger.error(f"Error getting sheet data: {e}")
         return jsonify({'error': str(e)}), 500
 
+def get_gitlab_config():
+    """Get GitLab configuration from environment or config file"""
+    import os
+    
+    # Try to get from environment variables first
+    gitlab_url = os.getenv('GITLAB_URL')
+    gitlab_token = os.getenv('GITLAB_TOKEN')
+    
+    if gitlab_url and gitlab_token:
+        return {
+            'url': gitlab_url,
+            'token': gitlab_token
+        }
+    
+    # Try to read from config file
+    try:
+        config_file = os.path.join(os.path.dirname(__file__), 'gitlab_config.json')
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+                return config
+    except Exception as e:
+        logger.error(f"Error reading GitLab config: {str(e)}")
+    
+    return None
+
+@app.route('/api/gitlab/config', methods=['POST'])
+def save_gitlab_config():
+    """Save GitLab configuration"""
+    try:
+        data = request.json
+        gitlab_url = data.get('gitlab_url')
+        access_token = data.get('access_token')
+        
+        if not gitlab_url or not access_token:
+            return jsonify({'error': 'GitLab URL and access token are required'}), 400
+        
+        # Validate config
+        gitlab = GitLabIntegration(gitlab_url, access_token)
+        test_result = gitlab.test_connection()
+        
+        if not test_result['success']:
+            return jsonify({'error': f'GitLab connection failed: {test_result["error"]}'}), 400
+        
+        # Save config to file
+        config = {
+            'url': gitlab_url,
+            'token': access_token
+        }
+        
+        config_file = os.path.join(os.path.dirname(__file__), 'gitlab_config.json')
+        with open(config_file, 'w') as f:
+            json.dump(config, f)
+        
+        return jsonify({
+            'success': True,
+            'user': test_result.get('user'),
+            'username': test_result.get('username')
+        })
+        
+    except Exception as e:
+        logger.error(f"Error saving GitLab config: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gitlab/config', methods=['GET'])
+def get_gitlab_config_status():
+    """Check if GitLab is configured"""
+    try:
+        config = get_gitlab_config()
+        if config:
+            gitlab = GitLabIntegration(config['url'], config['token'])
+            test_result = gitlab.test_connection()
+            
+            if test_result['success']:
+                return jsonify({
+                    'configured': True,
+                    'user': test_result.get('user'),
+                    'username': test_result.get('username'),
+                    'url': config['url']
+                })
+            else:
+                return jsonify({
+                    'configured': False,
+                    'error': test_result.get('error')
+                })
+        else:
+            return jsonify({'configured': False})
+            
+    except Exception as e:
+        logger.error(f"Error checking GitLab config: {str(e)}")
+        return jsonify({'configured': False, 'error': str(e)})
+
 @app.route('/api/gitlab/setup', methods=['GET'])
 def gitlab_setup():
     """Get GitLab setup instructions"""
@@ -334,72 +426,89 @@ def gitlab_analyze_columns():
         logger.error(f"Error analyzing columns: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/gitlab/create-issues-mapped', methods=['POST'])
-def gitlab_create_issues_mapped():
-    """Create GitLab issues with custom field mapping and date filtering"""
-    global gitlab_service
-    
-    if not gitlab_service:
-        return jsonify({'error': 'GitLab not authenticated. Please authenticate first.'}), 401
-    
-    if not sheets_service.service:
-        return jsonify({'error': 'Google Sheets not authenticated. Please authenticate first.'}), 401
-    
+@app.route('/api/gitlab/analyze-columns', methods=['POST'])
+def analyze_gitlab_columns():
     try:
-        data = request.get_json()
+        data = request.json
+        spreadsheet_id = data.get('spreadsheet_id')
+        sheet_name = data.get('sheet_name')
+        
+        if not spreadsheet_id or not sheet_name:
+            return jsonify({'error': 'Missing spreadsheet_id or sheet_name'}), 400
+        
+        # Get sheet data
+        result = get_sheet_data(spreadsheet_id, sheet_name)
+        if not result.get('success'):
+            return jsonify({'error': result.get('error')}), 400
+        
+        # Analyze columns using GitLab integration
+        gitlab_config = get_gitlab_config()
+        if not gitlab_config:
+            return jsonify({'error': 'GitLab not configured'}), 400
+        
+        gitlab = GitLabIntegration(gitlab_config['url'], gitlab_config['token'])
+        analysis = gitlab.analyze_sheet_columns(result['data'])
+        
+        return jsonify(analysis)
+    except Exception as e:
+        logger.error(f"Error analyzing columns: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gitlab/project/<int:project_id>/data', methods=['GET'])
+def get_gitlab_project_data(project_id):
+    try:
+        gitlab_config = get_gitlab_config()
+        if not gitlab_config:
+            return jsonify({'error': 'GitLab not configured'}), 400
+        
+        gitlab = GitLabIntegration(gitlab_config['url'], gitlab_config['token'])
+        result = gitlab.get_all_project_data(project_id)
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error fetching project data: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gitlab/create-issues-mapped', methods=['POST'])
+def create_gitlab_issues_mapped():
+    try:
+        data = request.json
         project_id = data.get('project_id')
         spreadsheet_id = data.get('spreadsheet_id')
         sheet_name = data.get('sheet_name')
         field_mapping = data.get('field_mapping', {})
         date_filter = data.get('date_filter')
+        milestone_id = data.get('milestone_id')
+        assignee_ids = data.get('assignee_ids', [])
+        label_names = data.get('label_names', [])
         
-        if not all([project_id, spreadsheet_id, sheet_name]):
-            return jsonify({'error': 'Missing required parameters: project_id, spreadsheet_id, sheet_name'}), 400
+        if not project_id or not spreadsheet_id or not sheet_name:
+            return jsonify({'error': 'Missing required parameters'}), 400
         
         # Get sheet data
-        sheet_data = sheets_service.get_sheet_data(spreadsheet_id, sheet_name)
-        if not sheet_data:
-            return jsonify({'error': 'No data found in the specified sheet'}), 404
+        result = get_sheet_data(spreadsheet_id, sheet_name)
+        if not result.get('success'):
+            return jsonify({'error': result.get('error')}), 400
         
-        # Parse with mapping and create issues
-        parse_result = gitlab_service.parse_sheet_data_with_mapping(sheet_data, field_mapping, date_filter)
-        if not parse_result['success']:
-            return jsonify({'error': parse_result['error']}), 400
+        # Create issues using GitLab integration
+        gitlab_config = get_gitlab_config()
+        if not gitlab_config:
+            return jsonify({'error': 'GitLab not configured'}), 400
         
-        issues_data = parse_result['issues']
-        results = {
-            'total_processed': len(issues_data),
-            'successful': 0,
-            'failed': 0,
-            'created_issues': [],
-            'errors': []
-        }
+        gitlab = GitLabIntegration(gitlab_config['url'], gitlab_config['token'])
+        result = gitlab.create_issues_with_options(
+            project_id, 
+            result['data'], 
+            field_mapping, 
+            date_filter,
+            milestone_id,
+            assignee_ids,
+            label_names
+        )
         
-        for issue_data in issues_data:
-            result = gitlab_service.create_issue(project_id, issue_data)
-            
-            if result['success']:
-                results['successful'] += 1
-                results['created_issues'].append({
-                    'row': issue_data['row_number'],
-                    'title': issue_data['title'][:50] + '...' if len(issue_data['title']) > 50 else issue_data['title'],
-                    'issue_url': result['issue']['url'],
-                    'issue_id': result['issue']['iid'],
-                    'labels': result['issue']['labels']
-                })
-            else:
-                results['failed'] += 1
-                results['errors'].append({
-                    'row': issue_data['row_number'],
-                    'title': issue_data['title'][:50] + '...' if len(issue_data['title']) > 50 else issue_data['title'],
-                    'error': result['error']
-                })
-        
-        results['success'] = True
-        return jsonify(results)
-        
+        return jsonify(result)
     except Exception as e:
-        logger.error(f"Error creating mapped GitLab issues: {e}")
+        logger.error(f"Error creating mapped issues: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/gitlab/create-issues', methods=['POST'])
