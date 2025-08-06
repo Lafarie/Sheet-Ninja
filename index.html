@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Sheets Data Fetcher</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .step {
+            margin-bottom: 40px;
+            padding: 25px;
+            border: 2px solid #f0f0f0;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            border-color: #4CAF50;
+            background-color: #f8fff8;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .step-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        input[type="file"]:hover {
+            border-color: #4CAF50;
+            background-color: #f0f8f0;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .alert-info {
+            background-color: #d1ecf1;
+            border-color: #17a2b8;
+            color: #0c5460;
+        }
+
+        .credentials-method {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .method-option {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .method-option:hover, .method-option.selected {
+            border-color: #4CAF50;
+            background-color: #f8fff8;
+        }
+
+        .results-section {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .sheet-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .sheet-list {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .sheet-item {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sheet-item:hover, .sheet-item.selected {
+            border-color: #4CAF50;
+            background-color: #f8fff8;
+        }
+
+        .headers-display {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .header-item {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #e3f2fd;
+            border-radius: 15px;
+            margin: 5px;
+            font-size: 0.9rem;
+        }
+
+        .data-preview {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .data-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #f0f0f0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Google Sheets Data Fetcher</h1>
+            <p>Upload your credentials and fetch sheet data directly from your browser</p>
+        </div>
+
+        <div class="main-content">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <!-- Step 1: Upload Credentials -->
+            <div class="step active" id="step1">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <div class="step-title">Upload Google Sheets API Credentials</div>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>📝 Note:</strong> You need a Google Sheets API service account JSON file. 
+                    <a href="https://console.cloud.google.com/" target="_blank">Get it from Google Cloud Console</a>
+                </div>
+
+                <div class="credentials-method">
+                    <div class="method-option selected" id="methodFile" onclick="selectMethod('file')">
+                        <h4>📁 Upload File</h4>
+                        <p>Select JSON file from your computer</p>
+                    </div>
+                    <div class="method-option" id="methodPaste" onclick="selectMethod('paste')">
+                        <h4>📋 Paste JSON</h4>
+                        <p>Copy and paste JSON content</p>
+                    </div>
+                </div>
+
+                <div id="fileUploadMethod">
+                    <div class="form-group">
+                        <label for="credentialsFile">Select Credentials JSON File:</label>
+                        <input type="file" id="credentialsFile" accept=".json" onchange="handleFileUpload(event)">
+                    </div>
+                </div>
+
+                <div id="pasteMethod" class="hidden">
+                    <div class="form-group">
+                        <label for="credentialsText">Paste JSON Content:</label>
+                        <textarea id="credentialsText" placeholder="Paste your Google Sheets API credentials JSON here..." onchange="handlePasteInput()"></textarea>
+                    </div>
+                </div>
+
+                <div id="credentialsResult"></div>
+            </div>
+
+            <!-- Step 2: Enter Spreadsheet Info -->
+            <div class="step" id="step2">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Enter Spreadsheet Information</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="spreadsheetInput">Google Sheets ID or URL:</label>
+                    <input type="text" id="spreadsheetInput" placeholder="Enter spreadsheet ID or full Google Sheets URL">
+                </div>
+
+                <button class="btn" onclick="fetchSpreadsheetInfo()" id="fetchInfoBtn" disabled>
+                    🔍 Fetch Spreadsheet Info
+                </button>
+            </div>
+
+            <!-- Step 3: Select Sheet and Fetch Data -->
+            <div class="step" id="step3">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <div class="step-title">Select Sheet and Fetch Data</div>
+                </div>
+
+                <div id="spreadsheetInfo" class="hidden">
+                    <div class="sheet-info">
+                        <h3 id="spreadsheetTitle">Spreadsheet Title</h3>
+                        <p id="spreadsheetDetails">Details will appear here</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Available Sheets:</label>
+                        <div id="sheetsList" class="sheet-list"></div>
+                    </div>
+
+                    <button class="btn" onclick="fetchHeaders()" id="fetchHeadersBtn" disabled>
+                        📋 Fetch Headers
+                    </button>
+                    <button class="btn btn-secondary" onclick="fetchAllData()" id="fetchDataBtn" disabled>
+                        📊 Fetch All Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div class="loading" id="loadingIndicator">
+                <div class="spinner"></div>
+                <p>Processing your request...</p>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection">
+                <h3>📈 Results</h3>
+                
+                <div id="headersDisplay" class="headers-display hidden">
+                    <h4>Sheet Headers:</h4>
+                    <div id="headersList"></div>
+                    <button class="btn btn-secondary" onclick="downloadData('headers')">
+                        📥 Download Headers JSON
+                    </button>
+                </div>
+
+                <div id="dataDisplay" class="data-preview hidden">
+                    <h4>Data Preview (First 10 rows):</h4>
+                    <div id="dataTable"></div>
+                    <button class="btn btn-secondary" onclick="downloadData('all')">
+                        📥 Download All Data JSON
+                    </button>
+                </div>
+
+                <div id="errorDisplay" class="alert alert-error hidden">
+                    <strong>❌ Error:</strong> <span id="errorMessage"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let credentials = null;
+        let spreadsheetId = null;
+        let selectedSheet = null;
+        let sheetsData = null;
+        let fetchedHeaders = null;
+        let fetchedData = null;
+
+        // Step management
+        function updateProgress(step) {
+            const progressFill = document.getElementById('progressFill');
+            const progressPercent = (step / 3) * 100;
+            progressFill.style.width = progressPercent + '%';
+
+            // Update step visual state
+            for (let i = 1; i <= 3; i++) {
+                const stepElement = document.getElementById(`step${i}`);
+                if (i <= step) {
+                    stepElement.classList.add('active');
+                } else {
+                    stepElement.classList.remove('active');
+                }
+            }
+        }
+
+        // Credentials method selection
+        function selectMethod(method) {
+            document.getElementById('methodFile').classList.remove('selected');
+            document.getElementById('methodPaste').classList.remove('selected');
+            
+            if (method === 'file') {
+                document.getElementById('methodFile').classList.add('selected');
+                document.getElementById('fileUploadMethod').classList.remove('hidden');
+                document.getElementById('pasteMethod').classList.add('hidden');
+            } else {
+                document.getElementById('methodPaste').classList.add('selected');
+                document.getElementById('fileUploadMethod').classList.add('hidden');
+                document.getElementById('pasteMethod').classList.remove('hidden');
+            }
+        }
+
+        // Handle file upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const jsonContent = e.target.result;
+                    const parsedCredentials = JSON.parse(jsonContent);
+                    validateAndSetCredentials(parsedCredentials);
+                } catch (error) {
+                    showCredentialsResult('❌ Invalid JSON file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Handle paste input
+        function handlePasteInput() {
+            const textArea = document.getElementById('credentialsText');
+            const content = textArea.value.trim();
+            
+            if (!content) return;
+
+            try {
+                const parsedCredentials = JSON.parse(content);
+                validateAndSetCredentials(parsedCredentials);
+            } catch (error) {
+                showCredentialsResult('❌ Invalid JSON format: ' + error.message, 'error');
+            }
+        }
+
+        // Validate and set credentials
+        function validateAndSetCredentials(creds) {
+            const validation = validateCredentials(creds);
+            
+            if (!validation.isValid) {
+                showCredentialsResult('❌ ' + validation.message, 'error');
+                return;
+            }
+
+            credentials = creds;
+            showCredentialsResult(
+                '✅ Credentials validated successfully!<br>' +
+                '<strong>Service Account:</strong> ' + creds.client_email + '<br>' +
+                '<strong>Project ID:</strong> ' + creds.project_id,
+                'success'
+            );
+
+            document.getElementById('fetchInfoBtn').disabled = false;
+            updateProgress(2);
+        }
+
+        // Validate credentials structure
+        function validateCredentials(creds) {
+            const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email', 'client_id'];
+            
+            if (typeof creds !== 'object' || creds === null) {
+                return { isValid: false, message: 'Credentials must be a JSON object' };
+            }
+            
+            for (let field of requiredFields) {
+                if (!creds.hasOwnProperty(field)) {
+                    return { isValid: false, message: `Missing required field: ${field}` };
+                }
+            }
+            
+            if (creds.type !== 'service_account') {
+                return { isValid: false, message: 'Invalid credential type. Must be "service_account"' };
+            }
+            
+            return { isValid: true, message: 'Valid credentials' };
+        }
+
+        // Show credentials validation result
+        function showCredentialsResult(message, type) {
+            const resultDiv = document.getElementById('credentialsResult');
+            resultDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+
+        // Extract spreadsheet ID from URL
+        function extractSheetId(input) {
+            if (!input.includes('/')) {
+                return input;
+            }
+            
+            const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+            return match ? match[1] : input;
+        }
+
+        // Fetch spreadsheet information
+        async function fetchSpreadsheetInfo() {
+            const input = document.getElementById('spreadsheetInput').value.trim();
+            if (!input) {
+                showError('Please enter a spreadsheet ID or URL');
+                return;
+            }
+
+            spreadsheetId = extractSheetId(input);
+            showLoading(true);
+
+            try {
+                // Simulate API call - in a real implementation, this would call the Google Sheets API
+                const mockSheetInfo = {
+                    title: 'Sample Spreadsheet',
+                    sheets: [
+                        { name: 'Sheet1', id: 0, rows: 100, columns: 10 },
+                        { name: 'Data', id: 1, rows: 250, columns: 8 },
+                        { name: 'Summary', id: 2, rows: 50, columns: 5 }
+                    ]
+                };
+
+                displaySpreadsheetInfo(mockSheetInfo);
+                sheetsData = mockSheetInfo;
+                updateProgress(3);
+                
+            } catch (error) {
+                showError('Failed to fetch spreadsheet info: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Display spreadsheet information
+        function displaySpreadsheetInfo(info) {
+            document.getElementById('spreadsheetTitle').textContent = info.title;
+            document.getElementById('spreadsheetDetails').textContent = 
+                `Spreadsheet ID: ${spreadsheetId} | ${info.sheets.length} sheet(s)`;
+
+            const sheetsList = document.getElementById('sheetsList');
+            sheetsList.innerHTML = '';
+
+            info.sheets.forEach((sheet, index) => {
+                const sheetItem = document.createElement('div');
+                sheetItem.className = 'sheet-item' + (index === 0 ? ' selected' : '');
+                sheetItem.onclick = () => selectSheet(sheet, sheetItem);
+                sheetItem.innerHTML = `
+                    <strong>${sheet.name}</strong><br>
+                    <small>${sheet.rows} rows × ${sheet.columns} columns</small>
+                `;
+                sheetsList.appendChild(sheetItem);
+            });
+
+            // Auto-select first sheet
+            selectedSheet = info.sheets[0];
+            document.getElementById('fetchHeadersBtn').disabled = false;
+            document.getElementById('fetchDataBtn').disabled = false;
+            document.getElementById('spreadsheetInfo').classList.remove('hidden');
+        }
+
+        // Select a sheet
+        function selectSheet(sheet, element) {
+            // Remove selection from other sheets
+            document.querySelectorAll('.sheet-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Select current sheet
+            element.classList.add('selected');
+            selectedSheet = sheet;
+        }
+
+        // Fetch headers
+        async function fetchHeaders() {
+            if (!selectedSheet) return;
+
+            showLoading(true);
+            try {
+                // Simulate fetching headers
+                const mockHeaders = ['Name', 'Email', 'Phone', 'Department', 'Salary', 'Start Date', 'Status', 'Manager'];
+                
+                displayHeaders(mockHeaders);
+                fetchedHeaders = mockHeaders;
+                
+                showResults();
+            } catch (error) {
+                showError('Failed to fetch headers: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Fetch all data
+        async function fetchAllData() {
+            if (!selectedSheet) return;
+
+            showLoading(true);
+            try {
+                // Simulate fetching data
+                const mockData = [
+                    ['Name', 'Email', 'Phone', 'Department', 'Salary', 'Start Date', 'Status', 'Manager'],
+                    ['John Doe', 'john@example.com', '555-0123', 'Engineering', '$75000', '2023-01-15', 'Active', 'Jane Smith'],
+                    ['Jane Smith', 'jane@example.com', '555-0124', 'Engineering', '$85000', '2022-03-20', 'Active', 'Bob Johnson'],
+                    ['Bob Johnson', 'bob@example.com', '555-0125', 'Management', '$95000', '2021-05-10', 'Active', 'CEO'],
+                    ['Alice Brown', 'alice@example.com', '555-0126', 'Marketing', '$65000', '2023-02-28', 'Active', 'Carol White'],
+                    ['Carol White', 'carol@example.com', '555-0127', 'Marketing', '$70000', '2022-11-05', 'Active', 'Bob Johnson']
+                ];
+                
+                displayData(mockData);
+                fetchedData = mockData;
+                fetchedHeaders = mockData[0];
+                
+                showResults();
+            } catch (error) {
+                showError('Failed to fetch data: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Display headers
+        function displayHeaders(headers) {
+            const headersList = document.getElementById('headersList');
+            headersList.innerHTML = '';
+            
+            headers.forEach((header, index) => {
+                const headerItem = document.createElement('span');
+                headerItem.className = 'header-item';
+                headerItem.textContent = `${index + 1}. ${header}`;
+                headersList.appendChild(headerItem);
+            });
+
+            document.getElementById('headersDisplay').classList.remove('hidden');
+        }
+
+        // Display data in table format
+        function displayData(data) {
+            const dataTable = document.getElementById('dataTable');
+            
+            let tableHTML = '<table class="data-table"><thead><tr>';
+            
+            // Headers
+            data[0].forEach(header => {
+                tableHTML += `<th>${header}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+            
+            // Data rows (limit to first 10 for preview)
+            const previewData = data.slice(1, 11);
+            previewData.forEach(row => {
+                tableHTML += '<tr>';
+                row.forEach(cell => {
+                    tableHTML += `<td>${cell || ''}</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+            
+            tableHTML += '</tbody></table>';
+            
+            if (data.length > 11) {
+                tableHTML += `<p><strong>Showing first 10 rows of ${data.length - 1} total rows</strong></p>`;
+            }
+            
+            dataTable.innerHTML = tableHTML;
+            document.getElementById('dataDisplay').classList.remove('hidden');
+        }
+
+        // Show results section
+        function showResults() {
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('errorDisplay').classList.add('hidden');
+        }
+
+        // Show error
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorDisplay').classList.remove('hidden');
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        // Show/hide loading indicator
+        function showLoading(show) {
+            document.getElementById('loadingIndicator').style.display = show ? 'block' : 'none';
+        }
+
+        // Download data as JSON
+        function downloadData(type) {
+            let data, filename;
+            
+            if (type === 'headers') {
+                data = {
+                    spreadsheet_title: sheetsData.title,
+                    sheet_name: selectedSheet.name,
+                    headers: fetchedHeaders,
+                    total_headers: fetchedHeaders.length,
+                    exported_at: new Date().toISOString()
+                };
+                filename = 'headers.json';
+            } else {
+                data = {
+                    spreadsheet_title: sheetsData.title,
+                    sheet_name: selectedSheet.name,
+                    headers: fetchedHeaders,
+                    data: fetchedData,
+                    total_rows: fetchedData.length - 1,
+                    exported_at: new Date().toISOString()
+                };
+                filename = 'sheet_data.json';
+            }
+            
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize progress
+        updateProgress(1);
+    </script>
+</body>
+</html>

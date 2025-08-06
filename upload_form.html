@@ -194,36 +194,48 @@
                     const spreadsheetId = extractSheetId(spreadsheetInput);
                     
                     // Validate JSON structure
-                    if (!credentials.type || !credentials.client_email || !credentials.private_key) {
-                        showResult('Invalid credentials file. Please check your JSON file format.', 'error');
+                    const validation = validateCredentials(credentials);
+                    if (!validation.isValid) {
+                        showResult('Invalid credentials file: ' + validation.message, 'error');
                         return;
                     }
                     
-                    // Show processing message
-                    showResult('✅ Credentials loaded successfully!<br><br>' +
-                             '<strong>Spreadsheet ID:</strong> ' + spreadsheetId + '<br>' +
-                             '<strong>Service Account:</strong> ' + credentials.client_email + '<br>' +
-                             '<strong>Project ID:</strong> ' + (credentials.project_id || 'Not specified') + '<br><br>' +
-                             '<em>To fetch actual data, you would need to run the Python script with these credentials.</em>', 'success');
+                    // Create Python command to run
+                    const pythonCommand = generatePythonCommand(credentials, spreadsheetId, sheetName);
+                    
+                    // Show success message with instructions
+                    showResult(
+                        '✅ Credentials validated successfully!<br><br>' +
+                        '<strong>📊 Spreadsheet ID:</strong> ' + spreadsheetId + '<br>' +
+                        '<strong>👤 Service Account:</strong> ' + credentials.client_email + '<br>' +
+                        '<strong>🏷️ Project ID:</strong> ' + (credentials.project_id || 'Not specified') + '<br><br>' +
+                        '<strong>🐍 To fetch the data, run this Python command:</strong><br>' +
+                        '<pre style="background-color: #f0f0f0; padding: 10px; border-radius: 5px; font-family: monospace;">' +
+                        pythonCommand + '</pre><br>' +
+                        '<strong>Or use the interactive upload script:</strong><br>' +
+                        '<pre style="background-color: #f0f0f0; padding: 10px; border-radius: 5px; font-family: monospace;">python upload_json.py</pre>'
+                        , 'success');
                     
                     // Prepare data for download
                     processedData = {
-                        credentials: {
+                        credentials_info: {
                             type: credentials.type,
                             client_email: credentials.client_email,
                             project_id: credentials.project_id,
-                            // Don't include private key in download for security
-                            has_private_key: !!credentials.private_key
+                            client_id: credentials.client_id
                         },
                         spreadsheet_id: spreadsheetId,
                         sheet_name: sheetName || 'First sheet',
                         timestamp: new Date().toISOString(),
-                        instructions: {
-                            step1: 'Save the credentials JSON file as "credentials.json"',
-                            step2: 'Run: pip install -r requirements.txt',
-                            step3: 'Run: python main.py',
-                            step4: 'Enter the spreadsheet ID: ' + spreadsheetId
-                        }
+                        python_command: pythonCommand,
+                        setup_instructions: [
+                            '1. Save your credentials JSON file as "credentials.json"',
+                            '2. Install requirements: pip install -r requirements.txt',
+                            '3. Run: python upload_json.py (for interactive mode)',
+                            '4. Or run: python main.py (for file-based mode)',
+                            '5. Enter spreadsheet ID: ' + spreadsheetId
+                        ],
+                        security_note: 'Keep your credentials file secure and do not share it publicly'
                     };
                     
                     document.getElementById('downloadBtn').style.display = 'inline-block';
@@ -234,6 +246,48 @@
             };
             
             reader.readAsText(file);
+        }
+        
+        function validateCredentials(credentials) {
+            const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email', 'client_id'];
+            
+            if (typeof credentials !== 'object' || credentials === null) {
+                return { isValid: false, message: 'Credentials must be a JSON object' };
+            }
+            
+            for (let field of requiredFields) {
+                if (!credentials.hasOwnProperty(field)) {
+                    return { isValid: false, message: `Missing required field: ${field}` };
+                }
+            }
+            
+            if (credentials.type !== 'service_account') {
+                return { isValid: false, message: 'Invalid credential type. Must be "service_account"' };
+            }
+            
+            return { isValid: true, message: 'Valid credentials' };
+        }
+        
+        function generatePythonCommand(credentials, spreadsheetId, sheetName) {
+            let command = 'python -c "\n';
+            command += 'import json\n';
+            command += 'from sheets_fetcher import SheetsFetcher\n';
+            command += 'from utils import print_headers, print_sheet_info\n\n';
+            command += '# Your credentials data (save this to credentials.json)\n';
+            command += 'credentials = ' + JSON.stringify(credentials, null, 2).replace(/"/g, '\\"') + '\n\n';
+            command += 'fetcher = SheetsFetcher(credentials_data=credentials)\n';
+            command += 'fetcher.connect()\n';
+            command += 'info = fetcher.get_sheet_info(\\"' + spreadsheetId + '\\")\n';
+            command += 'print_sheet_info(info)\n';
+            command += 'headers = fetcher.get_headers(\\"' + spreadsheetId + '\\"';
+            if (sheetName) {
+                command += ', \\"' + sheetName + '\\"';
+            }
+            command += ')\n';
+            command += 'print_headers(headers)\n';
+            command += '"';
+            
+            return command;
         }
         
         function showResult(message, type) {
