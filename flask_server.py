@@ -235,12 +235,13 @@ def health_check():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
     
-    print("🚀 Google Sheets API Server")
+    print("🚀 Google Sheets Web Client")
     print("=" * 40)
-    print(f"📡 Server starting on http://localhost:{port}")
-    print("📁 Make sure your HTML files are in the same directory")
-    print("🔑 Upload your credentials.json via the web interface")
-    print("💡 Use Ctrl+C to stop the server")
+    print(f"📡 Server running on http://localhost:{port}")
+    print("🌐 Open your browser to start using the app")
+    print("� Upload your Google Sheets API credentials")
+    print("📊 Fetch real spreadsheet data")
+    print("💡 Press Ctrl+C to stop the server")
     print()
     
     app.run(host='0.0.0.0', port=port, debug=True)
