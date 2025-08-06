@@ -456,6 +456,56 @@ class GitLabIntegration:
         except (IndexError, AttributeError):
             return ''
     
+    def create_simple_issue(self, project_id, title, description, labels=None):
+        """
+        Create a simple GitLab issue (for backward compatibility)
+        
+        Args:
+            project_id (int): GitLab project ID
+            title (str): Issue title
+            description (str): Issue description
+            labels (list): List of label names
+        """
+        try:
+            payload = {
+                'title': title[:255],  # GitLab title limit
+                'description': description
+            }
+            
+            if labels:
+                payload['labels'] = ','.join(labels) if isinstance(labels, list) else str(labels)
+            
+            response = requests.post(
+                f"{self.gitlab_url}/api/v4/projects/{project_id}/issues",
+                headers=self.headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 201:
+                issue = response.json()
+                return {
+                    'success': True,
+                    'issue': {
+                        'id': issue['id'],
+                        'iid': issue['iid'],
+                        'title': issue['title'],
+                        'web_url': issue['web_url'],
+                        'labels': labels or []
+                    }
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to create issue: {response.status_code} - {response.text}'
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error creating issue: {str(e)}'
+            }
+
     def create_issue(self, project_id, issue_data, milestone_id=None, assignee_ids=None, label_names=None):
         """
         Create a single GitLab issue with enhanced mapping and multiple assignees/labels
@@ -667,6 +717,136 @@ class GitLabIntegration:
         
         results['success'] = True
         return results
+    
+
+    def parse_sheet_data_to_issues(self, sheet_data, field_mapping=None, date_filter=None):
+        """Parse Google Sheets data into GitLab issue format"""
+        if not sheet_data or len(sheet_data) < 2:
+            return []
+
+        headers = sheet_data[0]
+        data_rows = sheet_data[1:]
+        
+        # Apply date filtering if specified
+        if date_filter and date_filter.get('date_column') is not None:
+            filtered_rows = []
+            date_col = date_filter['date_column']
+            start_date = datetime.strptime(date_filter['start_date'], '%Y-%m-%d').date()
+            end_date = datetime.strptime(date_filter['end_date'], '%Y-%m-%d').date()
+            
+            for row in data_rows:
+                if date_col < len(row) and row[date_col]:
+                    try:
+                        # Parse date from various formats
+                        row_date_str = str(row[date_col]).strip()
+                        if row_date_str:
+                            # Try different date formats
+                            for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S']:
+                                try:
+                                    row_date = datetime.strptime(row_date_str, fmt).date()
+                                    if start_date <= row_date <= end_date:
+                                        filtered_rows.append(row)
+                                    break
+                                except ValueError:
+                                    continue
+                    except:
+                        continue
+            data_rows = filtered_rows
+
+        issues = []
+        
+        for row_index, row in enumerate(data_rows, start=2):  # Start at 2 since row 1 is headers
+            # Use field mapping if provided, otherwise use default column mapping
+            if field_mapping:
+                title = row[field_mapping.get('title', 0)] if field_mapping.get('title') is not None else 'No title'
+                description_parts = []
+                
+                # Add mapped fields to description
+                for field, col_index in field_mapping.items():
+                    if field != 'title' and col_index < len(row) and row[col_index]:
+                        field_name = headers[col_index] if col_index < len(headers) else field
+                        description_parts.append(f"**{field_name}:** {row[col_index]}")
+                
+                # Add unmapped columns to description
+                mapped_indices = set(field_mapping.values())
+                for col_index, value in enumerate(row):
+                    if col_index not in mapped_indices and value:
+                        col_name = headers[col_index] if col_index < len(headers) else f"Column {col_index + 1}"
+                        description_parts.append(f"**{col_name}:** {value}")
+                
+                description = "\n".join(description_parts)
+                
+                # Extract other fields
+                assignee = field_mapping.get('assignee')
+                status = field_mapping.get('status')
+                priority = field_mapping.get('priority')
+                project_name = field_mapping.get('project')
+                
+            else:
+                # Default mapping based on expected header structure
+                task_desc_idx = next((i for i, h in enumerate(headers) if 'task' in h.lower() and 'description' in h.lower()), 4)
+                status_idx = next((i for i, h in enumerate(headers) if 'status' in h.lower()), 5)
+                project_idx = next((i for i, h in enumerate(headers) if 'project' in h.lower() and 'name' in h.lower()), 2)
+                
+                title = row[task_desc_idx] if task_desc_idx < len(row) else f"Task from row {row_index}"
+                status = row[status_idx] if status_idx < len(row) else "Unknown"
+                project_name = row[project_idx] if project_idx < len(row) else "Unknown"
+                
+                # Build description from all fields
+                description_parts = []
+                for i, (header, value) in enumerate(zip(headers, row)):
+                    if value and i != task_desc_idx:  # Don't duplicate title in description
+                        description_parts.append(f"**{header}:** {value}")
+                description = "\n".join(description_parts)
+                
+                assignee = None
+                priority = None
+
+            # Generate labels
+            labels = []
+            
+            # Status-based labels
+            if status:
+                status_lower = str(status).lower()
+                if 'complete' in status_lower or 'done' in status_lower:
+                    labels.append('completed')
+                elif 'progress' in status_lower or 'working' in status_lower:
+                    labels.append('in-progress')
+                elif 'pending' in status_lower:
+                    labels.append('pending')
+                elif 'new' in status_lower or 'open' in status_lower:
+                    labels.append('new')
+                else:
+                    labels.append(status_lower.replace(' ', '-'))
+            
+            # Priority-based labels
+            if priority:
+                priority_lower = str(priority).lower()
+                if 'high' in priority_lower or 'urgent' in priority_lower:
+                    labels.append('high-priority')
+                elif 'low' in priority_lower:
+                    labels.append('low-priority')
+                elif 'medium' in priority_lower:
+                    labels.append('medium-priority')
+            
+            # Project-based labels
+            if project_name and str(project_name).lower() != 'unknown':
+                project_label = f"project:{str(project_name).replace(' ', '-').lower()}"
+                labels.append(project_label)
+            
+            # Add source label
+            labels.append('google-sheets')
+            
+            issues.append({
+                'title': str(title).strip(),
+                'description': description,
+                'labels': labels,
+                'assignee': assignee,
+                'row': row_index
+            })
+        
+        return issues
+
 
     def create_issues_from_sheet(self, project_id, sheet_data, batch_size=5):
         """
@@ -678,11 +858,13 @@ class GitLabIntegration:
             batch_size (int): Number of issues to create at once
         """
         # Parse sheet data
-        parse_result = self.parse_sheet_data_to_issues(sheet_data)
-        if not parse_result['success']:
-            return parse_result
+        issues_data = self.parse_sheet_data_to_issues(sheet_data)
+        if not issues_data:
+            return {
+                'success': False,
+                'error': 'No valid issues found in sheet data'
+            }
         
-        issues_data = parse_result['issues']
         results = {
             'total_processed': len(issues_data),
             'successful': 0,
@@ -692,21 +874,28 @@ class GitLabIntegration:
         }
         
         for issue_data in issues_data:
-            result = self.create_issue(project_id, issue_data)
+            # Create issue using the simple create_issue method
+            result = self.create_simple_issue(
+                project_id=project_id,
+                title=issue_data['title'],
+                description=issue_data['description'],
+                labels=issue_data['labels']
+            )
             
             if result['success']:
                 results['successful'] += 1
                 results['created_issues'].append({
-                    'row': issue_data['row_number'],
-                    'title': issue_data['task_description'][:50] + '...',
-                    'issue_url': result['issue']['url'],
-                    'issue_id': result['issue']['iid']
+                    'row': issue_data['row'],
+                    'title': issue_data['title'][:50] + ('...' if len(issue_data['title']) > 50 else ''),
+                    'issue_url': result['issue']['web_url'],
+                    'issue_id': result['issue']['iid'],
+                    'labels': result['issue']['labels']
                 })
             else:
                 results['failed'] += 1
                 results['errors'].append({
-                    'row': issue_data['row_number'],
-                    'title': issue_data['task_description'][:50] + '...',
+                    'row': issue_data['row'],
+                    'title': issue_data['title'][:50] + ('...' if len(issue_data['title']) > 50 else ''),
                     'error': result['error']
                 })
         
