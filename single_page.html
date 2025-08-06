@@ -416,16 +416,75 @@
             gap: 15px;
             align-items: end;
             margin: 15px 0;
-            padding: 15px;
-            background: #f0f8ff;
-            border-radius: 8px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+            border-radius: 12px;
             border: 2px solid #007bff;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.1);
+            position: relative;
         }
 
-        .date-range-picker input[type="date"] {
-            padding: 8px 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+        .date-range-picker::before {
+            content: "📅";
+            position: absolute;
+            top: -8px;
+            left: 15px;
+            background: white;
+            padding: 0 8px;
+            font-size: 1.2em;
+            color: #007bff;
+        }
+
+        .date-range-picker input[type="date"], 
+        .date-range-picker select {
+            padding: 12px 15px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .date-range-picker input[type="date"]:focus,
+        .date-range-picker select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .date-range-picker label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+            display: block;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .date-validation {
+            display: none;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            color: #856404;
+            font-size: 12px;
+            grid-column: 1 / -1;
+        }
+
+        .date-validation.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .date-validation.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
         }
 
         .toggle-section {
@@ -734,25 +793,38 @@
 
                         <div class="toggle-section" onclick="toggleDateFilter()">
                             <h4>📅 Date Range Filter (Optional)</h4>
-                            <p>Filter data by date range before creating issues</p>
+                            <p>Filter data by date range before creating issues - Click to expand</p>
+                            <small style="opacity: 0.7;">💡 Tip: This helps you process specific time periods from your sheet</small>
                         </div>
 
                         <div id="dateFilterSection" class="hidden">
                             <div class="date-range-picker">
                                 <div class="input-group">
-                                    <label for="dateColumn">Date Column:</label>
-                                    <select id="dateColumn">
+                                    <label for="dateColumn">📊 Date Column:</label>
+                                    <select id="dateColumn" onchange="validateDateRange()">
                                         <option value="">Select date column...</option>
                                     </select>
                                 </div>
                                 <div class="input-group">
-                                    <label for="startDate">Start Date:</label>
-                                    <input type="date" id="startDate">
+                                    <label for="startDate">🗓️ Start Date:</label>
+                                    <input type="date" id="startDate" onchange="validateDateRange()">
                                 </div>
                                 <div class="input-group">
-                                    <label for="endDate">End Date:</label>
-                                    <input type="date" id="endDate">
+                                    <label for="endDate">🗓️ End Date:</label>
+                                    <input type="date" id="endDate" onchange="validateDateRange()">
                                 </div>
+                                <div id="dateValidation" class="date-validation">
+                                    <!-- Validation messages will appear here -->
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; padding: 10px; background: #e8f5e8; border-radius: 6px; font-size: 12px;">
+                                <strong>ℹ️ Date Filter Instructions:</strong>
+                                <ul style="margin: 5px 0 0 20px; line-height: 1.4;">
+                                    <li>Select which column contains your dates</li>
+                                    <li>Choose start and end dates to filter your data</li>
+                                    <li>Only rows within this date range will be processed</li>
+                                    <li>Date formats supported: YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY</li>
+                                </ul>
                             </div>
                         </div>
 
@@ -1443,13 +1515,91 @@
 
         function toggleDateFilter() {
             const dateFilterSection = document.getElementById('dateFilterSection');
+            const toggleSection = document.querySelector('.toggle-section');
             isDateFilterVisible = !isDateFilterVisible;
             
             if (isDateFilterVisible) {
                 dateFilterSection.classList.remove('hidden');
+                toggleSection.classList.add('active');
+                
+                // Set default dates (last 30 days)
+                const today = new Date();
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(today.getDate() - 30);
+                
+                if (!document.getElementById('startDate').value) {
+                    document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+                }
+                if (!document.getElementById('endDate').value) {
+                    document.getElementById('endDate').value = today.toISOString().split('T')[0];
+                }
+                
+                validateDateRange();
             } else {
                 dateFilterSection.classList.add('hidden');
+                toggleSection.classList.remove('active');
             }
+        }
+
+        function validateDateRange() {
+            const dateColumn = document.getElementById('dateColumn').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const validationDiv = document.getElementById('dateValidation');
+            
+            // Clear previous validation
+            validationDiv.style.display = 'none';
+            validationDiv.className = 'date-validation';
+            
+            if (!dateColumn && !startDate && !endDate) {
+                // No validation needed if nothing is selected
+                return;
+            }
+            
+            let messages = [];
+            let isValid = true;
+            
+            // Check if date column is selected
+            if (!dateColumn && (startDate || endDate)) {
+                messages.push('⚠️ Please select a date column first');
+                isValid = false;
+            }
+            
+            // Check if both dates are provided
+            if (dateColumn && (!startDate || !endDate)) {
+                messages.push('⚠️ Please provide both start and end dates');
+                isValid = false;
+            }
+            
+            // Check date logic
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                
+                if (start > end) {
+                    messages.push('❌ Start date cannot be after end date');
+                    isValid = false;
+                } else if (start.toDateString() === end.toDateString()) {
+                    messages.push('ℹ️ Start and end dates are the same - only one day will be processed');
+                } else {
+                    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                    messages.push(`✅ Date range: ${daysDiff} days (${start.toLocaleDateString()} to ${end.toLocaleDateString()})`);
+                }
+            }
+            
+            // Show validation result
+            if (messages.length > 0) {
+                validationDiv.innerHTML = messages.join('<br>');
+                validationDiv.style.display = 'block';
+                
+                if (isValid) {
+                    validationDiv.classList.add('success');
+                } else {
+                    validationDiv.classList.add('error');
+                }
+            }
+            
+            return isValid;
         }
 
         async function analyzeSheetColumns() {
