@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Sheets API - JSON Upload</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-zone {
+            border: 3px dashed #007bff;
+            border-radius: 15px;
+            padding: 50px 20px;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-zone:hover {
+            border-color: #0056b3;
+            background: #e7f3ff;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 123, 255, 0.1);
+        }
+
+        .upload-zone.dragover {
+            border-color: #28a745;
+            background: #d4edda;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            color: #007bff;
+            transition: all 0.3s ease;
+        }
+
+        .upload-zone:hover .upload-icon {
+            transform: scale(1.1);
+        }
+
+        .upload-text {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .upload-subtext {
+            color: #666;
+            font-size: 1em;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .textarea-json {
+            width: 100%;
+            min-height: 150px;
+            padding: 20px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            resize: vertical;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .textarea-json:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .status-card {
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+            border-left: 5px solid;
+        }
+
+        .status-success {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .status-info {
+            background: #d1ecf1;
+            border-color: #17a2b8;
+            color: #0c5460;
+        }
+
+        .info-grid {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .info-grid h4 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 12px 0;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .info-value {
+            color: #333;
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .file-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .file-meta {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .upload-zone {
+                padding: 30px 15px;
+            }
+
+            .btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .info-row {
+                flex-direction: column;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1>📤 JSON File Upload</h1>
+            <p>Upload Google Sheets API Service Account Credentials</p>
+        </div>
+
+        <div class="content">
+            <!-- File Upload Section -->
+            <div class="section">
+                <h3 class="section-title">
+                    <span>🔐</span> Upload Service Account JSON
+                </h3>
+
+                <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">☁️</div>
+                    <div class="upload-text">Drag & Drop JSON File or Click to Browse</div>
+                    <div class="upload-subtext">Supports Google Service Account JSON files (.json)</div>
+                    <input type="file" id="fileInput" class="file-input" accept=".json">
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn" onclick="document.getElementById('fileInput').click()">
+                        📁 Choose File
+                    </button>
+                    <button class="btn btn-secondary" onclick="showUploadedFiles()">
+                        📋 View Uploaded Files
+                    </button>
+                </div>
+            </div>
+
+            <!-- JSON Paste Section -->
+            <div class="section">
+                <h3 class="section-title">
+                    <span>📝</span> Or Paste JSON Content
+                </h3>
+                <textarea id="jsonPaste" class="textarea-json" placeholder="Paste your Google Service Account JSON content here..."></textarea>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="validateJSON()">
+                        ✅ Validate JSON
+                    </button>
+                    <button class="btn btn-danger" onclick="clearContent()">
+                        🗑️ Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Processing JSON file...</p>
+            </div>
+
+            <!-- Status Messages -->
+            <div id="statusCard" class="status-card"></div>
+
+            <!-- File Information -->
+            <div id="infoGrid" class="info-grid"></div>
+
+            <!-- File List -->
+            <div id="fileList" class="file-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let uploadedJSON = null;
+        const API_BASE = '/api';
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            setupFileUpload();
+            checkServerHealth();
+        });
+
+        function setupFileUpload() {
+            const uploadZone = document.getElementById('uploadZone');
+            const fileInput = document.getElementById('fileInput');
+
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            // Highlight drop area
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, () => {
+                    uploadZone.classList.add('dragover');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, () => {
+                    uploadZone.classList.remove('dragover');
+                }, false);
+            });
+
+            // Handle dropped files
+            uploadZone.addEventListener('drop', handleDrop, false);
+
+            // Handle file input change
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    uploadFile(e.target.files[0]);
+                }
+            });
+        }
+
+        function handleDrop(e) {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                uploadFile(files[0]);
+            }
+        }
+
+        function uploadFile(file) {
+            if (!file.name.toLowerCase().endsWith('.json')) {
+                showStatus('Please upload a JSON file only.', 'error');
+                return;
+            }
+
+            if (file.size > 1024 * 1024) {
+                showStatus('File too large. Please upload a file smaller than 1MB.', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch(`${API_BASE}/upload`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    showStatus(data.message, 'success');
+                    displayFileInfo(data.data);
+                } else {
+                    showStatus(data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                showStatus(`Upload failed: ${error.message}`, 'error');
+            });
+        }
+
+        function validateJSON() {
+            const jsonContent = document.getElementById('jsonPaste').value.trim();
+            
+            if (!jsonContent) {
+                showStatus('Please provide JSON content.', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            fetch(`${API_BASE}/validate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ content: jsonContent })
+            })
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    showStatus(data.message, 'success');
+                    displayFileInfo(data.data);
+                } else {
+                    showStatus(data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                showStatus(`Validation failed: ${error.message}`, 'error');
+            });
+        }
+
+        function showUploadedFiles() {
+            showLoading(true);
+
+            fetch(`${API_BASE}/files`)
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    displayFileList(data.data.files);
+                } else {
+                    showStatus(data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                showStatus(`Failed to load files: ${error.message}`, 'error');
+            });
+        }
+
+        function clearContent() {
+            document.getElementById('jsonPaste').value = '';
+            document.getElementById('fileInput').value = '';
+            hideAllDisplays();
+            showStatus('Content cleared.', 'info');
+        }
+
+        function checkServerHealth() {
+            fetch(`${API_BASE}/health`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('✅ Server is healthy');
+                }
+            })
+            .catch(error => {
+                showStatus('Server connection failed. Please check if the server is running.', 'error');
+            });
+        }
+
+        function showStatus(message, type) {
+            const statusCard = document.getElementById('statusCard');
+            statusCard.className = `status-card status-${type}`;
+            statusCard.textContent = message;
+            statusCard.style.display = 'block';
+
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    statusCard.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function displayFileInfo(info) {
+            const infoGrid = document.getElementById('infoGrid');
+            
+            const infoHTML = `
+                <h4>📋 Service Account Information</h4>
+                <div class="info-row">
+                    <span class="info-label">Project ID:</span>
+                    <span class="info-value">${info.project_id || 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Client Email:</span>
+                    <span class="info-value">${info.client_email || 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Client ID:</span>
+                    <span class="info-value">${info.client_id || 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value" style="background: #d4edda; color: #155724;">✅ Valid</span>
+                </div>
+            `;
+            
+            infoGrid.innerHTML = infoHTML;
+            infoGrid.style.display = 'block';
+        }
+
+        function displayFileList(files) {
+            const fileList = document.getElementById('fileList');
+            
+            if (files.length === 0) {
+                fileList.innerHTML = '<h4>📁 No uploaded files found</h4>';
+            } else {
+                let filesHTML = '<h4>📁 Uploaded Files</h4>';
+                files.forEach(file => {
+                    filesHTML += `
+                        <div class="file-item">
+                            <div>
+                                <div class="file-name">${file.name}</div>
+                                <div class="file-meta">${file.size_mb} MB • Modified: ${new Date(file.modified).toLocaleString()}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                fileList.innerHTML = filesHTML;
+            }
+            
+            fileList.style.display = 'block';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function hideAllDisplays() {
+            document.getElementById('statusCard').style.display = 'none';
+            document.getElementById('infoGrid').style.display = 'none';
+            document.getElementById('fileList').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
