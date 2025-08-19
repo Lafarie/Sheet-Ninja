@@ -15,12 +15,14 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import re
 from dotenv import load_dotenv
+import json
 
 # Load environment variables from the temporary .env file created by the API
 # Check for environment variables first, then fall back to centralized paths
 env_file = os.getenv('ENV_FILE')
 if not env_file:
-    env_file = '/app/temp/sync.env'  # Fixed path
+    # Use config paths instead of hardcoded Docker paths
+    env_file = config.PATHS['env_file']
 
 if os.path.exists(env_file):
     # Clear any existing environment variables that might interfere
@@ -85,12 +87,23 @@ START_DATE = os.getenv('START_DATE', '')
 END_DATE = os.getenv('END_DATE', '')
 ENABLE_AUTO_CLOSE = os.getenv('ENABLE_AUTO_CLOSE', 'true').lower() == 'true'
 
+# Project Mapping Settings
+PROJECT_MAPPING_ENABLED = os.getenv('PROJECT_MAPPING_ENABLED', 'false').lower() == 'true'
+PROJECT_MAPPINGS_JSON = os.getenv('PROJECT_MAPPINGS', '{}')
+try:
+    PROJECT_MAPPINGS = json.loads(PROJECT_MAPPINGS_JSON) if PROJECT_MAPPINGS_JSON else {}
+except:
+    PROJECT_MAPPINGS = {}
+
 # Debug: Check what values we're actually using
 print("🔍 Debug - Final values being used:")
 print(f"   SPREADSHEET_ID: {SPREADSHEET_ID}")
 print(f"   WORKSHEET_NAME: {WORKSHEET_NAME}")
 print(f"   GITLAB_URL: {GITLAB_URL}")
 print(f"   PROJECT_ID: {PROJECT_ID}")
+print(f"   PROJECT_MAPPING_ENABLED: {PROJECT_MAPPING_ENABLED}")
+print(f"   PROJECT_MAPPINGS: {PROJECT_MAPPINGS}")
+print(f"   PROJECT_MAPPINGS_JSON: {PROJECT_MAPPINGS_JSON}")
 
 class SheetsToGitLab:
     def __init__(self):
@@ -105,8 +118,8 @@ class SheetsToGitLab:
     def _authenticate_google_sheets(self):
         """Authenticate with Google Sheets using Service Account"""
         try:
-            # Use the correct service account file path
-            service_account_file = '/app/public/uploads/temp/service_account.json'
+            # Use the correct service account file path from config
+            service_account_file = config.PATHS['service_account_file']
             
             # Check if service account file exists
             if not os.path.exists(service_account_file):
@@ -188,7 +201,10 @@ class SheetsToGitLab:
     def get_sheet_data(self):
         """Get all data from Google Sheet with dynamic column mapping"""
         try:
+            print("🔄 Starting get_sheet_data()...")
+            
             # Get all values including headers
+            print("📖 Attempting to read range A:Z...")
             all_values = self.get_sheet_values(f"{self.worksheet_name}!A:Z")  # Extended range to handle more columns
             
             # If no data found, try a smaller range
@@ -207,99 +223,267 @@ class SheetsToGitLab:
                 print(f"🔍 Spreadsheet ID: {self.spreadsheet_id}")
                 return []
             
+            print(f"✅ Successfully read {len(all_values)} rows from sheet")
+            
             detected_headers = all_values[0]
             data_rows = all_values[1:]
             
             # Validate column configuration against detected headers
             print(f"🔍 Detected {len(detected_headers)} columns in sheet")
+            print(f"🔍 Headers: {detected_headers}")
             
             # Auto-detect column mapping if headers don't match
             column_mapping = {}
             mismatched_columns = []
             
+            print("🔍 Processing column configuration...")
             for key, column_config in config.COLUMN_CONFIG.items():
                 expected_index = column_config["index"]
                 expected_header = column_config["header"]
                 
+                print(f"  🔍 Checking column {key}: expected_index={expected_index}, expected_header='{expected_header}'")
+                
                 # Check if the expected column exists and matches
                 if expected_index <= len(detected_headers):
                     actual_header = detected_headers[expected_index - 1]
+                    print(f"    📋 Actual header at index {expected_index}: '{actual_header}'")
+                    
                     if actual_header.lower().strip() == expected_header.lower().strip():
                         column_mapping[key] = expected_index - 1  # Convert to 0-based index
+                        print(f"    ✅ Column {key} mapped to index {expected_index - 1}")
                     else:
-                        mismatched_columns.append(f"{key}: expected '{expected_header}' but found '{actual_header}' in column {expected_index}")
-                        # Try to find by header name
-                        for i, header in enumerate(detected_headers):
-                            if header.lower().strip() == expected_header.lower().strip():
-                                column_mapping[key] = i
-                                print(f"🔍 Auto-mapped {key} from column {expected_index} to column {i + 1}")
-                                break
+                        mismatched_columns.append({
+                            'key': key,
+                            'expected': expected_header,
+                            'actual': actual_header,
+                            'index': expected_index
+                        })
+                        print(f"    ❌ Column {key} mismatch: expected '{expected_header}', got '{actual_header}'")
                 else:
-                    mismatched_columns.append(f"{key}: column {expected_index} doesn't exist (only {len(detected_headers)} columns)")
+                    print(f"    ⚠️ Column {key} index {expected_index} out of range (max: {len(detected_headers)})")
             
-            if mismatched_columns:
-                print("⚠️ Column mapping issues detected:")
-                for issue in mismatched_columns:
-                    print(f"   {issue}")
-                print("💡 Consider running column_manager.py to fix column mappings")
+            print(f"✅ Column mapping completed. {len(column_mapping)} columns mapped, {len(mismatched_columns)} mismatched")
             
-            # Parse data rows with dynamic mapping
+            # Process data rows
+            print(f"🔄 Processing {len(data_rows)} data rows...")
             records = []
-            for row_index, row in enumerate(data_rows):
-                # Pad row with empty strings if it's shorter than detected headers
-                padded_row = row + [''] * (len(detected_headers) - len(row))
-                
-                # Create record using dynamic column mapping
-                record = {}
-                for key, column_index in column_mapping.items():
-                    if column_index < len(padded_row):
-                        record[key] = padded_row[column_index]
-                    else:
-                        record[key] = ""
-                
-                # Add row index for reference
-                record['_row_index'] = row_index
-                records.append(record)
             
-            # print(f"✅ Found {len(records)} rows in Google Sheet")
-            print(f"📊 Successfully mapped {len(column_mapping)} columns")
+            for row_index, row in enumerate(data_rows):
+                print(f"  📝 Processing row {row_index + 1}...")
+                
+                record = {'_row_index': row_index}
+                
+                # Map data using the column mapping
+                for key, col_index in column_mapping.items():
+                    if col_index < len(row):
+                        record[key] = row[col_index]
+                    else:
+                        record[key] = ''
+                
+                records.append(record)
+                print(f"    ✅ Row {row_index + 1} processed")
+            
+            print(f"✅ get_sheet_data() completed. Returning {len(records)} records")
             return records
             
         except Exception as e:
-            print(f"❌ Error reading Google Sheet: {e}")
+            print(f"❌ Error in get_sheet_data(): {e}")
             import traceback
             traceback.print_exc()
             return []
     
-    def create_gitlab_issue(self, title, description="", project_name="", planned_estimation="", actual_estimation="", actual_end_date=""):
-        """Create a new GitLab issue"""
+    def create_gitlab_issue(self, record, gitlab_url, gitlab_token, project_id, default_assignee, default_milestone, default_label, project_mappings=None):
+        """Create a GitLab issue from a record"""
         try:
-            # Use module-level environment variables
-            gitlab_url = GITLAB_URL
-            gitlab_token = GITLAB_TOKEN
-            project_id = PROJECT_ID
-            default_assignee = DEFAULT_ASSIGNEE
-            default_milestone = DEFAULT_MILESTONE
-            default_label = DEFAULT_LABEL
+            # Determine which project to use
+            target_project_id = project_id
+            project_specific_labels = []
+            project_specific_milestone = ''
+            
+            # Debug project mapping
+            print(f"│   🔍 DEBUG - Project Mapping Analysis:")
+            print(f"│      project_mappings parameter: {project_mappings}")
+            print(f"│      PROJECT_MAPPING_ENABLED: {PROJECT_MAPPING_ENABLED}")
+            print(f"│      PROJECT_MAPPINGS global: {PROJECT_MAPPINGS}")
+            print(f"│      default project_id: {project_id}")
+            
+            # If project mapping is enabled, check if this record has a mapped project
+            if project_mappings:
+                project_name = record.get('PROJECT_NAME', '').strip()
+                print(f"│      record PROJECT_NAME: '{project_name}'")
+                print(f"│      available mappings: {list(project_mappings.keys())}")
+                
+                if project_name and project_name in project_mappings:
+                    mapping_data = project_mappings[project_name]
+                    
+                    # Handle both old format (string) and new format (object)
+                    if isinstance(mapping_data, dict):
+                        target_project_id = mapping_data.get('project_id', project_id)
+                        project_specific_labels = mapping_data.get('labels', [])
+                        project_specific_milestone = mapping_data.get('milestone', '')
+                        print(f"│   🎯 Using enhanced mapping for '{project_name}':")
+                        print(f"│      Project ID: {target_project_id}")
+                        print(f"│      Labels: {project_specific_labels}")
+                        print(f"│      Milestone: {project_specific_milestone}")
+                    else:
+                        # Old format - just project ID
+                        target_project_id = mapping_data
+                        print(f"│   🎯 Using mapped project ID {target_project_id} for project '{project_name}' (old format)")
+                else:
+                    print(f"│   ⚠️ No mapping found for project '{project_name}', using default project ID {project_id}")
+                    if project_name:
+                        print(f"│      Available project names: {list(project_mappings.keys())}")
+                        print(f"│      Project name not found in mappings")
+                    else:
+                        print(f"│      PROJECT_NAME is empty or missing from record")
+            else:
+                print(f"│   ⚠️ No project_mappings provided, using default project ID {project_id}")
+            
+            print(f"│   🎯 Final target_project_id: {target_project_id}")
+            print(f"│   🏷️ Project-specific labels: {project_specific_labels}")
+            print(f"│   🎯 Project-specific milestone: {project_specific_milestone}")
+            
+            # Create issue title and description
+            project_name = record.get('PROJECT_NAME', '').strip()
+            main_task = record.get('MAIN_TASK', '').strip()
+            sub_task = record.get('SUB_TASK', '').strip()
+            specific_project = record.get('SPECIFIC_PROJECT', '').strip()
+            status = record.get('STATUS', '').strip()
+            
+            # Build title - use only main_task like in single project mode
+            title = main_task if main_task else 'Untitled Task'
+            
+            # Build description using GitLab commands
+            description_parts = []
+            
+            # Add sub task as regular description
+            if sub_task:
+                description_parts.append(sub_task)
+            
+            # Add specific project if it exists and is different from project name
+            if specific_project and specific_project != project_name:
+                description_parts.append(f"**Specific Project:** {specific_project}")
+            
+            # Add GitLab commands
+            gitlab_commands = []
+            
+            # Add assignee command
+            if default_assignee:
+                username = default_assignee.replace('@', '')
+                gitlab_commands.append(f"/assign @{username}")
+            
+            # Add estimate command from planned estimation
+            planned_estimation = record.get('PLANNED_ESTIMATION', '').strip()
+            if planned_estimation:
+                try:
+                    # Try to parse as hours
+                    hours = float(planned_estimation)
+                    gitlab_commands.append(f"/estimate {hours}h")
+                except ValueError:
+                    # If not a number, use as is
+                    gitlab_commands.append(f"/estimate {planned_estimation}")
+            
+            # Add spend command from actual estimation
+            actual_estimation = record.get('ACTUAL_ESTIMATION', '').strip()
+            if actual_estimation:
+                try:
+                    # Try to parse as hours
+                    hours = float(actual_estimation)
+                    gitlab_commands.append(f"/spend {hours}h")
+                except ValueError:
+                    # If not a number, use as is
+                    gitlab_commands.append(f"/spend {actual_estimation}")
+            
+            # Add milestone command
+            if default_milestone:
+                milestone_title = default_milestone.replace('%', '')
+                gitlab_commands.append(f"/milestone %{milestone_title}")
+            
+            # Add label commands
+            if default_label:
+                # Handle multiple labels (comma-separated)
+                labels = [label.strip().replace('~', '') for label in default_label.split(',') if label.strip()]
+                for label in labels:
+                    gitlab_commands.append(f"/label ~{label}")
+            
+            # Note: /close command doesn't work during issue creation, will handle closing after creation
+            # if status and status.lower() in ['closed', 'done', 'completed', 'finished']:
+            #     gitlab_commands.append("/close")
+            
+            # Combine description parts
+            if description_parts:
+                description = '\n\n'.join(description_parts)
+                if gitlab_commands:
+                    description += '\n\n' + '\n'.join(gitlab_commands)
+            else:
+                description = '\n'.join(gitlab_commands) if gitlab_commands else 'No description provided'
             
             # Prepare issue data
             issue_data = {
                 'title': title,
-                'description': description,
-                'project_id': project_id
+                'description': description
             }
+            
+            # Add labels if specified
+            labels_to_use = project_specific_labels if project_specific_labels else []
+            if not labels_to_use and default_label:
+                # Fallback to global labels
+                labels_to_use = [label.strip().replace('~', '') for label in default_label.split(',') if label.strip()]
+            
+            if labels_to_use:
+                issue_data['labels'] = labels_to_use
+                print(f"│   🏷️ Adding labels: {', '.join(labels_to_use)}")
+            
+            # Add milestone if specified
+            milestone_to_use = project_specific_milestone if project_specific_milestone else default_milestone
+            if milestone_to_use:
+                milestone_title = milestone_to_use.replace('%', '')
+                # Look up milestone ID by title
+                try:
+                    milestone_response = requests.get(
+                        f"{gitlab_url}projects/{target_project_id}/milestones?title={milestone_title}",
+                        headers={'PRIVATE-TOKEN': gitlab_token},
+                        timeout=10
+                    )
+                    
+                    if milestone_response.status_code == 200:
+                        milestones = milestone_response.json()
+                        if milestones:
+                            milestone_id = milestones[0]['id']
+                            issue_data['milestone_id'] = milestone_id
+                            print(f"│   🎯 Adding to milestone ID {milestone_id} (title: {milestone_title})")
+                        else:
+                            print(f"│   ⚠️ Milestone '{milestone_title}' not found, skipping milestone")
+                    else:
+                        print(f"│   ⚠️ Failed to lookup milestone '{milestone_title}' (Status: {milestone_response.status_code}), skipping milestone")
+                except Exception as e:
+                    print(f"│   ⚠️ Error looking up milestone '{milestone_title}': {e}, skipping milestone")
             
             # Add assignee if specified
             if default_assignee:
-                issue_data['assignee_ids'] = [default_assignee.replace('@', '')]
-            
-            # Add milestone if specified
-            if default_milestone:
-                issue_data['milestone_id'] = default_milestone.replace('%', '')  # Remove % prefix
-            
-            # Add label if specified
-            if default_label:
-                issue_data['labels'] = [default_label.replace('~', '')]  # Remove ~ prefix
+                # Remove @ prefix and get username
+                username = default_assignee.replace('@', '')
+                
+                # Look up user ID by username
+                try:
+                    user_response = requests.get(
+                        f"{gitlab_url}users?username={username}",
+                        headers={'PRIVATE-TOKEN': gitlab_token},
+                        timeout=10
+                    )
+                    
+                    if user_response.status_code == 200:
+                        users = user_response.json()
+                        if users:
+                            user_id = users[0]['id']
+                            issue_data['assignee_ids'] = [user_id]
+                            print(f"│   👤 Assigning to user ID {user_id} (username: {username})")
+                        else:
+                            print(f"│   ⚠️ User '{username}' not found, skipping assignee")
+                    else:
+                        print(f"│   ⚠️ Failed to lookup user '{username}' (Status: {user_response.status_code}), skipping assignee")
+                except Exception as e:
+                    print(f"│   ⚠️ Error looking up user '{username}': {e}, skipping assignee")
             
             # Make the API request
             headers = {
@@ -308,7 +492,7 @@ class SheetsToGitLab:
             }
             
             response = requests.post(
-                f"{gitlab_url}projects/{project_id}/issues",
+                f"{gitlab_url}projects/{target_project_id}/issues",
                 headers=headers,
                 json=issue_data,
                 timeout=30
@@ -359,7 +543,7 @@ class SheetsToGitLab:
                                 time.sleep(3)
                                 # Try to find the issue by title as a last resort
                                 print(f"│   🔍 Searching for created issue by title...")
-                                found_issue_id = self.find_issue_by_title(title, project_id)
+                                found_issue_id = self.find_issue_by_title(title, target_project_id)
                                 if found_issue_id:
                                     issue_id = found_issue_id
                                     print(f"│   ✅ Found created issue #{issue_id}: {title} (Status: 202 - found by search)")
@@ -379,7 +563,7 @@ class SheetsToGitLab:
             print(f"│   ❌ Error creating GitLab issue: {e}")
             return None
     
-    def update_git_id_in_sheet(self, row_number, git_id, project_name="", actual_end_date=""):
+    def update_git_id_in_sheet(self, row_number, git_id, project_name="", actual_end_date="", enhanced_project_mappings=None):
         """Update the GIT ID in the Google Sheet with clickable link only if different"""
         try:
             # Get the correct column for GIT_ID from the configuration
@@ -416,14 +600,56 @@ class SheetsToGitLab:
                     print(f"ℹ️ GIT ID {git_id} already exists in {cell_range} - skipping update")
                     return
             
-            # Generate dynamic issue URL based on project name
-            if project_name:
-                issue_url = config.get_gitlab_issue_url(project_name, git_id)
-                print(f"🔗 Generated URL for {project_name}: {issue_url}")
-            else:
-                # Fallback to default repo path
-                issue_url = f"https://sourcecontrol.hsenidmobile.com/appigo/ticket-generator/-/issues/{git_id}"
-                print(f"🔗 Using default URL: {issue_url}")
+            # Generate dynamic issue URL based on project name and mappings
+            issue_url = None
+            if project_name and PROJECT_MAPPING_ENABLED:
+                # Use enhanced project mappings if available, otherwise fall back to global PROJECT_MAPPINGS
+                project_mappings_to_use = enhanced_project_mappings if enhanced_project_mappings else PROJECT_MAPPINGS
+                
+                if project_mappings_to_use and project_name in project_mappings_to_use:
+                    mapping_data = project_mappings_to_use[project_name]
+                    
+                    # Handle both old format (string) and new format (object)
+                    if isinstance(mapping_data, dict):
+                        target_project_id = mapping_data.get('project_id', PROJECT_ID)
+                    else:
+                        target_project_id = mapping_data
+                    
+                    # Get the project details from GitLab to get the repo path
+                    try:
+                        headers = {
+                            'PRIVATE-TOKEN': GITLAB_TOKEN,
+                            'Content-Type': 'application/json'
+                        }
+                        
+                        response = requests.get(
+                            f"{GITLAB_URL}projects/{target_project_id}",
+                            headers=headers,
+                            timeout=10
+                        )
+                        
+                        if response.status_code == 200:
+                            project_data = response.json()
+                            repo_path = project_data.get('path_with_namespace', '')
+                            if repo_path:
+                                base_url = GITLAB_URL.replace('/api/v4/', '')  # Remove API path to get base URL
+                                issue_url = f"{base_url}{repo_path}/-/issues/{git_id}"
+                                print(f"🔗 Generated URL for {project_name} (ID: {target_project_id}): {issue_url}")
+                            else:
+                                print(f"⚠️ Could not get repo path for project {project_name}")
+                        else:
+                            print(f"⚠️ Failed to get project details for {project_name} (Status: {response.status_code})")
+                    except Exception as e:
+                        print(f"⚠️ Error getting project details for {project_name}: {e}")
+            
+            # Fallback to config function if project mapping failed
+            if not issue_url:
+                if project_name:
+                    issue_url = config.get_gitlab_issue_url(project_name, git_id)
+                    print(f"🔗 Generated fallback URL for {project_name}: {issue_url}")
+                else:
+                    print(f"No project name found for GIT ID {git_id}")
+                    return
             
             # Create a clickable link using Google Sheets HYPERLINK formula
             link_formula = f'=HYPERLINK("{issue_url}", "{git_id}")'
@@ -606,6 +832,42 @@ class SheetsToGitLab:
             print(f"│   ❌ Error closing issue #{issue_id}: {e}")
             return False
     
+    def close_gitlab_issue_with_project_id(self, issue_id, target_project_id):
+        """Close a GitLab issue using a specific project ID"""
+        try:
+            # Use module-level environment variables
+            gitlab_url = GITLAB_URL
+            gitlab_token = GITLAB_TOKEN
+            
+            headers = {
+                'PRIVATE-TOKEN': gitlab_token,
+                'Content-Type': 'application/json'
+            }
+            
+            # Close the issue
+            data = {'state_event': 'close'}
+            
+            response = requests.put(
+                f"{gitlab_url}projects/{target_project_id}/issues/{issue_id}",
+                headers=headers,
+                json=data
+            )
+            
+            # Accept both 200 (OK) and 202 (Accepted) as success
+            if response.status_code in [200, 202]:
+                if response.status_code == 200:
+                    print(f"│   ✅ Closed issue #{issue_id} in project {target_project_id}")
+                else:
+                    print(f"│   ✅ Closed issue #{issue_id} in project {target_project_id} (Status: 202 - Accepted)")
+                return True
+            else:
+                print(f"│   ❌ Failed to close issue #{issue_id} in project {target_project_id} (Status: {response.status_code})")
+                return False
+                
+        except Exception as e:
+            print(f"│   ❌ Error closing issue #{issue_id} in project {target_project_id}: {e}")
+            return False
+    
     
     def update_gitlab_issue(self, issue_id, title=None, description=None, state_event=None, project_name="", actual_end_date=""):
         """Update GitLab issue only if values have changed"""
@@ -756,6 +1018,9 @@ class SheetsToGitLab:
         print(f"📊 Default Label: {default_label}")
         print(f"📊 Date Filter Enabled: {enable_date_filter}")
         print(f"📊 Auto Close Enabled: {enable_auto_close}")
+        print(f"📊 Project Mapping Enabled: {PROJECT_MAPPING_ENABLED}")
+        if PROJECT_MAPPING_ENABLED:
+            print(f"📊 Project Mappings: {PROJECT_MAPPINGS}")
         
         # Check if date filtering is enabled
         if enable_date_filter and start_date and end_date:
@@ -770,12 +1035,16 @@ class SheetsToGitLab:
             enable_date_filter = False
             print("│   📅 Date filter disabled - processing all tasks")
         
+        print("🔄 About to call get_sheet_data()...")
         records = self.get_sheet_data()
+        print(f"🔄 get_sheet_data() returned {len(records) if records else 0} records")
+        
         if not records:
             print("❌ No data found in Google Sheet")
             print("└─ ❌ Sync Failed - No data available")
             return
         
+        print("🔄 Processing records to count tasks...")
         # Check if there are any tasks to process
         tasks_to_process = 0
         for record in records:
@@ -786,6 +1055,8 @@ class SheetsToGitLab:
             # Only count tasks that have no GIT_ID AND have both Project Name and Main Task
             if not git_id and project_name and main_task:
                 tasks_to_process += 1
+        
+        print(f"🔄 Found {tasks_to_process} tasks to process")
         
         if tasks_to_process == 0:
             print("⚠️ No tasks to process - all tasks already have GIT_ID or missing required fields")
@@ -846,68 +1117,8 @@ class SheetsToGitLab:
         print("│")
         print("├─ 🎯 Creating GitLab Issues...")
         
-        tasks_to_create = 0
-        tasks_to_update = 0
-        
-        # First pass: count tasks that need creation vs update
-        skipped_ranges = []  # Track ranges of skipped rows
-        current_skip_start = None
-        
-        for record in records:
-            git_id = record.get('GIT_ID', '').strip().replace('#', '')
-            project_name = record.get('PROJECT_NAME', '').strip()
-            main_task = record.get('MAIN_TASK', '').strip()
-            row_index = record.get('_row_index', 0) + 2  # Convert to actual row number
-            
-            if not git_id:
-                # Only count as task to create if both Project Name and Task Description are present
-                if project_name and main_task:
-                    # If we were tracking a skip range, close it
-                    if current_skip_start is not None:
-                        if current_skip_start == row_index - 1:
-                            skipped_ranges.append(str(current_skip_start))
-                        else:
-                            skipped_ranges.append(f"{current_skip_start}-{row_index - 1}")
-                        current_skip_start = None
-                    tasks_to_create += 1
-                else:
-                    # Start or continue tracking a skip range
-                    if current_skip_start is None:
-                        current_skip_start = row_index
-            else:
-                # If we were tracking a skip range, close it
-                if current_skip_start is not None:
-                    if current_skip_start == row_index - 1:
-                        skipped_ranges.append(str(current_skip_start))
-                    else:
-                        skipped_ranges.append(f"{current_skip_start}-{row_index - 1}")
-                    current_skip_start = None
-                tasks_to_update += 1
-        
-        # Close any remaining skip range
-        if current_skip_start is not None:
-            last_row = len(records) + 1
-            if current_skip_start == last_row:
-                skipped_ranges.append(str(current_skip_start))
-            else:
-                skipped_ranges.append(f"{current_skip_start}-{last_row}")
-        
-        # Show skipped row ranges if any
-        if skipped_ranges:
-            print(f"│   ⏭️ Skipped rows (missing Project Name or Task Description): {', '.join(skipped_ranges)}")
-        
-        print(f"│   📋 Tasks to create: {tasks_to_create}")
-        print(f"│   🔄 Tasks to update: {tasks_to_update}")
-        print("│")
-        
-        # If no tasks to create, stop here
-        if tasks_to_create == 0:
-            print("⚠️ No new tasks to create - all tasks already have GIT_ID")
-            print("└─ ✅ Sync completed - no new tasks to create")
-            return
-        
+        tasks_to_create = tasks_to_process
         created_count = 0
-        updated_count = 0
         
         for row_index, record in enumerate(records):
             # Use dynamic column mapping to extract values
@@ -927,96 +1138,59 @@ class SheetsToGitLab:
             if not main_task:  # Skip rows without main task
                 continue
             
+            # Skip tasks that already have a GIT_ID (already created)
+            if git_id:
+                print(f"│   ⏭️ Skipping row {actual_row_index + 2}: Task already exists (GIT_ID: {git_id})")
+                continue
+            
             # Only process tasks that need to be created (no GIT_ID AND have required fields)
-            if not git_id:
-                # Check if both Project Name and Task Description are present
-                if not project_name or not main_task:
-                    continue
-                    
-                print(f"│   📝 Processing row {actual_row_index + 2}: {main_task[:50]}{'...' if len(main_task) > 50 else ''}")
+            if not project_name or not main_task:
+                continue
                 
-                # Create new GitLab issue using main-task as title
-                title = main_task
+            print(f"│   📝 Processing row {actual_row_index + 2}: {main_task[:50]}{'...' if len(main_task) > 50 else ''}")
+            
+            # Create new GitLab issue using main-task as title
+            title = main_task
+            
+            print(f"│   🆕 Creating new issue...")
+            print(f"│   🔍 DEBUG - Sync function project mapping:")
+            print(f"│      PROJECT_MAPPING_ENABLED: {PROJECT_MAPPING_ENABLED}")
+            print(f"│      PROJECT_MAPPINGS: {PROJECT_MAPPINGS}")
+            print(f"│      Passing to create_gitlab_issue: {PROJECT_MAPPINGS if PROJECT_MAPPING_ENABLED else None}")
+            new_git_id = self.create_gitlab_issue(record, gitlab_url, gitlab_token, project_id, default_assignee, default_milestone, default_label, PROJECT_MAPPINGS if PROJECT_MAPPING_ENABLED else None)
+            if new_git_id:
+                created_count += 1
+                print(f"│   ✅ Created issue #{new_git_id}")
                 
-                print(f"│   🆕 Creating new issue...")
-                new_git_id = self.create_gitlab_issue(title, sub_task, project_name, planned_estimation, actual_estimation, actual_end_date)
-                if new_git_id:
-                    created_count += 1
-                    print(f"│   ✅ Created issue #{new_git_id}")
-                    
-                    # Check if auto-close is enabled and status indicates completion
-                    if enable_auto_close and status and status.lower() in ['closed', 'done', 'completed', 'finished']:
-                        print(f"│   🔒 Closing newly created issue #{new_git_id}")
+                # Check if auto-close is enabled and status indicates completion
+                if enable_auto_close and status and status.lower() in ['closed', 'done', 'completed', 'finished']:
+                    print(f"│   🔒 Closing newly created issue #{new_git_id}")
+                    # Use the correct project ID for closing
+                    if PROJECT_MAPPING_ENABLED and project_name in PROJECT_MAPPINGS:
+                        mapping_data = PROJECT_MAPPINGS[project_name]
+                        # Handle both old format (string) and new format (object)
+                        if isinstance(mapping_data, dict):
+                            target_project_id = mapping_data.get('project_id', project_id)
+                        else:
+                            target_project_id = mapping_data
+                        self.close_gitlab_issue_with_project_id(new_git_id, target_project_id)
+                    else:
                         self.close_gitlab_issue(new_git_id, project_name, actual_end_date)
-                    
-                    # Update the sheet with new GIT ID
-                    print(f"│   📝 Updating Sheet with GIT ID...")
-                    self.update_git_id_in_sheet(actual_row_index, new_git_id, project_name)
-                    git_id = str(new_git_id)
-                else:
-                    print(f"│   ❌ Failed to create issue")
                 
-                # Show progress for tasks being created
-                print(f"│   ── Progress: {created_count}/{tasks_to_create} new issues created")
+                # Update the sheet with new GIT ID
+                print(f"│   📝 Updating Sheet with GIT ID...")
+                self.update_git_id_in_sheet(actual_row_index, new_git_id, project_name, actual_end_date, PROJECT_MAPPINGS if PROJECT_MAPPING_ENABLED else None)
+                git_id = str(new_git_id)
             else:
-                # Process existing tasks for status updates and closing
-                try:
-                    git_id_int = int(git_id)
-                    updated_count += 1
-                    print(f"│   🔄 Processing existing issue #{git_id}")
-                    
-                    # Add time if specified
-                    if actual_estimation:
-                        try:
-                            hours = float(actual_estimation)
-                            if hours > 0:
-                                print(f"│   ⏱️ Adding {hours}h to issue #{git_id}")
-                                self.add_time_to_gitlab(git_id_int, hours, project_name)
-                        except ValueError:
-                            print(f"│   ⚠️ Invalid actual estimation format: {actual_estimation}")
-                    
-                    # Update issue status if specified
-                    if status:
-                        print(f"│   📊 Updating status to: {status}")
-                        # Convert common status values to GitLab state events
-                        state_event = None
-                        status_lower = status.lower().strip()
-                        
-                        if status_lower in ['done', 'completed', 'finished', 'closed']:
-                            state_event = 'close'
-                        elif status_lower in ['open', 'reopen', 'in progress', 'started']:
-                            state_event = 'reopen'
-                        elif status_lower in ['cancel', 'cancelled', 'abandoned']:
-                            state_event = 'close'  # GitLab doesn't have cancel, so we close it
-                        else:
-                            print(f"│   ⚠️ Unknown status '{status}' - skipping status update")
-                            state_event = None
-                        
-                        if state_event:
-                            self.update_gitlab_issue(git_id_int, state_event=state_event, project_name=project_name)
-                    
-                    # Close issue if status indicates completion
-                    if status and status.lower() in ['closed', 'done', 'completed', 'finished']:
-                        # Check if auto-close is enabled
-                        if enable_auto_close:
-                            print(f"│   🔒 Closing issue #{git_id}")
-                            self.close_gitlab_issue(git_id_int, project_name, actual_end_date)
-                        else:
-                            print(f"│   ⏸️ Auto-close disabled - issue #{git_id} remains open")
-                
-                except ValueError:
-                    print(f"│   ⚠️ Invalid Git ID format: {git_id}")
-                except Exception as e:
-                    print(f"│   ❌ Error processing issue {git_id}: {e}")
-                
-                # Show progress for tasks being updated
-                print(f"│   ── Progress: {updated_count}/{tasks_to_update} existing issues updated")
+                print(f"│   ❌ Failed to create issue")
+            
+            # Show progress for tasks being created
+            print(f"│   ── Progress: {created_count}/{tasks_to_create} new issues created")
         
         print("│")
         print("├─ 📊 Sync Summary:")
         print(f"│   ✅ Created: {created_count} new issues")
-        print(f"│   🔄 Updated: {updated_count} existing issues")
-        print(f"│   📋 Total processed: {created_count + updated_count} tasks")
+        print(f"│   📋 Total processed: {created_count} tasks")
         print("│")
         print("└─ ✅ Sync Completed")
         

@@ -192,6 +192,117 @@
             color: #6c757d;
             font-weight: 600;
         }
+        
+        /* Multiple Label Selection Styles */
+        #defaultLabel {
+            height: 38px; /* Same height as other form controls */
+            min-height: 38px;
+            max-height: 200px; /* Allow expansion when dropdown is open */
+            overflow: visible; /* Show dropdown options */
+            cursor: pointer;
+        }
+        
+        #defaultLabel:focus {
+            height: auto;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        #defaultLabel option {
+            padding: 8px 12px;
+        }
+        
+        #defaultLabel option:hover {
+            background-color: #e9ecef;
+        }
+        
+        #selectedLabelsDisplay {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.25rem;
+            background-color: #f8f9fa;
+            margin-top: 0.25rem;
+            min-height: auto;
+        }
+        
+        #selectedLabelsList .badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        /* Custom Multiselect Styles */
+        .custom-multiselect {
+            position: relative;
+            width: 100%;
+        }
+        
+        .multiselect-trigger {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.375rem 0.75rem;
+            font-size: 1rem;
+            font-weight: 400;
+            line-height: 1.5;
+            color: #212529;
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            cursor: pointer;
+            min-height: 38px;
+        }
+        
+        .multiselect-trigger:hover {
+            border-color: #86b7fe;
+        }
+        
+        .multiselect-trigger.active {
+            border-color: #86b7fe;
+            outline: 0;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        
+        .multiselect-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ced4da;
+            border-top: none;
+            border-radius: 0 0 0.375rem 0.375rem;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .multiselect-options {
+            padding: 0;
+        }
+        
+        .multiselect-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f8f9fa;
+            display: flex;
+            align-items: center;
+        }
+        
+        .multiselect-option:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .multiselect-option.selected {
+            background-color: #e7f3ff;
+            color: #0d6efd;
+        }
+        
+        .multiselect-option input[type="checkbox"] {
+            margin-right: 8px;
+        }
     </style>
 </head>
 <body>
@@ -211,7 +322,7 @@
 
         <!-- Setup Steps -->
         <div class="row">
-            <div class="col-lg-8">
+            <div class="col-lg-12">
                 <!-- Step 1: Google Sheet Configuration -->
                 <div class="setup-step" id="step1">
                     <h5><i class="fas fa-table"></i> Step 1: Google Sheet Configuration</h5>
@@ -272,63 +383,232 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">GitLab Token <span style="color: red;">*</span></label>
-                                <input type="password" class="form-control" id="gitlabToken" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx">
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="gitlabToken" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx">
+                                    <button class="btn btn-outline-primary" type="button" onclick="fetchAllProjects()">
+                                        <i class="fas fa-list"></i> Fetch Projects
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Step 3: Project Selection -->
+                <div class="setup-step" id="step3">
+                    <h5><i class="fas fa-project-diagram"></i> Step 3: Project Selection</h5>
                     
-                    <div class="row">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Choose how you want to handle projects. You can work with a single project or enable project mapping for multiple projects.
+                    </div>
+                    
+                    <!-- Project Selection Options -->
+                    <div class="row mb-3">
                         <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Project ID <span style="color: red;">*</span></label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="projectId" placeholder="263">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="fetchProjectData()">
-                                        <i class="fas fa-sync"></i> Fetch
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-folder fa-3x text-primary mb-3"></i>
+                                    <h5>Single Project</h5>
+                                    <p class="text-muted">Work with one specific GitLab project</p>
+                                    <button class="btn btn-outline-primary" onclick="enableSingleProject()">
+                                        <i class="fas fa-check"></i> Select Single Project
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-sitemap fa-3x text-success mb-3"></i>
+                                    <h5>Project Mapping</h5>
+                                    <p class="text-muted">Map Excel project names to different GitLab repositories</p>
+                                    <button class="btn btn-outline-success" onclick="enableProjectMapping()">
+                                        <i class="fas fa-project-diagram"></i> Enable Project Mapping
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-12">
-                            <small class="text-muted">Click on Fetch button to get Available Assignees, Labels & Milestones</small>
+                    <!-- Single Project Configuration -->
+                    <div id="singleProjectConfig" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-folder"></i> Single Project Configuration</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Project ID <span style="color: red;">*</span></label>
+                                            <div class="input-group">
+                                                <select class="form-select" id="projectId">
+                                                    <option value="">Select project...</option>
+                                                </select>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="fetchProjectData()">
+                                                    <i class="fas fa-sync"></i> Fetch Data
+                                                </button>
+                                            </div>
+                                            <small class="text-muted">Click "Fetch Projects" in Step 2 first, then select a project and fetch its data</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Project Settings -->
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Assignee <span style="color: red;">*</span></label>
+                                            <select class="form-select" id="defaultAssignee">
+                                                <option value="">Select assignee...</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Labels</label>
+                                            <div class="custom-multiselect">
+                                                <div class="multiselect-trigger" id="labelDropdownTrigger">
+                                                    <span id="labelDropdownText">Select labels...</span>
+                                                    <i class="fas fa-chevron-down"></i>
+                                                </div>
+                                                <div class="multiselect-dropdown" id="labelDropdown" style="display: none;">
+                                                    <div class="multiselect-options" id="labelOptions">
+                                                        <!-- Options will be populated here -->
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="selectedLabelsDisplay" class="mt-2" style="display: none;">
+                                                <small class="text-muted">Selected labels:</small>
+                                                <div id="selectedLabelsList" class="mt-1"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Milestone</label>
+                                            <select class="form-select" id="defaultMilestone">
+                                                <option value="">Select milestone...</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Assignee <span style="color: red;">*</span></label>
-                                <select class="form-select" id="defaultAssignee">
-                                    <option value="">Select assignee...</option>
-                                </select>
+                    <!-- Project Mapping Configuration -->
+                    <div id="projectMappingConfig" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-sitemap"></i> Project Mapping Configuration</h6>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Label</label>
-                                <select class="form-select" id="defaultLabel">
-                                    <option value="">Select label...</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Milestone</label>
-                                <select class="form-select" id="defaultMilestone">
-                                    <option value="">Select milestone...</option>
-                                </select>
+                            <div class="card-body">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Map project names from your Excel sheet to GitLab repositories. Each project can have its own labels and milestones.
+                                </div>
+                                
+                                <!-- Workflow Steps -->
+                                <div class="mb-3">
+                                    <h6><i class="fas fa-list-ol"></i> Project Mapping Workflow:</h6>
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="card border-primary">
+                                                <div class="card-body text-center">
+                                                    <div class="badge bg-primary mb-2">Step 1</div>
+                                                    <h6>Detect Projects</h6>
+                                                    <small class="text-muted">Find project names in your Excel sheet</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card border-secondary">
+                                                <div class="card-body text-center">
+                                                    <div class="badge bg-secondary mb-2">Step 2</div>
+                                                    <h6>Map Projects</h6>
+                                                    <small class="text-muted">Link Excel projects to GitLab repos</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card border-secondary">
+                                                <div class="card-body text-center">
+                                                    <div class="badge bg-secondary mb-2">Step 3</div>
+                                                    <h6>Fetch Assignees</h6>
+                                                    <small class="text-muted">Get assignees from all mapped projects</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card border-secondary">
+                                                <div class="card-body text-center">
+                                                    <div class="badge bg-secondary mb-2">Step 4</div>
+                                                    <h6>Configure Settings</h6>
+                                                    <small class="text-muted">Set labels & milestones per project</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Global Assignee (same for all projects) -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Global Assignee <span style="color: red;">*</span></label>
+                                            <div class="input-group">
+                                                <select class="form-select" id="globalAssignee">
+                                                    <option value="">Select assignee...</option>
+                                                </select>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="fetchGlobalAssignees()">
+                                                    <i class="fas fa-sync"></i> Fetch Assignees
+                                                </button>
+                                            </div>
+                                            <small class="text-muted">This assignee will be used for all mapped projects. <strong>Complete project mapping first!</strong></small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Project Mapping Controls -->
+                                <div class="mb-3">
+                                    <button class="btn btn-outline-info btn-sm" onclick="detectProjectNames()">
+                                        <i class="fas fa-sync"></i> Detect Project Names from Sheet
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="autoMapProjects()">
+                                        <i class="fas fa-magic"></i> Auto-Map Projects
+                                    </button>
+                                    <button class="btn btn-outline-warning btn-sm" onclick="clearProjectMappings()">
+                                        <i class="fas fa-eraser"></i> Clear All Mappings
+                                    </button>
+                                </div>
+                                
+                                <!-- Project Mappings -->
+                                <div id="projectMappings">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle"></i> Click "Detect Project Names from Sheet" to start project mapping
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    
                 </div>
 
-                <!-- Step 3: Column Mapping -->
-                <div class="setup-step" id="step3">
-                    <h5><i class="fas fa-columns"></i> Step 3: Column Mapping</h5>
+                <!-- Step 4: Column Mapping -->
+                <div class="setup-step" id="step4">
+                    <div class="row align-items-start">
+                        <div class="col-md-4">
+                            <h5><i class="fas fa-columns"></i> Step 4: Column Mapping</h5>
+                        </div>
+                        <div class="col-md-10">
+                            <div id="columnMappings">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> Click "Detect from Sheet" to start column mapping
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div class="mb-3">
                         <button class="btn btn-outline-info btn-sm" onclick="detectFromSheet()">
@@ -338,17 +618,11 @@
                             <i class="fas fa-magic"></i> Auto-Map All
                         </button>
                     </div>
-                    
-                    <div id="columnMappings">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> Click "Detect from Sheet" to start column mapping
-                        </div>
-                    </div>
                 </div>
 
-                <!-- Step 4: Sync Execution -->
-                <div class="setup-step" id="step4">
-                    <h5><i class="fas fa-sync"></i> Step 4: Sync Execution</h5>
+                <!-- Step 5: Sync Execution -->
+                <div class="setup-step" id="step5">
+                    <h5><i class="fas fa-sync"></i> Step 5: Sync Execution</h5>
                     
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i> 
@@ -479,8 +753,8 @@
             </div>
 
             <!-- Sidebar -->
-            <div class="col-lg-4">
-                <!-- Setup Status -->
+            <!-- <div class="col-lg-4"> -->
+                <!-- Setup Status
                 <div class="card mb-4">
                     <div class="card-header">
                         <h6 class="mb-0"><i class="fas fa-clipboard-check"></i> Setup Status</h6>
@@ -492,9 +766,9 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </div> -->
 
-                <!-- Quick Actions -->
+                <!-- Quick Actions
                 <div class="card mb-4">
                     <div class="card-header">
                         <h6 class="mb-0"><i class="fas fa-bolt"></i> Quick Actions</h6>
@@ -512,7 +786,7 @@
                     </div>
                 </div>
 
-                <!-- Help -->
+                Help
                 <div class="card">
                     <div class="card-header">
                         <h6 class="mb-0"><i class="fas fa-question-circle"></i> Help</h6>
@@ -530,11 +804,94 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
 
     <!-- Toast Container -->
     <div class="toast-container"></div>
 
+    <!-- Project Mapping Modal -->
+    <div class="modal fade" id="projectMappingModal" tabindex="-1" aria-labelledby="projectMappingModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="projectMappingModalLabel">
+                        <i class="fas fa-project-diagram"></i> Project Mapping
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Map project names from your Excel sheet to GitLab repositories. 
+                        This allows you to create issues in different repositories based on the project name in each row.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <button class="btn btn-outline-info btn-sm" onclick="detectProjectNames()">
+                            <i class="fas fa-sync"></i> Detect Project Names from Sheet
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="autoMapProjects()">
+                            <i class="fas fa-magic"></i> Auto-Map Projects
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="clearProjectMappings()">
+                            <i class="fas fa-eraser"></i> Clear All Mappings
+                        </button>
+                    </div>
+                    
+                    <div id="projectMappings">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Click "Detect Project Names from Sheet" to start project mapping
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="disableProjectMapping()">
+                        <i class="fas fa-times"></i> Disable Project Mapping
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="saveProjectMappings()">
+                        <i class="fas fa-save"></i> Save Mappings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Default Settings Section (shown when project mapping is enabled) -->
+    <div id="defaultSettingsSection" class="row" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-cog"></i> Default Settings for Unmapped Projects</h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        These settings will be used as fallback for projects that don't have specific mappings.
+                        <br><small class="text-muted">Select a default project to fetch available assignees, labels, and milestones.</small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Default Project for Settings</label>
+                                <div class="input-group">
+                                    <select class="form-select" id="defaultProjectForSettings">
+                                        <option value="">Select a project to fetch settings...</option>
+                                    </select>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="fetchDefaultProjectSettings()">
+                                        <i class="fas fa-sync"></i> Fetch Settings
+                                    </button>
+                                </div>
+                                <small class="text-muted">This project's assignees, labels, and milestones will be used as defaults</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // API Configuration - Change this for server deployment
@@ -563,6 +920,12 @@
         let currentHeaders = [];
         let currentMappings = {};
         let autoMappings = {};
+        
+        // Project mapping variables
+        let projectMappingEnabled = false;
+        let sheetProjectNames = [];
+        let currentProjectMappings = {};
+        let gitlabProjects = [];
 
         // Default column configuration
         const defaultConfig = {
@@ -654,8 +1017,107 @@
             }
         });
 
+        async function fetchAllProjects() {
+            const gitlabUrl = document.getElementById('gitlabUrl').value;
+            const gitlabToken = document.getElementById('gitlabToken').value;
+            
+            if (!gitlabToken) {
+                showToast('Please enter GitLab Token', 'danger');
+                return;
+            }
+
+            try {
+                showToast('Fetching all available projects (this may take a moment)...', 'info');
+                
+                // Show loading state
+                const fetchButton = document.querySelector('button[onclick="fetchAllProjects()"]');
+                const originalText = fetchButton.innerHTML;
+                fetchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
+                fetchButton.disabled = true;
+                
+                // Fetch all projects with pagination
+                let allProjects = [];
+                let page = 1;
+                let hasMoreProjects = true;
+                
+                while (hasMoreProjects) {
+                    const projectsResponse = await fetch(`${gitlabUrl}projects?membership=true&order_by=name&sort=asc&per_page=100&page=${page}`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!projectsResponse.ok) {
+                        throw new Error(`Failed to fetch projects: ${projectsResponse.status} ${projectsResponse.statusText}`);
+                    }
+                    
+                    const projects = await projectsResponse.json();
+                    
+                    if (projects.length === 0) {
+                        hasMoreProjects = false;
+                    } else {
+                        allProjects = allProjects.concat(projects);
+                        page++;
+                        
+                        // Safety check to prevent infinite loops
+                        if (page > 50) {
+                            hasMoreProjects = false;
+                        }
+                    }
+                }
+                
+                // Update the project dropdown
+                const projectSelect = document.getElementById('projectId');
+                
+                // Clear existing options
+                projectSelect.innerHTML = '<option value="">Select project...</option>';
+                
+                // Add projects to dropdown
+                allProjects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.id;
+                    option.textContent = `${project.name} (ID: ${project.id}) - ${project.path_with_namespace}`;
+                    projectSelect.appendChild(option);
+                });
+                
+                // Add change event listener to show selected project info
+                projectSelect.onchange = function() {
+                    const selectedProject = allProjects.find(p => p.id == this.value);
+                    if (selectedProject) {
+                        showToast(`Selected: ${selectedProject.name} (${selectedProject.path_with_namespace})`, 'info');
+                    }
+                };
+                
+                showToast(`✅ Successfully fetched ${allProjects.length} projects`, 'success');
+                
+                // Store projects in config for later use
+                config.allProjects = allProjects;
+                
+                // Store projects for project mapping
+                gitlabProjects = allProjects;
+                
+                // Also populate global assignee dropdown for project mapping mode
+                const globalAssigneeSelect = document.getElementById('globalAssignee');
+                if (globalAssigneeSelect) {
+                    // We'll populate this when a project is selected for fetching assignees
+                    globalAssigneeSelect.innerHTML = '<option value="">Select a project first to fetch assignees...</option>';
+                }
+                
+            } catch (error) {
+                showToast('Error fetching projects: ' + error.message, 'danger');
+                console.error('Fetch projects error:', error);
+            } finally {
+                // Restore button state
+                const fetchButton = document.querySelector('button[onclick="fetchAllProjects()"]');
+                fetchButton.innerHTML = '<i class="fas fa-list"></i> Fetch Projects';
+                fetchButton.disabled = false;
+            }
+        }
+
         async function fetchProjectData() {
-            const projectId = document.getElementById('projectId').value;
+            // Get project ID from either dropdown or input field
+            const projectSelect = document.getElementById('projectId');
+            const projectInput = document.getElementById('projectIdInput');
+            const projectId = projectSelect.style.display !== 'none' ? projectSelect.value : projectInput.value;
+            
             const gitlabUrl = document.getElementById('gitlabUrl').value;
             const gitlabToken = document.getElementById('gitlabToken').value;
             
@@ -665,7 +1127,7 @@
             }
 
             if (!projectId) {
-                showToast('Please enter Project ID', 'danger');
+                showToast('Please select a project or enter Project ID', 'danger');
                 return;
             }
 
@@ -857,11 +1319,94 @@
             });
             
             // Update label dropdown
-            const labelSelect = document.getElementById('defaultLabel');
-            labelSelect.innerHTML = '<option value="">Select label...</option>';
+            const labelOptions = document.getElementById('labelOptions');
+            labelOptions.innerHTML = '';
+            
             config.projectData.labels.forEach(label => {
-                labelSelect.innerHTML += `<option value="~${label.name}">~${label.name}</option>`;
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'multiselect-option';
+                optionDiv.innerHTML = `
+                    <input type="checkbox" id="label_${label.name}" value="~${label.name}">
+                    <label for="label_${label.name}">~${label.name}</label>
+                `;
+                
+                optionDiv.onclick = function(e) {
+                    if (e.target.type !== 'checkbox') {
+                        const checkbox = optionDiv.querySelector('input[type="checkbox"]');
+                        checkbox.checked = !checkbox.checked;
+                    }
+                    updateSelectedLabelsDisplay();
+                };
+                
+                labelOptions.appendChild(optionDiv);
             });
+            
+            // Initialize custom multiselect
+            initializeCustomMultiselect();
+        }
+        
+        function initializeCustomMultiselect() {
+            const trigger = document.getElementById('labelDropdownTrigger');
+            const dropdown = document.getElementById('labelDropdown');
+            
+            trigger.onclick = function(e) {
+                e.stopPropagation();
+                const isOpen = dropdown.style.display !== 'none';
+                
+                if (isOpen) {
+                    dropdown.style.display = 'none';
+                    trigger.classList.remove('active');
+                } else {
+                    dropdown.style.display = 'block';
+                    trigger.classList.add('active');
+                }
+            };
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!trigger.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                    trigger.classList.remove('active');
+                }
+            });
+        }
+        
+        function updateSelectedLabelsDisplay() {
+            const selectedLabelsDisplay = document.getElementById('selectedLabelsDisplay');
+            const selectedLabelsList = document.getElementById('selectedLabelsList');
+            const labelDropdownText = document.getElementById('labelDropdownText');
+            
+            const selectedCheckboxes = document.querySelectorAll('#labelOptions input[type="checkbox"]:checked');
+            
+            if (selectedCheckboxes.length > 0) {
+                selectedLabelsDisplay.style.display = 'block';
+                selectedLabelsList.innerHTML = '';
+                
+                selectedCheckboxes.forEach(checkbox => {
+                    const labelName = checkbox.value.replace('~', '');
+                    const labelElement = document.createElement('span');
+                    labelElement.className = 'badge bg-primary me-1 mb-1';
+                    labelElement.textContent = labelName;
+                    
+                    // Add remove button
+                    const removeBtn = document.createElement('span');
+                    removeBtn.innerHTML = ' ×';
+                    removeBtn.style.cursor = 'pointer';
+                    removeBtn.onclick = function() {
+                        checkbox.checked = false;
+                        updateSelectedLabelsDisplay();
+                    };
+                    labelElement.appendChild(removeBtn);
+                    
+                    selectedLabelsList.appendChild(labelElement);
+                });
+                
+                // Update the dropdown text to show count
+                labelDropdownText.textContent = `${selectedCheckboxes.length} label(s) selected`;
+            } else {
+                selectedLabelsDisplay.style.display = 'none';
+                labelDropdownText.textContent = 'Select labels...';
+            }
         }
 
         async function fetchSheetNames() {
@@ -1153,7 +1698,13 @@
             config.worksheetName = document.getElementById('worksheetName').value;
             config.defaultAssignee = document.getElementById('defaultAssignee').value;
             config.defaultMilestone = document.getElementById('defaultMilestone').value;
-            config.defaultLabel = document.getElementById('defaultLabel').value;
+            
+            // Handle multiple label selection
+            const selectedCheckboxes = document.querySelectorAll('#labelOptions input[type="checkbox"]:checked');
+            const selectedLabels = Array.from(selectedCheckboxes)
+                .map(checkbox => checkbox.value.replace('~', '')); // Remove ~ prefix
+            config.defaultLabel = selectedLabels.join(','); // Join multiple labels with comma
+            
             config.columnMappings = currentMappings;
 
             // Generate .env content
@@ -1209,11 +1760,7 @@ ${JSON.stringify(updatedConfig, null, 2)}
 ## 4. Validation:
 - GitLab Project: ${config.projectId}
 - Spreadsheet: ${config.spreadsheetId}
-- Worksheet: ${config.worksheetName}
-- Mapped Columns: ${Object.keys(updatedConfig).length}
-// - Available Labels: ${config.projectData.labels.length}
-// - Available Milestones: ${config.projectData.milestones.length}
-// - Available Assignees: ${config.projectData.assignees.length}
+- Worksheet: ${config.worksheetName} 
             `;
             
             configOutput.style.display = 'block';
@@ -1225,16 +1772,66 @@ ${JSON.stringify(updatedConfig, null, 2)}
         function validateConfiguration() {
             const issues = [];
             
-            if (!config.gitlabToken) issues.push('GitLab Token is required');
-            if (!config.projectId) issues.push('Project ID is required');
-            if (!config.spreadsheetId) issues.push('Spreadsheet ID is required');
-            if (!config.serviceAccountFile) issues.push('Service Account file is required');
+            // Debug logging
+            console.log('=== VALIDATION DEBUG ===');
+            console.log('projectMappingEnabled:', projectMappingEnabled);
+            console.log('currentProjectMappings:', currentProjectMappings);
+            console.log('Object.keys(currentProjectMappings).length:', Object.keys(currentProjectMappings).length);
+            console.log('gitlabToken value:', document.getElementById('gitlabToken').value ? 'SET' : 'NOT SET');
+            console.log('globalAssignee value:', document.getElementById('globalAssignee').value ? 'SET' : 'NOT SET');
+            console.log('spreadsheetId value:', document.getElementById('spreadsheetId').value ? 'SET' : 'NOT SET');
+            console.log('worksheetName value:', document.getElementById('worksheetName').value ? 'SET' : 'NOT SET');
+            console.log('serviceAccountFile files:', document.getElementById('serviceAccountFile').files.length);
+            
+            if (!document.getElementById('gitlabToken').value) {
+                issues.push('GitLab Token is required');
+            }
+            
+            // Check project ID only if project mapping is not enabled
+            if (!projectMappingEnabled && !document.getElementById('projectId').value) {
+                issues.push('Project ID is required');
+            }
+            
+            // Check assignee based on mode
+            if (projectMappingEnabled) {
+                if (!document.getElementById('globalAssignee').value) {
+                    issues.push('Global Assignee is required for project mapping');
+                }
+            } else {
+                if (!document.getElementById('defaultAssignee').value) {
+                    issues.push('Assignee is required');
+                }
+            }
+            
+            if (!document.getElementById('spreadsheetId').value) {
+                issues.push('Spreadsheet ID is required');
+            }
+            if (!document.getElementById('worksheetName').value) {
+                issues.push('Worksheet Name is required');
+            }
+            
+            // Check if service account file is uploaded
+            const fileInput = document.getElementById('serviceAccountFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                issues.push('Service Account file is required');
+            }
+            
+            // Additional validation for project mapping mode
+            if (projectMappingEnabled) {
+                if (Object.keys(currentProjectMappings).length === 0) {
+                    issues.push('At least one project mapping is required');
+                }
+            }
+            
+            console.log('Validation issues:', issues);
+            console.log('=== END VALIDATION DEBUG ===');
             
             if (issues.length > 0) {
                 showToast('Configuration issues: ' + issues.join(', '), 'warning');
-            } else {
-                showToast('Configuration is valid!', 'success');
+                return false;
             }
+            
+            return true;
         }
 
         function loadExampleConfig() {
@@ -1341,13 +1938,49 @@ ${JSON.stringify(updatedConfig, null, 2)}
                 const syncConfig = {
                     gitlab_url: document.getElementById('gitlabUrl').value,
                     gitlab_token: document.getElementById('gitlabToken').value,
-                    project_id: document.getElementById('projectId').value,
+                    project_id: projectMappingEnabled ? '' : document.getElementById('projectId').value,
                     spreadsheet_id: document.getElementById('spreadsheetId').value,
                     worksheet_name: document.getElementById('worksheetName').value,
-                    default_assignee: document.getElementById('defaultAssignee').value,
-                    default_milestone: document.getElementById('defaultMilestone').value,
-                    default_label: document.getElementById('defaultLabel').value,
+                    default_assignee: projectMappingEnabled ? document.getElementById('globalAssignee').value : document.getElementById('defaultAssignee').value,
+                    default_milestone: projectMappingEnabled ? '' : document.getElementById('defaultMilestone').value,
+                    default_label: (() => {
+                        if (projectMappingEnabled) {
+                            // For project mapping, we'll handle labels per project
+                            return '';
+                        } else {
+                            // Handle multiple label selection for single project
+                            const selectedCheckboxes = document.querySelectorAll('#labelOptions input[type="checkbox"]:checked');
+                            const selectedLabels = Array.from(selectedCheckboxes)
+                                .map(checkbox => checkbox.value.replace('~', '')); // Remove ~ prefix
+                            return selectedLabels.join(','); // Join multiple labels with comma
+                        }
+                    })(),
                     column_mappings: currentMappings,
+                    project_mappings: projectMappingEnabled ? (() => {
+                        // Create enhanced project mappings with labels and milestones
+                        const enhancedMappings = {};
+                        for (const [projectName, mapping] of Object.entries(currentProjectMappings)) {
+                            // Get the project ID (could be string or object)
+                            const projectId = typeof mapping === 'object' ? (mapping.project_id || mapping) : mapping;
+                            
+                            // Get milestone (could be in mapping object or empty)
+                            const milestone = typeof mapping === 'object' ? (mapping.milestone || '') : '';
+                            
+                            // Get labels from UI
+                            const safeName = projectName.replace(/\s+/g, '_');
+                            const selectedCheckboxes = document.querySelectorAll(`#labelOptions_${safeName} input[type="checkbox"]:checked`);
+                            const labels = Array.from(selectedCheckboxes)
+                                .map(checkbox => checkbox.value.replace('~', ''));
+                            
+                            enhancedMappings[projectName] = {
+                                project_id: projectId,
+                                milestone: milestone,
+                                labels: labels
+                            };
+                        }
+                        return enhancedMappings;
+                    })() : {},
+                    project_mapping_enabled: projectMappingEnabled,
                     start_date: document.getElementById('startDate').value,
                     end_date: document.getElementById('endDate').value,
                     enable_date_filter: document.getElementById('enableDateFilter').checked,
@@ -1407,36 +2040,6 @@ ${JSON.stringify(updatedConfig, null, 2)}
                 
                 syncRunning = false;
             }
-        }
-
-        function validateSyncConfiguration() {
-            const issues = [];
-            
-            if (!document.getElementById('gitlabToken').value) {
-                issues.push('GitLab Token is required');
-            }
-            if (!document.getElementById('projectId').value) {
-                issues.push('Project ID is required');
-            }
-            if (!document.getElementById('spreadsheetId').value) {
-                issues.push('Spreadsheet ID is required');
-            }
-            if (!document.getElementById('worksheetName').value) {
-                issues.push('Worksheet Name is required');
-            }
-            
-            // Check if service account file is uploaded
-            const fileInput = document.getElementById('serviceAccountFile');
-            if (!fileInput.files || fileInput.files.length === 0) {
-                issues.push('Service Account file is required');
-            }
-            
-            if (issues.length > 0) {
-                showToast('Configuration issues: ' + issues.join(', '), 'warning');
-                return false;
-            }
-            
-            return true;
         }
 
         function startProgressPolling() {
@@ -1818,6 +2421,794 @@ ${JSON.stringify(updatedConfig, null, 2)}
                 console.error('Error stopping sync:', error);
             } finally {
                 syncRunning = false;
+            }
+        }
+
+        // Project Selection Functions
+        function enableSingleProject() {
+            projectMappingEnabled = false;
+            document.getElementById('singleProjectConfig').style.display = 'block';
+            document.getElementById('projectMappingConfig').style.display = 'none';
+            showToast('Single project mode enabled. Select a project and configure its settings.', 'info');
+        }
+        
+        function enableProjectMapping() {
+            projectMappingEnabled = true;
+            console.log('Project mapping enabled. projectMappingEnabled =', projectMappingEnabled);
+            document.getElementById('singleProjectConfig').style.display = 'none';
+            document.getElementById('projectMappingConfig').style.display = 'block';
+            showToast('Project mapping mode enabled. You can now map projects and configure their individual settings.', 'info');
+        }
+        
+        // Project Mapping Functions
+        function openProjectMappingModal() {
+            const modal = new bootstrap.Modal(document.getElementById('projectMappingModal'));
+            modal.show();
+            showToast('Project mapping modal opened! You can now map project names to GitLab repositories.', 'info');
+        }
+        
+        function disableProjectMapping() {
+            currentProjectMappings = {};
+            const modal = bootstrap.Modal.getInstance(document.getElementById('projectMappingModal'));
+            modal.hide();
+            showToast('Project mappings cleared.', 'info');
+        }
+        
+        function saveProjectMappings() {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('projectMappingModal'));
+            modal.hide();
+            showToast('Project mappings saved successfully!', 'success');
+        }
+        
+        function updateProjectMappingUI() {
+            // This function is no longer needed in the new structure
+            // The UI is handled by enableSingleProject() and enableProjectMapping()
+        }
+        
+        function fetchDefaultProjectSettings() {
+            const defaultProjectId = document.getElementById('defaultProjectForSettings').value;
+            
+            if (!defaultProjectId) {
+                showToast('Please select a default project first', 'warning');
+                return;
+            }
+            
+            // Use the existing fetchProjectData function but with the default project ID
+            fetchProjectDataForProject(defaultProjectId);
+        }
+
+        async function fetchProjectDataForProject(projectId) {
+            const gitlabUrl = document.getElementById('gitlabUrl').value;
+            const gitlabToken = document.getElementById('gitlabToken').value;
+            
+            if (!gitlabToken) {
+                showToast('Please enter GitLab Token', 'danger');
+                return;
+            }
+
+            try {
+                showToast('Fetching default project settings...', 'info');
+                
+                // Show loading state
+                const fetchButton = document.querySelector('button[onclick="fetchDefaultProjectSettings()"]');
+                const originalText = fetchButton.innerHTML;
+                fetchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
+                fetchButton.disabled = true;
+                
+                // Fetch all labels, milestones, and assignees for the default project
+                // (This is the same logic as fetchProjectData but for a specific project)
+                let allLabels = [];
+                let allMilestones = [];
+                let allAssignees = [];
+                
+                // Fetch labels
+                let page = 1;
+                let hasMoreLabels = true;
+                while (hasMoreLabels) {
+                    const labelsResponse = await fetch(`${gitlabUrl}projects/${projectId}/labels?page=${page}&per_page=100`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!labelsResponse.ok) {
+                        throw new Error(`Failed to fetch labels: ${labelsResponse.status} ${labelsResponse.statusText}`);
+                    }
+                    
+                    const labels = await labelsResponse.json();
+                    if (labels.length === 0) {
+                        hasMoreLabels = false;
+                    } else {
+                        allLabels = allLabels.concat(labels);
+                        page++;
+                        if (page > 50) hasMoreLabels = false;
+                    }
+                }
+                
+                // Fetch milestones
+                page = 1;
+                let hasMoreMilestones = true;
+                while (hasMoreMilestones) {
+                    const milestonesResponse = await fetch(`${gitlabUrl}projects/${projectId}/milestones?page=${page}&per_page=100&state=active`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!milestonesResponse.ok) {
+                        throw new Error(`Failed to fetch milestones: ${milestonesResponse.status} ${milestonesResponse.statusText}`);
+                    }
+                    
+                    const milestones = await milestonesResponse.json();
+                    if (milestones.length === 0) {
+                        hasMoreMilestones = false;
+                    } else {
+                        allMilestones = allMilestones.concat(milestones);
+                        page++;
+                        if (page > 50) hasMoreMilestones = false;
+                    }
+                }
+                
+                // Fetch members and users
+                let allMembers = [];
+                let allUsers = [];
+                
+                // Fetch members
+                page = 1;
+                let hasMoreMembers = true;
+                while (hasMoreMembers) {
+                    const membersResponse = await fetch(`${gitlabUrl}projects/${projectId}/members?page=${page}&per_page=100`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!membersResponse.ok) {
+                        throw new Error(`Failed to fetch members: ${membersResponse.status} ${membersResponse.statusText}`);
+                    }
+                    
+                    const members = await membersResponse.json();
+                    if (members.length === 0) {
+                        hasMoreMembers = false;
+                    } else {
+                        allMembers = allMembers.concat(members);
+                        page++;
+                        if (page > 50) hasMoreMembers = false;
+                    }
+                }
+                
+                // Fetch users
+                page = 1;
+                let hasMoreUsers = true;
+                while (hasMoreUsers) {
+                    const usersResponse = await fetch(`${gitlabUrl}projects/${projectId}/users?page=${page}&per_page=100`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!usersResponse.ok) {
+                        hasMoreUsers = false;
+                    } else {
+                        const users = await usersResponse.json();
+                        if (users.length === 0) {
+                            hasMoreUsers = false;
+                        } else {
+                            allUsers = allUsers.concat(users);
+                            page++;
+                            if (page > 50) hasMoreUsers = false;
+                        }
+                    }
+                }
+                
+                allAssignees = [...allMembers, ...allUsers];
+                
+                // Update config
+                config.projectData = { 
+                    labels: allLabels, 
+                    milestones: allMilestones, 
+                    assignees: allAssignees 
+                };
+                
+                // Update UI
+                updateProjectDataUI();
+                
+                showToast(`✅ Successfully fetched default settings: ${allLabels.length} labels, ${allMilestones.length} milestones, ${allAssignees.length} assignees`, 'success');
+                
+            } catch (error) {
+                showToast('Error fetching default project settings: ' + error.message, 'danger');
+                console.error('Fetch error:', error);
+            } finally {
+                // Restore button state
+                const fetchButton = document.querySelector('button[onclick="fetchDefaultProjectSettings()"]');
+                fetchButton.innerHTML = '<i class="fas fa-sync"></i> Fetch Settings';
+                fetchButton.disabled = false;
+            }
+        }
+
+        function clearProjectMappings() {
+            currentProjectMappings = {};
+            renderProjectMappings();
+            showToast('All project mappings cleared.', 'info');
+        }
+        
+        function validateSyncConfiguration() {
+            const issues = [];
+            
+            // Debug logging
+            console.log('=== VALIDATION DEBUG ===');
+            console.log('projectMappingEnabled:', projectMappingEnabled);
+            console.log('currentProjectMappings:', currentProjectMappings);
+            console.log('Object.keys(currentProjectMappings).length:', Object.keys(currentProjectMappings).length);
+            console.log('gitlabToken value:', document.getElementById('gitlabToken').value ? 'SET' : 'NOT SET');
+            console.log('globalAssignee value:', document.getElementById('globalAssignee').value ? 'SET' : 'NOT SET');
+            console.log('spreadsheetId value:', document.getElementById('spreadsheetId').value ? 'SET' : 'NOT SET');
+            console.log('worksheetName value:', document.getElementById('worksheetName').value ? 'SET' : 'NOT SET');
+            console.log('serviceAccountFile files:', document.getElementById('serviceAccountFile').files.length);
+            
+            if (!document.getElementById('gitlabToken').value) {
+                issues.push('GitLab Token is required');
+            }
+            
+            // Check project ID only if project mapping is not enabled
+            if (!projectMappingEnabled && !document.getElementById('projectId').value) {
+                issues.push('Project ID is required');
+            }
+            
+            // Check assignee based on mode
+            if (projectMappingEnabled) {
+                if (!document.getElementById('globalAssignee').value) {
+                    issues.push('Global Assignee is required for project mapping');
+                }
+            } else {
+                if (!document.getElementById('defaultAssignee').value) {
+                    issues.push('Assignee is required');
+                }
+            }
+            
+            if (!document.getElementById('spreadsheetId').value) {
+                issues.push('Spreadsheet ID is required');
+            }
+            if (!document.getElementById('worksheetName').value) {
+                issues.push('Worksheet Name is required');
+            }
+            
+            // Check if service account file is uploaded
+            const fileInput = document.getElementById('serviceAccountFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                issues.push('Service Account file is required');
+            }
+            
+            // Additional validation for project mapping mode
+            if (projectMappingEnabled) {
+                if (Object.keys(currentProjectMappings).length === 0) {
+                    issues.push('At least one project mapping is required');
+                }
+            }
+            
+            console.log('Validation issues:', issues);
+            console.log('=== END VALIDATION DEBUG ===');
+            
+            if (issues.length > 0) {
+                showToast('Configuration issues: ' + issues.join(', '), 'warning');
+                return false;
+            }
+            
+            return true;
+        }
+        
+        function updateProjectMappingWorkflow(step) {
+            // Update workflow step indicators
+            const steps = document.querySelectorAll('.card.border-primary, .card.border-secondary');
+            steps.forEach((stepCard, index) => {
+                if (index + 1 <= step) {
+                    stepCard.classList.remove('border-secondary');
+                    stepCard.classList.add('border-primary');
+                    stepCard.querySelector('.badge').classList.remove('bg-secondary');
+                    stepCard.querySelector('.badge').classList.add('bg-primary');
+                } else {
+                    stepCard.classList.remove('border-primary');
+                    stepCard.classList.add('border-secondary');
+                    stepCard.querySelector('.badge').classList.remove('bg-primary');
+                    stepCard.querySelector('.badge').classList.add('bg-secondary');
+                }
+            });
+        }
+        
+        async function detectProjectNames() {
+            const spreadsheetId = document.getElementById('spreadsheetId').value;
+            const selectedWorksheet = document.getElementById('worksheetName').value;
+            
+            if (!spreadsheetId) {
+                showToast('Please enter Spreadsheet ID', 'danger');
+                return;
+            }
+            if (!selectedWorksheet) {
+                showToast('Please select a worksheet first', 'warning');
+                return;
+            }
+            if (!gitlabProjects || gitlabProjects.length === 0) {
+                showToast('Please fetch GitLab projects first', 'warning');
+                return;
+            }
+            
+            try {
+                showToast('Detecting project names from Google Sheet...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/detect-project-names`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        spreadsheet_id: spreadsheetId,
+                        worksheet_name: selectedWorksheet 
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    sheetProjectNames = data.project_names;
+                    renderProjectMappings();
+                    updateProjectMappingWorkflow(1); // Step 1 completed
+                    showToast(`Detected ${sheetProjectNames.length} unique project names from sheet`, 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to detect project names');
+                }
+            } catch (error) {
+                showToast('Error detecting project names: ' + error.message, 'danger');
+            }
+        }
+        
+        function autoMapProjects() {
+            if (sheetProjectNames.length === 0) {
+                showToast('No project names detected. Please detect project names first.', 'warning');
+                return;
+            }
+            if (gitlabProjects.length === 0) {
+                showToast('No GitLab projects available. Please fetch projects first.', 'warning');
+                return;
+            }
+            
+            currentProjectMappings = {};
+            
+            sheetProjectNames.forEach(projectName => {
+                // Try to find exact match first
+                let bestMatch = gitlabProjects.find(project => 
+                    project.name.toLowerCase() === projectName.toLowerCase() ||
+                    project.path_with_namespace.toLowerCase().includes(projectName.toLowerCase())
+                );
+                
+                // If no exact match, try partial match
+                if (!bestMatch) {
+                    bestMatch = gitlabProjects.find(project => 
+                        project.name.toLowerCase().includes(projectName.toLowerCase()) ||
+                        projectName.toLowerCase().includes(project.name.toLowerCase())
+                    );
+                }
+                
+                if (bestMatch) {
+                    currentProjectMappings[projectName] = {
+                        project_id: bestMatch.id,
+                        milestone: '',
+                        labels: []
+                    };
+                }
+            });
+            
+            renderProjectMappings();
+            updateProjectMappingWorkflow(2); // Step 2 completed (mapping done)
+            
+            const mappedCount = Object.keys(currentProjectMappings).length;
+            showToast(`Auto-mapped ${mappedCount} out of ${sheetProjectNames.length} projects`, 'success');
+        }
+        
+        function renderProjectMappings() {
+            const container = document.getElementById('projectMappings');
+            
+            if (sheetProjectNames.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Click "Detect Project Names from Sheet" to start project mapping
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            sheetProjectNames.forEach(projectName => {
+                const div = document.createElement('div');
+                div.className = 'card mb-3';
+                
+                const currentMapping = currentProjectMappings[projectName];
+                
+                // Handle both old format (string/number) and new format (object)
+                let projectId = null;
+                if (currentMapping) {
+                    if (typeof currentMapping === 'object' && currentMapping.project_id) {
+                        projectId = currentMapping.project_id;
+                    } else if (typeof currentMapping === 'string' || typeof currentMapping === 'number') {
+                        projectId = currentMapping;
+                    }
+                }
+                
+                const mappedProject = gitlabProjects.find(p => p.id == projectId);
+                
+                div.innerHTML = `
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-project-diagram"></i> ${projectName}</h6>
+                        <small class="text-muted">Project name from Excel sheet</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">GitLab Repository</label>
+                                <select class="form-select form-select-sm" onchange="updateProjectMapping('${projectName}', this.value)">
+                                    <option value="">Select GitLab repository...</option>
+                                    ${gitlabProjects.map(project => `
+                                        <option value="${project.id}" ${projectId == project.id ? 'selected' : ''}>
+                                            ${project.name} (ID: ${project.id})
+                                        </option>
+                                    `).join('')}
+                                </select>
+                                <small class="text-muted">${mappedProject ? `Mapped to: ${mappedProject.path_with_namespace}` : 'Not mapped yet'}</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Labels</label>
+                                <div class="custom-multiselect" id="labels_${projectName.replace(/\s+/g, '_')}">
+                                    <div class="multiselect-trigger" onclick="toggleProjectLabels('${projectName}')">
+                                        <span id="labelText_${projectName.replace(/\s+/g, '_')}">Select labels...</span>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </div>
+                                    <div class="multiselect-dropdown" id="labelDropdown_${projectName.replace(/\s+/g, '_')}" style="display: none;">
+                                        <div class="multiselect-options" id="labelOptions_${projectName.replace(/\s+/g, '_')}">
+                                            <div class="text-muted p-2">Select a GitLab repository first to load labels</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="selectedLabelsDisplay_${projectName.replace(/\s+/g, '_')}" class="mt-2" style="display: none;">
+                                    <small class="text-muted">Selected labels:</small>
+                                    <div id="selectedLabelsList_${projectName.replace(/\s+/g, '_')}" class="mt-1"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Milestone</label>
+                                <select class="form-select form-select-sm" id="milestone_${projectName.replace(/\s+/g, '_')}" onchange="updateProjectMilestone('${projectName}', this.value)">
+                                    <option value="">Select milestone...</option>
+                                </select>
+                                <small class="text-muted">Select a GitLab repository first to load milestones</small>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <button class="btn btn-outline-primary btn-sm" onclick="fetchProjectSettings('${projectName}')" ${!mappedProject ? 'disabled' : ''}>
+                                    <i class="fas fa-sync"></i> Fetch Project Settings
+                                </button>
+                                <small class="text-muted ms-2">Load labels and milestones for this project</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+                
+                // If project is already mapped, load its settings
+                if (mappedProject) {
+                    fetchProjectSettings(projectName);
+                }
+            });
+        }
+        
+        function toggleProjectLabels(projectName) {
+            const dropdownId = `labelDropdown_${projectName.replace(/\s+/g, '_')}`;
+            const dropdown = document.getElementById(dropdownId);
+            const isOpen = dropdown.style.display !== 'none';
+            
+            if (isOpen) {
+                dropdown.style.display = 'none';
+            } else {
+                dropdown.style.display = 'block';
+            }
+        }
+        
+        function updateProjectMilestone(projectName, milestoneValue) {
+            if (!currentProjectMappings[projectName]) {
+                currentProjectMappings[projectName] = {};
+            }
+            currentProjectMappings[projectName].milestone = milestoneValue;
+        }
+        
+        async function fetchProjectSettings(projectName) {
+            // Check if project mapping exists and get the project ID
+            const mapping = currentProjectMappings[projectName];
+            if (!mapping) {
+                showToast('Please select a GitLab repository first', 'warning');
+                return;
+            }
+            
+            // Handle both old format (string) and new format (object)
+            let projectId;
+            if (typeof mapping === 'object' && mapping.project_id) {
+                projectId = mapping.project_id;
+            } else if (typeof mapping === 'string' || typeof mapping === 'number') {
+                projectId = mapping;
+                // Convert to new format for consistency
+                currentProjectMappings[projectName] = {
+                    project_id: projectId,
+                    milestone: '',
+                    labels: []
+                };
+            } else {
+                showToast('Invalid project mapping format', 'warning');
+                return;
+            }
+            
+            if (!projectId) {
+                showToast('Please select a GitLab repository first', 'warning');
+                return;
+            }
+            
+            const gitlabUrl = document.getElementById('gitlabUrl').value;
+            const gitlabToken = document.getElementById('gitlabToken').value;
+            
+            try {
+                showToast(`Fetching settings for project: ${projectName}...`, 'info');
+                
+                // Fetch labels
+                let allLabels = [];
+                let page = 1;
+                let hasMoreLabels = true;
+                while (hasMoreLabels) {
+                    const labelsResponse = await fetch(`${gitlabUrl}projects/${projectId}/labels?page=${page}&per_page=100`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!labelsResponse.ok) {
+                        throw new Error(`Failed to fetch labels: ${labelsResponse.status} ${labelsResponse.statusText}`);
+                    }
+                    
+                    const labels = await labelsResponse.json();
+                    if (labels.length === 0) {
+                        hasMoreLabels = false;
+                    } else {
+                        allLabels = allLabels.concat(labels);
+                        page++;
+                        if (page > 50) hasMoreLabels = false;
+                    }
+                }
+                
+                // Fetch milestones
+                let allMilestones = [];
+                page = 1;
+                let hasMoreMilestones = true;
+                while (hasMoreMilestones) {
+                    const milestonesResponse = await fetch(`${gitlabUrl}projects/${projectId}/milestones?page=${page}&per_page=100&state=active`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!milestonesResponse.ok) {
+                        throw new Error(`Failed to fetch milestones: ${milestonesResponse.status} ${milestonesResponse.statusText}`);
+                    }
+                    
+                    const milestones = await milestonesResponse.json();
+                    if (milestones.length === 0) {
+                        hasMoreMilestones = false;
+                    } else {
+                        allMilestones = allMilestones.concat(milestones);
+                        page++;
+                        if (page > 50) hasMoreMilestones = false;
+                    }
+                }
+                
+                // Update UI for this project
+                updateProjectSettingsUI(projectName, allLabels, allMilestones);
+                
+                showToast(`✅ Fetched ${allLabels.length} labels and ${allMilestones.length} milestones for ${projectName}`, 'success');
+                
+            } catch (error) {
+                showToast(`Error fetching settings for ${projectName}: ${error.message}`, 'danger');
+            }
+        }
+        
+        function updateProjectSettingsUI(projectName, labels, milestones) {
+            const safeName = projectName.replace(/\s+/g, '_');
+            
+            // Update labels dropdown
+            const labelOptions = document.getElementById(`labelOptions_${safeName}`);
+            labelOptions.innerHTML = '';
+            
+            labels.forEach(label => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'multiselect-option';
+                optionDiv.innerHTML = `
+                    <input type="checkbox" id="label_${safeName}_${label.name}" value="~${label.name}">
+                    <label for="label_${safeName}_${label.name}">~${label.name}</label>
+                `;
+                
+                optionDiv.onclick = function(e) {
+                    if (e.target.type !== 'checkbox') {
+                        const checkbox = optionDiv.querySelector('input[type="checkbox"]');
+                        checkbox.checked = !checkbox.checked;
+                    }
+                    updateProjectLabelsDisplay(projectName);
+                };
+                
+                labelOptions.appendChild(optionDiv);
+            });
+            
+            // Update milestone dropdown
+            const milestoneSelect = document.getElementById(`milestone_${safeName}`);
+            milestoneSelect.innerHTML = '<option value="">Select milestone...</option>';
+            milestones.forEach(milestone => {
+                milestoneSelect.innerHTML += `<option value="%${milestone.title}">%${milestone.title}</option>`;
+            });
+        }
+        
+        function updateProjectLabelsDisplay(projectName) {
+            const safeName = projectName.replace(/\s+/g, '_');
+            const selectedLabelsDisplay = document.getElementById(`selectedLabelsDisplay_${safeName}`);
+            const selectedLabelsList = document.getElementById(`selectedLabelsList_${safeName}`);
+            const labelDropdownText = document.getElementById(`labelText_${safeName}`);
+            
+            const selectedCheckboxes = document.querySelectorAll(`#labelOptions_${safeName} input[type="checkbox"]:checked`);
+            
+            if (selectedCheckboxes.length > 0) {
+                selectedLabelsDisplay.style.display = 'block';
+                selectedLabelsList.innerHTML = '';
+                
+                selectedCheckboxes.forEach(checkbox => {
+                    const labelName = checkbox.value.replace('~', '');
+                    const labelElement = document.createElement('span');
+                    labelElement.className = 'badge bg-primary me-1 mb-1';
+                    labelElement.textContent = labelName;
+                    
+                    // Add remove button
+                    const removeBtn = document.createElement('span');
+                    removeBtn.innerHTML = ' ×';
+                    removeBtn.style.cursor = 'pointer';
+                    removeBtn.onclick = function() {
+                        checkbox.checked = false;
+                        updateProjectLabelsDisplay(projectName);
+                    };
+                    labelElement.appendChild(removeBtn);
+                    
+                    selectedLabelsList.appendChild(labelElement);
+                });
+                
+                // Update the dropdown text to show count
+                labelDropdownText.textContent = `${selectedCheckboxes.length} label(s) selected`;
+            } else {
+                selectedLabelsDisplay.style.display = 'none';
+                labelDropdownText.textContent = 'Select labels...';
+            }
+        }
+
+        function updateProjectMapping(projectName, gitlabProjectId) {
+            if (gitlabProjectId) {
+                // If this project already has milestone/labels stored as an object, preserve them
+                if (currentProjectMappings[projectName] && typeof currentProjectMappings[projectName] === 'object') {
+                    currentProjectMappings[projectName].project_id = gitlabProjectId;
+                } else {
+                    // Convert from string to object to store milestone/labels
+                    currentProjectMappings[projectName] = {
+                        project_id: gitlabProjectId,
+                        milestone: '',
+                        labels: []
+                    };
+                }
+            } else {
+                delete currentProjectMappings[projectName];
+            }
+            renderProjectMappings();
+        }
+        
+        async function fetchGlobalAssignees() {
+            if (!gitlabProjects || gitlabProjects.length === 0) {
+                showToast('Please fetch GitLab projects first', 'warning');
+                return;
+            }
+            
+            // Check if any projects are mapped
+            if (Object.keys(currentProjectMappings).length === 0) {
+                showToast('Please map at least one project first before fetching assignees', 'warning');
+                return;
+            }
+            
+            const gitlabUrl = document.getElementById('gitlabUrl').value;
+            const gitlabToken = document.getElementById('gitlabToken').value;
+            
+            try {
+                showToast('Fetching assignees from all mapped projects...', 'info');
+                
+                // Fetch assignees from ALL mapped projects
+                let allAssignees = [];
+                const mappedProjectIds = Object.values(currentProjectMappings).map(mapping => 
+                    typeof mapping === 'object' ? mapping.project_id : mapping
+                );
+                
+                for (const projectId of mappedProjectIds) {
+                    const project = gitlabProjects.find(p => p.id == projectId);
+                    if (!project) continue;
+                    
+                    showToast(`Fetching assignees from ${project.name}...`, 'info');
+                    
+                    // Fetch members and users from this project
+                    let allMembers = [];
+                    let allUsers = [];
+                    
+                    // Fetch members
+                    let page = 1;
+                    let hasMoreMembers = true;
+                    while (hasMoreMembers) {
+                        const membersResponse = await fetch(`${gitlabUrl}projects/${projectId}/members?page=${page}&per_page=100`, {
+                            headers: { 'PRIVATE-TOKEN': gitlabToken }
+                        });
+                        
+                        if (!membersResponse.ok) {
+                            console.warn(`Failed to fetch members from project ${project.name}: ${membersResponse.status}`);
+                            break;
+                        }
+                        
+                        const members = await membersResponse.json();
+                        if (members.length === 0) {
+                            hasMoreMembers = false;
+                        } else {
+                            allMembers = allMembers.concat(members);
+                            page++;
+                            if (page > 50) hasMoreMembers = false;
+                        }
+                    }
+                    
+                    // Fetch users
+                    page = 1;
+                    let hasMoreUsers = true;
+                    while (hasMoreUsers) {
+                        const usersResponse = await fetch(`${gitlabUrl}projects/${projectId}/users?page=${page}&per_page=100`, {
+                            headers: { 'PRIVATE-TOKEN': gitlabToken }
+                        });
+                        
+                        if (!usersResponse.ok) {
+                            hasMoreUsers = false;
+                        } else {
+                            const users = await usersResponse.json();
+                            if (users.length === 0) {
+                                hasMoreUsers = false;
+                            } else {
+                                allUsers = allUsers.concat(users);
+                                page++;
+                                if (page > 50) hasMoreUsers = false;
+                            }
+                        }
+                    }
+                    
+                    // Add project info to assignees for better identification
+                    const projectAssignees = [...allMembers, ...allUsers].map(assignee => ({
+                        ...assignee,
+                        sourceProject: project.name,
+                        sourceProjectId: projectId
+                    }));
+                    
+                    allAssignees = allAssignees.concat(projectAssignees);
+                }
+                
+                // Remove duplicate assignees based on username
+                const uniqueAssignees = [];
+                const seenUsernames = new Set();
+                
+                allAssignees.forEach(assignee => {
+                    if (assignee.username && !seenUsernames.has(assignee.username)) {
+                        seenUsernames.add(assignee.username);
+                        uniqueAssignees.push(assignee);
+                    }
+                });
+                
+                // Update global assignee dropdown
+                const globalAssigneeSelect = document.getElementById('globalAssignee');
+                globalAssigneeSelect.innerHTML = '<option value="">Select assignee...</option>';
+                uniqueAssignees.forEach(assignee => {
+                    const displayName = assignee.name || assignee.username;
+                    const sourceProject = assignee.sourceProject || 'Unknown';
+                    globalAssigneeSelect.innerHTML += `<option value="@${assignee.username}">@${assignee.username} (${displayName}) - ${sourceProject}</option>`;
+                });
+                
+                showToast(`✅ Successfully fetched ${uniqueAssignees.length} unique assignees from ${mappedProjectIds.length} mapped projects`, 'success');
+                
+                // Update workflow to step 3 completed
+                updateProjectMappingWorkflow(3);
+                
+            } catch (error) {
+                showToast('Error fetching global assignees: ' + error.message, 'danger');
             }
         }
     </script>

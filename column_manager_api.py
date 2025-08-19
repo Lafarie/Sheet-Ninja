@@ -483,6 +483,67 @@ def upload_service_account():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/detect-project-names', methods=['POST'])
+def detect_project_names():
+    """API endpoint to detect unique project names from Google Sheet"""
+    try:
+        data = request.json
+        spreadsheet_id = data.get('spreadsheet_id')
+        worksheet_name = data.get('worksheet_name')
+        
+        if not spreadsheet_id or not worksheet_name:
+            return jsonify({'success': False, 'error': 'Spreadsheet ID and worksheet name are required'}), 400
+        
+        # Initialize manager
+        global manager
+        manager = ColumnManagerAPI(
+            spreadsheet_id=spreadsheet_id,
+            worksheet_name=worksheet_name
+        )
+        
+        if not manager.service:
+            return jsonify({'success': False, 'error': 'Failed to authenticate with Google Sheets'}), 500
+        
+        # Get all data from the sheet
+        result = manager.service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=f"{worksheet_name}!A:Z"
+        ).execute()
+        
+        values = result.get('values', [])
+        if len(values) < 2:
+            return jsonify({'success': False, 'error': 'No data found in sheet'}), 400
+        
+        headers = values[0]
+        data_rows = values[1:]
+        
+        # Find the PROJECT_NAME column (assuming it's column 3 based on default config)
+        project_name_column_index = 2  # 0-based index for column C (PROJECT_NAME)
+        
+        # Look for PROJECT_NAME in headers
+        for i, header in enumerate(headers):
+            if header and 'project' in header.lower() and 'name' in header.lower():
+                project_name_column_index = i
+                break
+        
+        # Extract unique project names
+        project_names = set()
+        for row in data_rows:
+            if len(row) > project_name_column_index:
+                project_name = row[project_name_column_index].strip()
+                if project_name and project_name.lower() not in ['', 'project name', 'project_name']:
+                    project_names.add(project_name)
+        
+        return jsonify({
+            'success': True,
+            'project_names': sorted(list(project_names)),
+            'count': len(project_names)
+        })
+        
+    except Exception as e:
+        print(f"Error detecting project names: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # Sync process endpoints
 @app.route('/api/start-sync', methods=['POST'])
 def start_sync():
@@ -495,11 +556,30 @@ def start_sync():
         print(f"📋 Received data: {list(data.keys())}")
         
         # Validate required fields
-        required_fields = ['gitlab_url', 'gitlab_token', 'project_id', 'spreadsheet_id', 'worksheet_name']
+        required_fields = ['gitlab_url', 'gitlab_token', 'spreadsheet_id', 'worksheet_name']
+        project_mapping_enabled = data.get('project_mapping_enabled', False)
+        
+        # Only require project_id if project mapping is not enabled
+        if not project_mapping_enabled:
+            required_fields.append('project_id')
+        
         for field in required_fields:
-            if not data.get(field):
+            field_value = data.get(field, '')
+            if not field_value or field_value.strip() == '':
                 print(f"❌ Missing required field: {field}")
                 return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
+        
+        # Additional validation for project mapping mode
+        if project_mapping_enabled:
+            project_mappings = data.get('project_mappings', {})
+            if not project_mappings:
+                print("❌ Project mapping enabled but no project mappings provided")
+                return jsonify({'success': False, 'error': 'At least one project mapping is required when project mapping is enabled'}), 400
+            
+            default_assignee = data.get('default_assignee', '')
+            if not default_assignee or default_assignee.strip() == '':
+                print("❌ Global assignee is required for project mapping")
+                return jsonify({'success': False, 'error': 'Global assignee is required for project mapping'}), 400
         
         print("✅ All required fields present")
         
@@ -519,7 +599,7 @@ def start_sync():
         # Generate .env content
         gitlab_token = data['gitlab_token']
         gitlab_url = data['gitlab_url']
-        project_id = data['project_id']
+        project_id = data.get('project_id', '') if not project_mapping_enabled else ''
         spreadsheet_id = data['spreadsheet_id']
         worksheet_name = data['worksheet_name']
         default_assignee = data.get('default_assignee', '')
@@ -529,6 +609,8 @@ def start_sync():
         start_date = data.get('start_date', '')
         end_date = data.get('end_date', '')
         enable_auto_close = data.get('enable_auto_close', False)
+        project_mapping_enabled = data.get('project_mapping_enabled', False)
+        project_mappings = data.get('project_mappings', {})
 
         env_content = f"""# GitLab Configuration
 GITLAB_TOKEN={gitlab_token}
@@ -553,6 +635,10 @@ END_DATE={end_date}
 
 # Task Closing Settings
 ENABLE_AUTO_CLOSE={str(enable_auto_close).lower()}
+
+# Project Mapping Settings
+PROJECT_MAPPING_ENABLED={str(project_mapping_enabled).lower()}
+PROJECT_MAPPINGS={json.dumps(project_mappings)}
 
 # Service Account Link Configuration
 SERVICE_ACCOUNT_LINK={config.SERVICE_ACCOUNT_LINK}
@@ -634,12 +720,25 @@ UI_SERVER_URL={config.UI_SERVER_URL}
             print(f"🚀 Starting sync process...")
             
             # Use the original sheets_to_gitlab.py sync script
-            sync_script = '/app/sheets_to_gitlab.py'
+            # Check if we're in Docker or local environment
+            if os.path.exists('/app/sheets_to_gitlab.py'):
+                sync_script = '/app/sheets_to_gitlab.py'
+                env_file_path = '/app/temp/sync.env'
+                columns_file_path = '/app/temp/custom_columns.json'
+            else:
+                # Local environment
+                sync_script = 'sheets_to_gitlab.py'
+                env_file_path = config.PATHS['env_file']
+                columns_file_path = config.PATHS['columns_file']
+            
+            print(f"📁 Using sync script: {sync_script}")
+            print(f"📁 Using env file: {env_file_path}")
+            print(f"📁 Using columns file: {columns_file_path}")
             
             # Set environment variables for the subprocess
             env = os.environ.copy()
-            env['ENV_FILE'] = '/app/temp/sync.env'
-            env['COLUMNS_FILE'] = '/app/temp/custom_columns.json'
+            env['ENV_FILE'] = env_file_path
+            env['COLUMNS_FILE'] = columns_file_path
             
             # Start the sync process with output capture
             process = subprocess.Popen(
