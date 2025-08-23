@@ -1211,7 +1211,7 @@ class SheetsToGitLab:
             
             # Search for issues with the exact title
             response = requests.get(
-                f"{GITLAB_URL}projects/{project_id}/issues",
+                f"{GITLAB_URL}/projects/{project_id}/issues",
                 headers=headers,
                 params={'search': title, 'state': 'opened'}
             )

@@ -111,13 +111,45 @@ class ColumnManagerAPI:
     def _authenticate(self):
         """Authenticate with Google Sheets"""
         try:
+            print(f"🔐 Starting authentication with file: {self.service_account_file}")
+            
+            # Check if file exists
+            if not os.path.exists(self.service_account_file):
+                print(f"❌ Service account file not found: {self.service_account_file}")
+                return None
+            
+            print(f"✅ Service account file exists, size: {os.path.getsize(self.service_account_file)} bytes")
+            
+            # Try to load and validate JSON
+            try:
+                with open(self.service_account_file, 'r') as f:
+                    json_content = json.load(f)
+                print(f"✅ JSON file is valid, contains keys: {list(json_content.keys())}")
+            except json.JSONDecodeError as e:
+                print(f"❌ Invalid JSON in service account file: {e}")
+                return None
+            except Exception as e:
+                print(f"❌ Error reading service account file: {e}")
+                return None
+            
+            # Create credentials
             credentials = service_account.Credentials.from_service_account_file(
                 self.service_account_file,
                 scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
             )
-            return build('sheets', 'v4', credentials=credentials)
+            print(f"✅ Credentials created successfully")
+            
+            # Build service
+            service = build('sheets', 'v4', credentials=credentials)
+            print(f"✅ Google Sheets service built successfully")
+            
+            return service
+            
         except Exception as e:
             print(f"❌ Authentication error: {e}")
+            print(f"❌ Error type: {type(e).__name__}")
+            import traceback
+            print(f"❌ Full traceback: {traceback.format_exc()}")
             return None
     
     def detect_current_headers(self, spreadsheet_id=None, worksheet_name=None):
@@ -393,6 +425,8 @@ def get_sheet_names():
         data = request.json
         spreadsheet_id = data.get('spreadsheet_id')
         
+        print(f"🔍 Sheet names request for spreadsheet: {spreadsheet_id}")
+        
         if not spreadsheet_id:
             return jsonify({
                 'success': False,
@@ -401,7 +435,18 @@ def get_sheet_names():
         
         # Initialize manager if needed
         if not manager:
+            print(f"🔄 Initializing ColumnManagerAPI for spreadsheet: {spreadsheet_id}")
             manager = ColumnManagerAPI(spreadsheet_id=spreadsheet_id)
+        
+        # Check if authentication was successful
+        if not manager.service:
+            print(f"❌ Authentication failed - service is None")
+            return jsonify({
+                'success': False,
+                'error': 'Service account authentication failed. Please check your service account file.'
+            }), 500
+        
+        print(f"✅ Authentication successful, fetching sheet names...")
         
         # Get sheet names using Google Sheets API
         try:
@@ -416,6 +461,8 @@ def get_sheet_names():
                 if title:
                     sheet_names.append(title)
             
+            print(f"✅ Successfully fetched {len(sheet_names)} sheet names: {sheet_names}")
+            
             return jsonify({
                 'success': True,
                 'sheet_names': sheet_names,
@@ -423,6 +470,7 @@ def get_sheet_names():
             })
             
         except HttpError as e:
+            print(f"❌ Google Sheets API error: {e}")
             if e.resp.status == 404:
                 return jsonify({
                     'success': False,
@@ -440,6 +488,7 @@ def get_sheet_names():
                 }), 500
         
     except Exception as e:
+        print(f"❌ Unexpected error in get_sheet_names: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
