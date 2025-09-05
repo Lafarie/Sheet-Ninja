@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Sheet, Upload, ExternalLink } from 'lucide-react';
+import { Loader2, Sheet } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function SheetsConfig({ 
@@ -14,52 +14,14 @@ export function SheetsConfig({
   updateConfig, 
   setCurrentHeaders, 
   setCurrentStep, 
-  apiBaseUrl, 
-  serviceAccountLink 
+  apiBaseUrl
 }) {
   const [loading, setLoading] = useState(false);
   const [detectingHeaders, setDetectingHeaders] = useState(false);
-  const fileInputRef = useRef(null);
-
-  const handleServiceAccountUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.name.endsWith('.json')) {
-      toast.error('Please select a valid JSON file');
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append('serviceAccount', file);
-
-      const response = await fetch(`${apiBaseUrl}/api/upload-service-account`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      updateConfig({ serviceAccountFile: file.name });
-      toast.success('Service account file uploaded successfully!');
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload service account file: ' + error.message);
-    }
-  };
 
   const fetchSheetNames = async () => {
     if (!config.spreadsheetId) {
       toast.error('Please enter a spreadsheet ID');
-      return;
-    }
-
-    if (!config.serviceAccountFile) {
-      toast.error('Please upload a service account file');
       return;
     }
 
@@ -143,43 +105,26 @@ export function SheetsConfig({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Service Account Upload */}
-          <div>
-            <Label htmlFor="serviceAccount">Service Account JSON File *</Label>
-            <div className="mt-2">
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
-              >
-                <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                <p className="text-sm text-gray-600">
-                  {config.serviceAccountFile ? (
-                    <span className="text-green-600">✓ {config.serviceAccountFile}</span>
-                  ) : (
-                    'Click to upload service account JSON file'
-                  )}
+          {/* Service Account Instructions */}
+          <Alert>
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="font-medium">📧 Service Account Setup Required</p>
+                <p className="text-sm">
+                  To sync your Google Sheets, please add this service account email to your spreadsheet with <strong>Editor</strong> permissions:
+                </p>
+                <div className="bg-gray-100 p-2 rounded font-mono text-xs break-all">
+                  automate@bright-torus-466008-t9.iam.gserviceaccount.com
+                </div>
+                <p className="text-xs text-gray-600">
+                  1. Open your Google Sheets document<br/>
+                  2. Click the "Share" button in the top right<br/>
+                  3. Add the email above with "Editor" access<br/>
+                  4. Click "Send" (no notification needed)
                 </p>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleServiceAccountUpload}
-                className="hidden"
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Need help creating a service account?{' '}
-              <a 
-                href={serviceAccountLink} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline inline-flex items-center gap-1"
-              >
-                View guide <ExternalLink className="h-3 w-3" />
-              </a>
-            </p>
-          </div>
+            </AlertDescription>
+          </Alert>
 
           {/* Spreadsheet ID */}
           <div>
@@ -198,7 +143,7 @@ export function SheetsConfig({
           {/* Fetch Sheet Names */}
           <Button 
             onClick={fetchSheetNames}
-            disabled={loading || !config.spreadsheetId || !config.serviceAccountFile}
+            disabled={loading || !config.spreadsheetId}
             className="w-full"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -255,7 +200,7 @@ export function SheetsConfig({
         </Card>
       )}
 
-      {config.serviceAccountFile && config.spreadsheetId && config.worksheetName && (
+      {config.spreadsheetId && config.worksheetName && (
         <Alert>
           <AlertDescription>
             ✅ Google Sheets configuration complete! Click "Detect Column Headers" to proceed to column mapping.

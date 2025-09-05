@@ -13,7 +13,6 @@ import { toast } from 'sonner';
 
 // Configuration constants
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-const SERVICE_ACCOUNT_LINK = 'https://github.com/Lafarie/scripts/tree/v2?tab=readme-ov-file#3-set-up-google-service-account';
 
 // Default column configuration (same as HTML version)
 const defaultConfig = {
@@ -42,7 +41,6 @@ export default function SetupPage() {
     defaultMilestone: '',
     defaultLabel: '',
     defaultEstimate: '8h',
-    serviceAccountFile: null,
     columnMappings: {},
     projectData: { labels: [], milestones: [], assignees: [] },
     sheetNames: []
@@ -117,7 +115,6 @@ export default function SetupPage() {
                   setCurrentHeaders={setCurrentHeaders}
                   setCurrentStep={setCurrentStep}
                   apiBaseUrl={API_BASE_URL}
-                  serviceAccountLink={SERVICE_ACCOUNT_LINK}
                 />
               </TabsContent>
 
@@ -185,12 +182,6 @@ export default function SetupPage() {
                     <span>Spreadsheet ID:</span>
                     <span className={config.spreadsheetId ? 'text-green-600' : 'text-red-500'}>
                       {config.spreadsheetId ? '✓' : '✗'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Service Account:</span>
-                    <span className={config.serviceAccountFile ? 'text-green-600' : 'text-red-500'}>
-                      {config.serviceAccountFile ? '✓' : '✗'}
                     </span>
                   </div>
                   <div className="flex justify-between">
