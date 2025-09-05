@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn } from '@/components/lib/utils';
 
 const steps = [
   { id: 1, title: 'GitLab Setup', description: 'Configure GitLab connection' },
