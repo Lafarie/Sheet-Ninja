@@ -6,10 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GitLabConfig } from '@/components/setup/GitLabConfig';
 import { SheetsConfig } from '@/components/setup/SheetsConfig';
 import { ColumnMapping } from '@/components/setup/ColumnMapping';
-import { ConfigGeneration } from '@/components/setup/ConfigGeneration';
 import { SyncRunner } from '@/components/setup/SyncRunner';
 import { ProgressSteps } from '@/components/setup/ProgressSteps';
-import { toast } from 'sonner';
 
 // Configuration constants
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
@@ -75,8 +73,8 @@ export default function SetupPage() {
         <Card className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
-              <span>🔄</span>
-              GitLab ↔ Google Sheets Sync Setup
+              <span>🥷🏿</span>
+              Sheet Ninja
             </CardTitle>
             <CardDescription className="text-blue-100 text-lg">
               Configure your synchronization between GitLab issues and Google Sheets
@@ -91,11 +89,10 @@ export default function SetupPage() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="gitlab" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="gitlab">GitLab</TabsTrigger>
                 <TabsTrigger value="sheets">Sheets</TabsTrigger>
                 <TabsTrigger value="columns">Columns</TabsTrigger>
-                <TabsTrigger value="config">Config</TabsTrigger>
                 <TabsTrigger value="sync">Sync</TabsTrigger>
               </TabsList>
 
@@ -126,16 +123,6 @@ export default function SetupPage() {
                   setCurrentMappings={setCurrentMappings}
                   autoMappings={autoMappings}
                   setAutoMappings={setAutoMappings}
-                  defaultConfig={defaultConfig}
-                  setCurrentStep={setCurrentStep}
-                />
-              </TabsContent>
-
-              <TabsContent value="config" className="mt-6">
-                <ConfigGeneration
-                  config={config}
-                  currentMappings={currentMappings}
-                  currentHeaders={currentHeaders}
                   defaultConfig={defaultConfig}
                   setCurrentStep={setCurrentStep}
                 />

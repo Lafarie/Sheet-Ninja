@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "GitLab ↔ Google Sheets Sync Setup",
+  title: "Sheet Ninja",
   description: "Configure synchronization between GitLab issues and Google Sheets",
 };
 
