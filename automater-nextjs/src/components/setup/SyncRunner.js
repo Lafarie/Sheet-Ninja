@@ -31,6 +31,7 @@ export function SyncRunner({
   const [enableDateFilter, setEnableDateFilter] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [completionAnnounced, setCompletionAnnounced] = useState(false);
 
   const validateSyncConfiguration = () => {
     const issues = [];
@@ -56,6 +57,7 @@ export function SyncRunner({
       setSyncProgress('running');
       setCurrentSyncStep(0);
       setSyncOutput('');
+      setCompletionAnnounced(false); // Reset completion flag
       
       const syncData = {
         gitlabUrl: config.gitlabUrl,
@@ -126,6 +128,15 @@ export function SyncRunner({
   };
 
   const updateSyncProgress = async () => {
+    // Don't poll if sync is already completed, stopped, or errored
+    if (syncProgress === 'completed' || syncProgress === 'stopped' || syncProgress === 'error') {
+      if (syncInterval) {
+        clearInterval(syncInterval);
+        setSyncInterval(null);
+      }
+      return;
+    }
+
     try {
       const response = await fetch(`${apiBaseUrl}/api/sync-status`);
       
@@ -149,30 +160,48 @@ export function SyncRunner({
       }
 
       // Check if sync is complete
-      if (data.status === 'completed') {
+      if (data.status === 'completed' && !completionAnnounced) {
         setSyncRunning(false);
         setSyncProgress('completed');
-        setCurrentSyncStep(syncSteps.length - 1);
+        setCurrentSyncStep(syncSteps.length - 1); // Ensure the last step shows as completed
+        setCompletionAnnounced(true); // Prevent duplicate announcements
         
+        // Stop polling immediately
         if (syncInterval) {
           clearInterval(syncInterval);
           setSyncInterval(null);
         }
         
         toast.success('Sync completed successfully!');
+        setCurrentStep(5); // Mark setup as complete
+        return; // Exit early to prevent further processing
       } else if (data.status === 'error') {
         setSyncRunning(false);
         setSyncProgress('error');
         
+        // Stop polling on error
         if (syncInterval) {
           clearInterval(syncInterval);
           setSyncInterval(null);
         }
         
         toast.error('Sync failed: ' + (data.error || 'Unknown error'));
+        return; // Exit early to prevent further processing
+      } else if (data.status === 'stopped') {
+        setSyncRunning(false);
+        setSyncProgress('stopped');
+        
+        // Stop polling when stopped
+        if (syncInterval) {
+          clearInterval(syncInterval);
+          setSyncInterval(null);
+        }
+        
+        return; // Exit early to prevent further processing
       }
     } catch (error) {
       console.error('Progress polling error:', error);
+      // Don't stop polling on network errors, just log them
     }
   };
 
@@ -181,6 +210,7 @@ export function SyncRunner({
     setSyncProgress('idle');
     setCurrentSyncStep(0);
     setSyncOutput('');
+    setCompletionAnnounced(false); // Reset completion flag
     
     if (syncInterval) {
       clearInterval(syncInterval);
@@ -197,10 +227,30 @@ export function SyncRunner({
     };
   }, [syncInterval]);
 
+  // Cleanup interval when sync is completed, stopped, or errored
+  useEffect(() => {
+    if ((syncProgress === 'completed' || syncProgress === 'stopped' || syncProgress === 'error') && syncInterval) {
+      clearInterval(syncInterval);
+      setSyncInterval(null);
+    }
+  }, [syncProgress, syncInterval]);
+
   const getStepStatus = (index) => {
+    // If sync is completed, show all steps including the last one as completed
+    if (syncProgress === 'completed') {
+      return 'completed';
+    }
+    
+    // If sync errored, show error for current step and completed for previous steps
+    if (syncProgress === 'error') {
+      if (index < currentSyncStep) return 'completed';
+      if (index === currentSyncStep) return 'error';
+      return 'pending';
+    }
+    
+    // Normal running state
     if (index < currentSyncStep) return 'completed';
     if (index === currentSyncStep && syncRunning) return 'active';
-    if (syncProgress === 'error' && index === currentSyncStep) return 'error';
     return 'pending';
   };
 
