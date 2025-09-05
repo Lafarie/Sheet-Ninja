@@ -83,9 +83,10 @@ export function ColumnMapping({
   };
 
   const updateMapping = (key, value) => {
-    setCurrentMappings(prev => ({ ...prev, [key]: value }));
+    const actualValue = value === 'none' ? '' : value;
+    setCurrentMappings(prev => ({ ...prev, [key]: actualValue }));
     
-    if (value && autoMappings[key]) {
+    if (actualValue && autoMappings[key]) {
       // Remove from auto mappings if manually changed
       setAutoMappings(prev => {
         const newAutoMappings = { ...prev };
@@ -204,7 +205,7 @@ export function ColumnMapping({
                   </div>
                   
                   <Select
-                    value={currentMappings[key] || ''}
+                    value={currentMappings[key] === '' || !currentMappings[key] ? 'none' : currentMappings[key]}
                     onValueChange={(value) => updateMapping(key, value)}
                   >
                     <SelectTrigger className={
@@ -213,7 +214,7 @@ export function ColumnMapping({
                       <SelectValue placeholder="Select column..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No mapping</SelectItem>
+                      <SelectItem value="none">No mapping</SelectItem>
                       {currentHeaders.map((header, index) => (
                         <SelectItem key={index} value={(index + 1).toString()}>
                           Column {index + 1}: {header}
