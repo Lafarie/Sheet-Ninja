@@ -84,7 +84,6 @@ DEFAULT_LABEL=${config.defaultLabel}`;
     if (!config.gitlabToken) issues.push('GitLab Token is required');
     if (!config.projectId) issues.push('Project ID is required');
     if (!config.spreadsheetId) issues.push('Spreadsheet ID is required');
-    if (!config.serviceAccountFile) issues.push('Service Account file is required');
     
     // Check required mappings
     const requiredFields = Object.keys(defaultConfig).filter(key => defaultConfig[key].required);
@@ -141,9 +140,9 @@ DEFAULT_LABEL=${config.defaultLabel}`;
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between">
-                  <span>Service Account:</span>
-                  <span className={config.serviceAccountFile ? 'text-green-600' : 'text-red-500'}>
-                    {config.serviceAccountFile ? '✓' : '✗'}
+                  <span>Project Name:</span>
+                  <span className={config.projectData?.name ? 'text-green-600' : 'text-gray-500'}>
+                    {config.projectData?.name || 'Not fetched'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -268,7 +267,9 @@ DEFAULT_LABEL=${config.defaultLabel}`;
             {/* Validation Stats */}
             <div className="grid grid-cols-3 gap-4 mt-4">
               <div className="text-center">
-                <Badge variant="secondary">GitLab Project: {config.projectId}</Badge>
+                <Badge variant="secondary">
+                  {config.projectData?.name ? `Project: ${config.projectData.name}` : `Project ID: ${config.projectId}`}
+                </Badge>
               </div>
               <div className="text-center">
                 <Badge variant="secondary">Worksheet: {config.worksheetName}</Badge>

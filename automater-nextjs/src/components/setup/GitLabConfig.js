@@ -11,7 +11,43 @@ import { toast } from 'sonner';
 
 export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl }) {
   const [loading, setLoading] = useState(false);
+  const [fetchingProjects, setFetchingProjects] = useState(false);
   const [projectData, setProjectData] = useState(null);
+  const [availableProjects, setAvailableProjects] = useState([]);
+
+  const fetchAvailableProjects = async () => {
+    if (!config.gitlabToken) {
+      toast.error('Please enter your GitLab token first');
+      return;
+    }
+
+    setFetchingProjects(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/gitlab-project-data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gitlabUrl: config.gitlabUrl,
+          gitlabToken: config.gitlabToken,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setAvailableProjects(data.projects);
+      toast.success(`Found ${data.total} projects`);
+    } catch (error) {
+      console.error('Fetch error:', error);
+      toast.error('Failed to fetch projects: ' + error.message);
+    } finally {
+      setFetchingProjects(false);
+    }
+  };
 
   const fetchProjectData = async () => {
     if (!config.gitlabToken) {
@@ -45,7 +81,7 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
       const data = await response.json();
       setProjectData(data);
       updateConfig({ projectData: data });
-      toast.success('Project data fetched successfully!');
+      toast.success(`Connected to project: ${data.name}`);
       setCurrentStep(2);
     } catch (error) {
       console.error('Fetch error:', error);
@@ -99,16 +135,72 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
             />
           </div>
 
-          <div>
-            <Label htmlFor="projectId">Project ID *</Label>
-            <Input
-              id="projectId"
-              type="text"
-              placeholder="Enter GitLab project ID"
-              value={config.projectId}
-              onChange={(e) => updateConfig({ projectId: e.target.value })}
-            />
-          </div>
+          {/* Fetch Projects Button */}
+          <Button 
+            onClick={fetchAvailableProjects}
+            disabled={fetchingProjects || !config.gitlabToken}
+            variant="outline"
+            className="w-full"
+          >
+            {fetchingProjects && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Fetch Available Projects
+          </Button>
+
+          {/* Project Selection */}
+          {availableProjects.length > 0 && (
+            <div>
+              <Label htmlFor="projectSelection">Select Project *</Label>
+              <Select
+                value={config.projectId}
+                onValueChange={(value) => {
+                  const selectedProject = availableProjects.find(p => p.id.toString() === value);
+                  updateConfig({ 
+                    projectId: value,
+                    selectedProject: selectedProject 
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a project..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {availableProjects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      <div className="flex flex-col">
+                        <div className="font-medium">{project.name}</div>
+                        <div className="text-xs text-gray-500">{project.path_with_namespace}</div>
+                        {project.description && (
+                          <div className="text-xs text-gray-400 truncate max-w-[300px]">
+                            {project.description}
+                          </div>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                Found {availableProjects.length} projects you have access to
+              </p>
+            </div>
+          )}
+
+          {/* Manual Project ID Input (fallback) */}
+          {availableProjects.length === 0 && (
+            <div>
+              <Label htmlFor="projectId">Project ID *</Label>
+              <Input
+                id="projectId"
+                type="text"
+                placeholder="Enter GitLab project ID manually"
+                value={config.projectId}
+                onChange={(e) => updateConfig({ projectId: e.target.value })}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                You can enter the project ID manually if the project list doesn't load
+              </p>
+            </div>
+          )}
 
           <Button 
             onClick={fetchProjectData} 
@@ -116,10 +208,33 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
             className="w-full"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Fetch Project Data
+            Connect to Selected Project
           </Button>
         </CardContent>
       </Card>
+
+      {projectData && (
+        <Alert>
+          <AlertDescription>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span>✅ Connected to project:</span>
+                <Badge variant="outline">{projectData.name}</Badge>
+              </div>
+              {config.selectedProject && (
+                <div className="text-sm text-gray-600">
+                  <div><strong>Namespace:</strong> {config.selectedProject.path_with_namespace}</div>
+                  {projectData.description && (
+                    <div><strong>Description:</strong> {projectData.description}</div>
+                  )}
+                  <div><strong>Visibility:</strong> {config.selectedProject.visibility}</div>
+                  <div><strong>Last Activity:</strong> {new Date(config.selectedProject.last_activity_at).toLocaleDateString()}</div>
+                </div>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {projectData && (
         <Card>
@@ -133,14 +248,14 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
             <div>
               <Label htmlFor="defaultAssignee">Default Assignee</Label>
               <Select
-                value={config.defaultAssignee}
-                onValueChange={(value) => updateConfig({ defaultAssignee: value })}
+                value={config.defaultAssignee || 'none'}
+                onValueChange={(value) => updateConfig({ defaultAssignee: value === 'none' ? '' : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select assignee..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No default assignee</SelectItem>
+                  <SelectItem value="none">No default assignee</SelectItem>
                   {uniqueAssignees.map((assignee) => (
                     <SelectItem key={assignee.username} value={`@${assignee.username}`}>
                       @{assignee.username} ({assignee.name || assignee.username})
@@ -153,14 +268,14 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
             <div>
               <Label htmlFor="defaultMilestone">Default Milestone</Label>
               <Select
-                value={config.defaultMilestone}
-                onValueChange={(value) => updateConfig({ defaultMilestone: value })}
+                value={config.defaultMilestone || 'none'}
+                onValueChange={(value) => updateConfig({ defaultMilestone: value === 'none' ? '' : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select milestone..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No default milestone</SelectItem>
+                  <SelectItem value="none">No default milestone</SelectItem>
                   {projectData.milestones?.map((milestone) => (
                     <SelectItem key={milestone.title} value={`%${milestone.title}`}>
                       %{milestone.title}
@@ -173,14 +288,14 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
             <div>
               <Label htmlFor="defaultLabel">Default Label</Label>
               <Select
-                value={config.defaultLabel}
-                onValueChange={(value) => updateConfig({ defaultLabel: value })}
+                value={config.defaultLabel || 'none'}
+                onValueChange={(value) => updateConfig({ defaultLabel: value === 'none' ? '' : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select label..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No default label</SelectItem>
+                  <SelectItem value="none">No default label</SelectItem>
                   {projectData.labels?.map((label) => (
                     <SelectItem key={label.name} value={`~${label.name}`}>
                       ~{label.name}
@@ -226,14 +341,6 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {projectData && (
-        <Alert>
-          <AlertDescription>
-            ✅ GitLab configuration complete! You can now proceed to configure Google Sheets.
-          </AlertDescription>
-        </Alert>
       )}
     </div>
   );
