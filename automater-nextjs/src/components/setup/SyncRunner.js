@@ -39,7 +39,6 @@ export function SyncRunner({
     if (!config.projectId) issues.push('Project ID is required');
     if (!config.spreadsheetId) issues.push('Spreadsheet ID is required');
     if (!config.worksheetName) issues.push('Worksheet Name is required');
-    if (!config.serviceAccountFile) issues.push('Service Account file is required');
     
     if (issues.length > 0) {
       toast.error('Configuration issues: ' + issues.join(', '));
