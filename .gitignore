@@ -5,7 +5,6 @@
 
 # Google Service Account Credentials
 service_account.json
-*.json
 
 # Python
 __pycache__/
