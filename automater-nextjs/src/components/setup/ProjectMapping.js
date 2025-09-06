@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Trash2, Settings, Search } from 'lucide-react';
+import { Plus, Trash2, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ProjectMapping({ 
@@ -22,7 +22,6 @@ export function ProjectMapping({
   const [showAddProject, setShowAddProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [labelSearch, setLabelSearch] = useState({});
   const [loadingProjectData, setLoadingProjectData] = useState({});
 
   // Extract unique project names from sheet data when headers change
@@ -411,20 +410,20 @@ export function ProjectMapping({
                 <div className="text-sm text-gray-500 py-2">Select GitLab project first</div>
               ) : (
                 <div className="space-y-2">
-                  {/* Dropdown for labels */}
+                  {/* Searchable Labels Dropdown */}
                   <Select 
                     onValueChange={(value) => {
-                      if (value !== 'none') {
+                      if (value !== 'none' && value !== 'search') {
                         addLabelToProject(project.id, value);
                       }
                     }}
                     disabled={!project.projectId || loadingProjectData[project.id]}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select from available labels..." />
+                      <SelectValue placeholder="Search and select labels..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Select a label...</SelectItem>
+                      <SelectItem value="none" disabled>Select a label...</SelectItem>
                       {project.projectData?.labels?.filter(label => 
                         !project.labels.includes(label.name)
                       ).map((label) => (
@@ -438,59 +437,12 @@ export function ProjectMapping({
                           </div>
                         </SelectItem>
                       ))}
+                      {(!project.projectData?.labels || project.projectData.labels.length === 0) && (
+                        <SelectItem value="none" disabled>No labels available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
 
-                  {/* Search input for labels */}
-                  <div className="relative">
-                    <Input
-                      placeholder="Or search for labels..."
-                      value={labelSearch[project.id] || ''}
-                      onChange={(e) => setLabelSearch(prev => ({
-                        ...prev,
-                        [project.id]: e.target.value
-                      }))}
-                      className="pr-10"
-                      disabled={!project.projectId || loadingProjectData[project.id]}
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Search className="h-4 w-4 text-gray-400" />
-                    </div>
-                  </div>
-                  
-                  {/* Filtered Labels Dropdown */}
-                  {labelSearch[project.id] && (
-                    <div className="border rounded-md max-h-40 overflow-y-auto bg-white shadow-sm">
-                      {project.projectData?.labels
-                        ?.filter(label => 
-                          label.name.toLowerCase().includes(labelSearch[project.id].toLowerCase()) &&
-                          !project.labels.includes(label.name)
-                        )
-                        .map((label) => (
-                          <div
-                            key={label.id}
-                            className="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer"
-                            onClick={() => {
-                              addLabelToProject(project.id, label.name);
-                              setLabelSearch(prev => ({ ...prev, [project.id]: '' }));
-                            }}
-                          >
-                            <div 
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: `#${label.color}` }}
-                            ></div>
-                            {label.name}
-                          </div>
-                        ))}
-                      {project.projectData?.labels?.filter(label => 
-                        label.name.toLowerCase().includes(labelSearch[project.id].toLowerCase()) &&
-                        !project.labels.includes(label.name)
-                      ).length === 0 && (
-                        <div className="p-2 text-gray-500 text-sm">No labels found</div>
-                      )}
-                    </div>
-                  )}
-                  
                   {/* Selected Labels */}
                   {project.labels.length > 0 && (
                     <div className="flex flex-wrap gap-2">
