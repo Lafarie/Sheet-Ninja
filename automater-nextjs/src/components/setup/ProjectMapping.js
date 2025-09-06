@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Trash2, Settings } from 'lucide-react';
+import { Plus, Trash2, Settings, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ProjectMapping({ 
@@ -22,6 +22,8 @@ export function ProjectMapping({
   const [showAddProject, setShowAddProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [labelSearch, setLabelSearch] = useState({});
+  const [loadingProjectData, setLoadingProjectData] = useState({});
 
   // Extract unique project names from sheet data when headers change
   useEffect(() => {
@@ -81,7 +83,7 @@ export function ProjectMapping({
   // Update project mapping and fetch project-specific data when project ID changes
   const handleProjectIdChange = async (projectMappingId, gitlabProjectId) => {
     // Update the project mapping
-    const updatedMappings = projectMappings.map(project => {
+    setProjectMappings(prevMappings => prevMappings.map(project => {
       if (project.id === projectMappingId) {
         return { 
           ...project, 
@@ -94,8 +96,7 @@ export function ProjectMapping({
         };
       }
       return project;
-    });
-    setProjectMappings(updatedMappings);
+    }));
 
     // Fetch project-specific data if a valid project is selected
     if (gitlabProjectId && gitlabProjectId !== 'none') {
@@ -105,6 +106,8 @@ export function ProjectMapping({
 
   // Fetch project-specific data (assignees, milestones, labels)
   const fetchProjectSpecificData = async (projectMappingId, gitlabProjectId) => {
+    setLoadingProjectData(prev => ({ ...prev, [projectMappingId]: true }));
+    
     try {
       const response = await fetch(`${apiBaseUrl}/api/project-data`, {
         method: 'POST',
@@ -122,7 +125,7 @@ export function ProjectMapping({
         const data = await response.json();
         
         // Update the specific project mapping with fetched data
-        const updatedMappings = projectMappings.map(project => {
+        setProjectMappings(prevMappings => prevMappings.map(project => {
           if (project.id === projectMappingId) {
             return { 
               ...project, 
@@ -134,8 +137,7 @@ export function ProjectMapping({
             };
           }
           return project;
-        });
-        setProjectMappings(updatedMappings);
+        }));
         
         toast.success('Project data loaded successfully');
       } else {
@@ -144,6 +146,8 @@ export function ProjectMapping({
     } catch (error) {
       console.error('Error fetching project data:', error);
       toast.error('Error fetching project data: ' + error.message);
+    } finally {
+      setLoadingProjectData(prev => ({ ...prev, [projectMappingId]: false }));
     }
   };
 
@@ -347,9 +351,16 @@ export function ProjectMapping({
                 <Select
                   value={project.assignee || 'none'}
                   onValueChange={(value) => updateProjectMapping(project.id, 'assignee', value === 'none' ? '' : value)}
+                  disabled={!project.projectId || loadingProjectData[project.id]}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select assignee..." />
+                    <SelectValue placeholder={
+                      loadingProjectData[project.id] 
+                        ? "Loading..." 
+                        : !project.projectId 
+                        ? "Select GitLab project first"
+                        : "Select assignee..."
+                    } />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No assignee</SelectItem>
@@ -368,9 +379,16 @@ export function ProjectMapping({
                 <Select
                   value={project.milestone || 'none'}
                   onValueChange={(value) => updateProjectMapping(project.id, 'milestone', value === 'none' ? '' : value)}
+                  disabled={!project.projectId || loadingProjectData[project.id]}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select milestone..." />
+                    <SelectValue placeholder={
+                      loadingProjectData[project.id] 
+                        ? "Loading..." 
+                        : !project.projectId 
+                        ? "Select GitLab project first"
+                        : "Select milestone..."
+                    } />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No milestone</SelectItem>
@@ -387,57 +405,123 @@ export function ProjectMapping({
             {/* Labels */}
             <div>
               <Label>Labels</Label>
-              <div className="space-y-2">
-                <Select onValueChange={(value) => addLabelToProject(project.id, value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Add labels..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No labels to add</SelectItem>
-                    {project.projectData?.labels?.map((label) => (
-                      <SelectItem key={label.id} value={label.name}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: `#${label.color}` }}
-                          ></div>
-                          {label.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {/* Selected Labels */}
-                {project.labels.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {project.labels.map((labelName) => {
-                      const labelData = config.projectData?.labels?.find(l => l.name === labelName);
-                      return (
-                        <Badge 
-                          key={labelName}
-                          variant="secondary"
-                          className="flex items-center gap-1"
-                        >
-                          {labelData && (
+              {loadingProjectData[project.id] ? (
+                <div className="text-sm text-gray-500 py-2">Loading labels...</div>
+              ) : !project.projectId ? (
+                <div className="text-sm text-gray-500 py-2">Select GitLab project first</div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Dropdown for labels */}
+                  <Select 
+                    onValueChange={(value) => {
+                      if (value !== 'none') {
+                        addLabelToProject(project.id, value);
+                      }
+                    }}
+                    disabled={!project.projectId || loadingProjectData[project.id]}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select from available labels..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Select a label...</SelectItem>
+                      {project.projectData?.labels?.filter(label => 
+                        !project.labels.includes(label.name)
+                      ).map((label) => (
+                        <SelectItem key={label.id} value={label.name}>
+                          <div className="flex items-center gap-2">
                             <div 
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: `#${labelData.color}` }}
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: `#${label.color}` }}
                             ></div>
-                          )}
-                          {labelName}
-                          <button
-                            onClick={() => removeLabelFromProject(project.id, labelName)}
-                            className="ml-1 text-xs hover:text-red-500"
-                          >
-                            ×
-                          </button>
-                        </Badge>
-                      );
-                    })}
+                            {label.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Search input for labels */}
+                  <div className="relative">
+                    <Input
+                      placeholder="Or search for labels..."
+                      value={labelSearch[project.id] || ''}
+                      onChange={(e) => setLabelSearch(prev => ({
+                        ...prev,
+                        [project.id]: e.target.value
+                      }))}
+                      className="pr-10"
+                      disabled={!project.projectId || loadingProjectData[project.id]}
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <Search className="h-4 w-4 text-gray-400" />
+                    </div>
                   </div>
-                )}
-              </div>
+                  
+                  {/* Filtered Labels Dropdown */}
+                  {labelSearch[project.id] && (
+                    <div className="border rounded-md max-h-40 overflow-y-auto bg-white shadow-sm">
+                      {project.projectData?.labels
+                        ?.filter(label => 
+                          label.name.toLowerCase().includes(labelSearch[project.id].toLowerCase()) &&
+                          !project.labels.includes(label.name)
+                        )
+                        .map((label) => (
+                          <div
+                            key={label.id}
+                            className="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer"
+                            onClick={() => {
+                              addLabelToProject(project.id, label.name);
+                              setLabelSearch(prev => ({ ...prev, [project.id]: '' }));
+                            }}
+                          >
+                            <div 
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: `#${label.color}` }}
+                            ></div>
+                            {label.name}
+                          </div>
+                        ))}
+                      {project.projectData?.labels?.filter(label => 
+                        label.name.toLowerCase().includes(labelSearch[project.id].toLowerCase()) &&
+                        !project.labels.includes(label.name)
+                      ).length === 0 && (
+                        <div className="p-2 text-gray-500 text-sm">No labels found</div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Selected Labels */}
+                  {project.labels.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {project.labels.map((labelName) => {
+                        const labelData = project.projectData?.labels?.find(l => l.name === labelName);
+                        return (
+                          <Badge 
+                            key={labelName}
+                            variant="secondary"
+                            className="flex items-center gap-1"
+                          >
+                            {labelData && (
+                              <div 
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: `#${labelData.color}` }}
+                              ></div>
+                            )}
+                            {labelName}
+                            <button
+                              onClick={() => removeLabelFromProject(project.id, labelName)}
+                              className="ml-1 text-xs hover:text-red-500"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Estimate */}

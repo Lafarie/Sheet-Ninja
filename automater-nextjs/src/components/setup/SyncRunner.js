@@ -35,12 +35,6 @@ export function SyncRunner({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [completionAnnounced, setCompletionAnnounced] = useState(false);
-  
-  // Sync-specific settings (override config defaults)
-  const [syncAssignee, setSyncAssignee] = useState('');
-  const [syncMilestone, setSyncMilestone] = useState('');
-  const [syncLabels, setSyncLabels] = useState([]);
-  const [syncEstimate, setSyncEstimate] = useState('8h');
 
   const validateSyncConfiguration = () => {
     const issues = [];
@@ -62,22 +56,6 @@ export function SyncRunner({
     return true;
   };
 
-  // Initialize sync settings with config defaults when config changes
-  useEffect(() => {
-    if (config.defaultAssignee && syncAssignee === '') {
-      setSyncAssignee(config.defaultAssignee);
-    }
-    if (config.defaultMilestone && syncMilestone === '') {
-      setSyncMilestone(config.defaultMilestone);
-    }
-    if (config.defaultLabel && syncLabels.length === 0) {
-      setSyncLabels([config.defaultLabel]);
-    }
-    if (config.defaultEstimate && syncEstimate === '8h') {
-      setSyncEstimate(config.defaultEstimate);
-    }
-  }, [config]);
-
   // Get unique assignees from project data
   const getAssignees = () => {
     if (!config.projectData?.assignees) return [];
@@ -87,18 +65,6 @@ export function SyncRunner({
       }
       return acc;
     }, []);
-  };
-
-  // Handle adding a label
-  const addLabel = (labelName) => {
-    if (labelName && labelName !== 'none' && !syncLabels.includes(labelName)) {
-      setSyncLabels(prev => [...prev, labelName]);
-    }
-  };
-
-  // Handle removing a label
-  const removeLabel = (labelName) => {
-    setSyncLabels(prev => prev.filter(label => label !== labelName));
   };
 
   const startSync = async () => {
@@ -117,10 +83,6 @@ export function SyncRunner({
         projectId: config.projectId,
         spreadsheetId: config.spreadsheetId,
         worksheetName: config.worksheetName,
-        defaultAssignee: syncAssignee || config.defaultAssignee,
-        defaultMilestone: syncMilestone || config.defaultMilestone,
-        defaultLabels: syncLabels.length > 0 ? syncLabels : (config.defaultLabel ? [config.defaultLabel] : []),
-        defaultEstimate: syncEstimate || config.defaultEstimate,
         projectMappings: projectMappings || []
       };
 
@@ -356,127 +318,6 @@ export function SyncRunner({
                   Using project mappings mode. Issues will be created in the appropriate project based on the project name in each sheet row.
                 </AlertDescription>
               </Alert>
-            </div>
-          )}
-
-          {/* Sync Settings */}
-          {config.projectData && (
-            <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-sm">Sync Settings {(!projectMappings || projectMappings.length === 0) && '(Default Project Mode)'}</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Assignee Selection */}
-                <div>
-                  <Label htmlFor="syncAssignee">Assignee</Label>
-                  <Select
-                    value={syncAssignee || 'none'}
-                    onValueChange={(value) => setSyncAssignee(value === 'none' ? '' : value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select assignee..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No assignee</SelectItem>
-                      {getAssignees().map((assignee) => (
-                        <SelectItem key={assignee.username} value={assignee.username}>
-                          @{assignee.username} ({assignee.name || assignee.username})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Milestone Selection */}
-                <div>
-                  <Label htmlFor="syncMilestone">Milestone</Label>
-                  <Select
-                    value={syncMilestone || 'none'}
-                    onValueChange={(value) => setSyncMilestone(value === 'none' ? '' : value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select milestone..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No milestone</SelectItem>
-                      {config.projectData.milestones?.map((milestone) => (
-                        <SelectItem key={milestone.id} value={milestone.id.toString()}>
-                          {milestone.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Labels Selection */}
-              <div>
-                <Label>Labels</Label>
-                <div className="space-y-2">
-                  <Select
-                    onValueChange={(value) => addLabel(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Add labels..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No labels to add</SelectItem>
-                      {config.projectData.labels?.map((label) => (
-                        <SelectItem key={label.id} value={label.name}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: `#${label.color}` }}
-                            ></div>
-                            {label.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  
-                  {/* Selected Labels */}
-                  {syncLabels.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {syncLabels.map((labelName) => {
-                        const labelData = config.projectData.labels?.find(l => l.name === labelName);
-                        return (
-                          <Badge 
-                            key={labelName}
-                            variant="secondary"
-                            className="flex items-center gap-1"
-                          >
-                            {labelData && (
-                              <div 
-                                className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: `#${labelData.color}` }}
-                              ></div>
-                            )}
-                            {labelName}
-                            <X 
-                              className="h-3 w-3 cursor-pointer hover:text-red-500"
-                              onClick={() => removeLabel(labelName)}
-                            />
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Estimate */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="syncEstimate">Default Estimate</Label>
-                  <input
-                    id="syncEstimate"
-                    type="text"
-                    placeholder="8h"
-                    value={syncEstimate}
-                    onChange={(e) => setSyncEstimate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
             </div>
           )}
 
