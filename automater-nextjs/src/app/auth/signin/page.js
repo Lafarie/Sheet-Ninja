@@ -399,7 +399,6 @@ export default function SignIn() {
             )}
 
             <div className="text-center text-xs text-gray-500 pt-4 border-t">
-              <p className="mb-2">Demo mode: Use password "demo123" for demo accounts.</p>
               <p>Your configurations and credentials will be securely encrypted and stored.</p>
             </div>
           </CardContent>

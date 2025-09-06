@@ -80,13 +80,6 @@ export default function SetupPage() {
     setConfig(prev => ({ ...prev, ...updates }));
   };
 
-  // Load default configuration if user is authenticated
-  useEffect(() => {
-    if (session?.user && showDashboard === false) {
-      loadDefaultConfig();
-    }
-  }, [session, showDashboard]);
-
   const loadDefaultConfig = async () => {
     try {
       const response = await fetch('/api/user/configs');
@@ -101,6 +94,13 @@ export default function SetupPage() {
       console.error('Error loading default config:', error);
     }
   };
+
+  // Load default configuration if user is authenticated
+  useEffect(() => {
+    if (session?.user && showDashboard === false) {
+      loadDefaultConfig();
+    }
+  }, [session, showDashboard, loadDefaultConfig]);
 
   const loadConfigFromSaved = (savedConfig) => {
     setConfig({

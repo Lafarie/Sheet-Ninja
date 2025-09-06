@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Plus, Settings, Trash2, Star, User, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
+import Image from 'next/image';
 
 export function UserDashboard({ onSelectConfig, onCreateNew }) {
   const { data: session } = useSession();
@@ -101,10 +102,12 @@ export function UserDashboard({ onSelectConfig, onCreateNew }) {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
                 {session.user.image ? (
-                  <img 
+                  <Image 
                     src={session.user.image} 
                     alt="Profile" 
                     className="w-10 h-10 rounded-full"
+                    width={40}
+                    height={40}
                   />
                 ) : (
                   <User className="w-5 h-5 text-gray-500" />

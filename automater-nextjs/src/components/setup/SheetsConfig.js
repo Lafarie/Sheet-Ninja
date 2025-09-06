@@ -118,9 +118,9 @@ export function SheetsConfig({
                 </div>
                 <p className="text-xs text-gray-600">
                   1. Open your Google Sheets document<br/>
-                  2. Click the "Share" button in the top right<br/>
-                  3. Add the email above with "Editor" access<br/>
-                  4. Click "Send" (no notification needed)
+                  2. Click the &ldquo;Share&rdquo; button in the top right<br/>
+                  3. Add the email above with &ldquo;Editor&rdquo; access<br/>
+                  4. Click &ldquo;Send&rdquo; (no notification needed)
                 </p>
               </div>
             </AlertDescription>
@@ -203,7 +203,7 @@ export function SheetsConfig({
       {config.spreadsheetId && config.worksheetName && (
         <Alert>
           <AlertDescription>
-            ✅ Google Sheets configuration complete! Click "Detect Column Headers" to proceed to column mapping.
+            ✅ Google Sheets configuration complete! Click &ldquo;Detect Column Headers&rdquo; to proceed to column mapping.
           </AlertDescription>
         </Alert>
       )}

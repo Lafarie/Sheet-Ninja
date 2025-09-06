@@ -127,7 +127,7 @@ function LabelSelector({ project, onAddLabel, onRemoveLabel }) {
                     }}
                   >
                     <Plus className="w-3 h-3 flex-shrink-0 text-green-600" />
-                    <span className="text-green-600">Create "{searchTerm.trim()}"</span>
+                    <span className="text-green-600">Create &quot;{searchTerm.trim()}&quot;</span>
                   </button>
                 )}
               </>
@@ -143,7 +143,7 @@ function LabelSelector({ project, onAddLabel, onRemoveLabel }) {
                 }}
               >
                 <Plus className="w-3 h-3 flex-shrink-0" />
-                <span>Create "{searchTerm.trim()}"</span>
+                <span>Create &quot;{searchTerm.trim()}&quot;</span>
               </button>
             ) : (
               <div className="px-3 py-2 text-sm text-gray-500">
@@ -202,14 +202,6 @@ export function ProjectMapping({
   const [loading, setLoading] = useState(false);
   const [loadingProjectData, setLoadingProjectData] = useState({});
 
-  // Extract unique project names from sheet data when headers change
-  useEffect(() => {
-    if (currentHeaders && currentHeaders.length > 0) {
-      // Fetch actual project names from the Google Sheet
-      fetchProjectNamesFromSheet();
-    }
-  }, [currentHeaders, config.spreadsheetId, config.worksheetName]);
-
   // Fetch unique project names from Google Sheet
   const fetchProjectNamesFromSheet = async () => {
     if (!config.spreadsheetId || !config.worksheetName) {
@@ -256,6 +248,14 @@ export function ProjectMapping({
       setLoading(false);
     }
   };
+
+  // Extract unique project names from sheet data when headers change
+  useEffect(() => {
+    if (currentHeaders && currentHeaders.length > 0) {
+      // Fetch actual project names from the Google Sheet
+      fetchProjectNamesFromSheet();
+    }
+  }, [currentHeaders, config.spreadsheetId, config.worksheetName, fetchProjectNamesFromSheet]);
 
   // Update project mapping and fetch project-specific data when project ID changes
   const handleProjectIdChange = async (projectMappingId, gitlabProjectId) => {
@@ -341,7 +341,7 @@ export function ProjectMapping({
       }));
       setProjectMappings(defaultMappings);
     }
-  }, [config.projectData, uniqueProjectNames]);
+  }, [config.projectData, uniqueProjectNames, config.defaultAssignee, config.defaultEstimate, config.defaultLabel, config.defaultMilestone, projectMappings.length, setProjectMappings]);
 
   const addProjectMapping = () => {
     if (!newProjectName.trim()) {
@@ -458,7 +458,7 @@ export function ProjectMapping({
           {!loading && uniqueProjectNames.length === 0 && (
             <Alert>
               <AlertDescription>
-                No project names found in your sheet. Make sure your sheet has a "Project Name" or similar column with data.
+                No project names found in your sheet. Make sure your sheet has a &quot;Project Name&quot; or similar column with data.
                 You can also add projects manually below.
               </AlertDescription>
             </Alert>
@@ -506,7 +506,7 @@ export function ProjectMapping({
                   <SelectValue placeholder="Select GitLab project..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No project selected (won't sync)</SelectItem>
+                  <SelectItem value="none">No project selected (won&lsquo;t sync)</SelectItem>
                   {config.availableProjects?.map((gitlabProject) => (
                     <SelectItem key={gitlabProject.id} value={gitlabProject.id.toString()}>
                       {gitlabProject.name_with_namespace || gitlabProject.name}
