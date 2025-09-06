@@ -229,24 +229,34 @@ async function createGitLabIssue(gitlabUrl, headers, syncData, taskData) {
     description: description,
   };
   
-  // Add optional fields if configured
-  if (syncData.defaultAssignee && syncData.defaultAssignee !== 'none') {
-    // Remove @ prefix if present
-    const assignee = syncData.defaultAssignee.replace('@', '');
-    issueData.assignee_ids = [assignee];
-  }
-  
-  if (syncData.defaultMilestone && syncData.defaultMilestone !== 'none') {
-    // Remove % prefix if present
-    const milestone = syncData.defaultMilestone.replace('%', '');
-    issueData.milestone_id = milestone;
-  }
-  
-  if (syncData.defaultLabel && syncData.defaultLabel !== 'none') {
-    // Remove ~ prefix if present
-    const label = syncData.defaultLabel.replace('~', '');
-    issueData.labels = [label];
-  }
+    // Add optional fields if configured
+    if (syncData.defaultAssignee && syncData.defaultAssignee !== 'none' && syncData.defaultAssignee !== '') {
+      // For assignee, we need to get the user ID by username
+      const assigneeResponse = await fetch(`${gitlabUrl}projects/${syncData.projectId}/members/all`, {
+        headers: headers,
+      });
+      
+      if (assigneeResponse.ok) {
+        const members = await assigneeResponse.json();
+        const assignee = members.find(m => m.username === syncData.defaultAssignee);
+        if (assignee) {
+          issueData.assignee_ids = [assignee.id];
+        }
+      }
+    }
+    
+    if (syncData.defaultMilestone && syncData.defaultMilestone !== 'none' && syncData.defaultMilestone !== '') {
+      // Milestone ID should be numeric
+      issueData.milestone_id = parseInt(syncData.defaultMilestone);
+    }
+    
+    if (syncData.defaultLabels && Array.isArray(syncData.defaultLabels) && syncData.defaultLabels.length > 0) {
+      // Filter out empty labels and 'none' values
+      const validLabels = syncData.defaultLabels.filter(label => label && label !== 'none' && label !== '');
+      if (validLabels.length > 0) {
+        issueData.labels = validLabels;
+      }
+    }
   
   const response = await fetch(`${gitlabUrl}projects/${syncData.projectId}/issues`, {
     method: 'POST',
