@@ -1,14 +1,20 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSession, signIn } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { GitLabConfig } from '@/components/setup/GitLabConfig';
 import { SheetsConfig } from '@/components/setup/SheetsConfig';
 import { ColumnMapping } from '@/components/setup/ColumnMapping';
 import { ProjectMapping } from '@/components/setup/ProjectMapping';
 import { SyncRunner } from '@/components/setup/SyncRunner';
 import { ProgressSteps } from '@/components/setup/ProgressSteps';
+import { UserDashboard } from '@/components/UserDashboard';
+import { SaveConfigDialog } from '@/components/SaveConfigDialog';
+import { Save, User } from 'lucide-react';
+import { toast } from 'sonner';
 
 // Configuration constants
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
@@ -29,6 +35,10 @@ const defaultConfig = {
 };
 
 export default function SetupPage() {
+  const { data: session, status } = useSession();
+  const [showDashboard, setShowDashboard] = useState(true);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+
   // Configuration state
   const [config, setConfig] = useState({
     gitlabUrl: 'https://sourcecontrol.hsenidmobile.com/api/v4/',
@@ -70,19 +80,185 @@ export default function SetupPage() {
     setConfig(prev => ({ ...prev, ...updates }));
   };
 
+  // Load default configuration if user is authenticated
+  useEffect(() => {
+    if (session?.user && showDashboard === false) {
+      loadDefaultConfig();
+    }
+  }, [session, showDashboard]);
+
+  const loadDefaultConfig = async () => {
+    try {
+      const response = await fetch('/api/user/configs');
+      if (response.ok) {
+        const data = await response.json();
+        const defaultConfig = data.configs?.find(c => c.isDefault);
+        if (defaultConfig) {
+          loadConfigFromSaved(defaultConfig);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading default config:', error);
+    }
+  };
+
+  const loadConfigFromSaved = (savedConfig) => {
+    setConfig({
+      ...config,
+      gitlabUrl: savedConfig.gitlabUrl,
+      gitlabToken: savedConfig.gitlabToken,
+      spreadsheetId: savedConfig.spreadsheetId,
+      worksheetName: savedConfig.worksheetName,
+      defaultAssignee: savedConfig.defaultAssignee,
+      defaultMilestone: savedConfig.defaultMilestone,
+      defaultLabel: savedConfig.defaultLabel,
+      defaultEstimate: savedConfig.defaultEstimate,
+    });
+
+    if (savedConfig.columnMappings) {
+      setCurrentMappings(savedConfig.columnMappings);
+    }
+
+    if (savedConfig.projectMappings) {
+      const mappings = savedConfig.projectMappings.map(pm => ({
+        id: pm.id,
+        projectName: pm.projectName,
+        projectId: pm.projectId,
+        assignee: pm.assignee,
+        milestone: pm.milestone,
+        labels: pm.labels || [],
+        estimate: pm.estimate,
+        projectData: { labels: [], milestones: [], assignees: [] }
+      }));
+      setProjectMappings(mappings);
+    }
+
+    toast.success('Configuration loaded successfully!');
+  };
+
+  const handleSelectConfig = (savedConfig) => {
+    loadConfigFromSaved(savedConfig);
+    setShowDashboard(false);
+  };
+
+  const handleCreateNew = () => {
+    setShowDashboard(false);
+  };
+
+  const handleSaveConfig = () => {
+    setShowSaveDialog(true);
+  };
+
+  const handleConfigSaved = () => {
+    toast.success('Configuration saved! You can access it from your dashboard.');
+  };
+
+  // Show sign-in prompt if not authenticated
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
+              <span>🥷🏿</span>
+              Sheet Ninja
+            </CardTitle>
+            <CardDescription>
+              Sign in to save your configurations and manage your sync setups
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <div className="text-sm text-gray-600 mb-4">
+              Benefits of signing in:
+              <ul className="text-left mt-2 space-y-1">
+                <li>• Save your configurations for reuse</li>
+                <li>• Encrypt and secure your credentials</li>
+                <li>• Quick setup for recurring syncs</li>
+                <li>• Manage multiple project setups</li>
+              </ul>
+            </div>
+            <Button onClick={() => signIn()} className="w-full">
+              <User className="w-4 h-4 mr-2" />
+              Sign In to Continue
+            </Button>
+            <div className="text-xs text-gray-500">
+              Your data is encrypted and secure
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show dashboard if user wants to see it
+  if (showDashboard) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="container mx-auto px-4 py-8">
+          <Card className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
+                <span>🥷🏿</span>
+                Sheet Ninja
+              </CardTitle>
+              <CardDescription className="text-blue-100 text-lg">
+                Welcome back! Choose a configuration or create a new one
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <UserDashboard 
+            onSelectConfig={handleSelectConfig}
+            onCreateNew={handleCreateNew}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <Card className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
-              <span>🥷🏿</span>
-              Sheet Ninja
-            </CardTitle>
-            <CardDescription className="text-blue-100 text-lg">
-              Configure your synchronization between GitLab issues and Google Sheets
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowDashboard(true)}
+                className="text-white hover:bg-white/10"
+              >
+                ← Back to Dashboard
+              </Button>
+              <div className="flex-1 text-center">
+                <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
+                  <span>🥷🏿</span>
+                  Sheet Ninja
+                </CardTitle>
+                <CardDescription className="text-blue-100 text-lg">
+                  Configure your synchronization between GitLab issues and Google Sheets
+                </CardDescription>
+              </div>
+              <Button 
+                variant="ghost" 
+                onClick={handleSaveConfig}
+                className="text-white hover:bg-white/10"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save Config
+              </Button>
+            </div>
           </CardHeader>
         </Card>
 
@@ -154,6 +330,7 @@ export default function SetupPage() {
                   setSyncProgress={setSyncProgress}
                   apiBaseUrl={API_BASE_URL}
                   setCurrentStep={setCurrentStep}
+                  onSaveConfig={handleSaveConfig}
                 />
               </TabsContent>
             </Tabs>
@@ -194,6 +371,12 @@ export default function SetupPage() {
                       {currentHeaders.length > 0 ? '✓' : '✗'}
                     </span>
                   </div>
+                  <div className="flex justify-between">
+                    <span>Project Mappings:</span>
+                    <span className={projectMappings.length > 0 ? 'text-green-600' : 'text-red-500'}>
+                      {projectMappings.length > 0 ? `${projectMappings.length} projects` : '✗'}
+                    </span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -206,6 +389,14 @@ export default function SetupPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
+                <Button
+                  variant="outline"
+                  onClick={handleSaveConfig}
+                  className="w-full"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Configuration
+                </Button>
                 <button
                   onClick={() => {
                     updateConfig({
@@ -228,6 +419,16 @@ export default function SetupPage() {
             </Card>
           </div>
         </div>
+
+        {/* Save Configuration Dialog */}
+        <SaveConfigDialog
+          isOpen={showSaveDialog}
+          onClose={() => setShowSaveDialog(false)}
+          config={config}
+          columnMappings={currentMappings}
+          projectMappings={projectMappings}
+          onConfigSaved={handleConfigSaved}
+        />
       </div>
     </div>
   );
