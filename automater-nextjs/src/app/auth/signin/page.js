@@ -7,17 +7,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { Eye, EyeOff, Mail, Lock, User, Zap } from 'lucide-react';
 
 export default function SignIn() {
   const [providers, setProviders] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
-  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   // Sign In state
   const [signInEmail, setSignInEmail] = useState('');
   const [signInName, setSignInName] = useState('');
-  
+  const [signInPassword, setSignInPassword] = useState('');
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+
   // Sign Up state
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpName, setSignUpName] = useState('');
@@ -34,8 +40,8 @@ export default function SignIn() {
 
   const handleSignIn = async (e) => {
     e.preventDefault();
-    if (!signInEmail) {
-      toast.error('Please enter your email');
+    if (!signInEmail || !signInPassword) {
+      toast.error('Please enter your email and password');
       return;
     }
 
@@ -44,6 +50,7 @@ export default function SignIn() {
       const result = await signIn('credentials', {
         email: signInEmail,
         name: signInName || signInEmail,
+        password: signInPassword,
         redirect: true,
         callbackUrl: '/setup'
       });
@@ -92,11 +99,12 @@ export default function SignIn() {
 
       if (response.ok) {
         toast.success('Account created successfully! Signing you in...');
-        
+
         // Automatically sign in after successful registration
         const result = await signIn('credentials', {
           email: signUpEmail,
           name: signUpName,
+          password: signUpPassword,
           redirect: true,
           callbackUrl: '/setup'
         });
@@ -123,6 +131,7 @@ export default function SignIn() {
       const result = await signIn('credentials', {
         email: demoEmail,
         name: demoName,
+        password: 'demo123', // Default demo password
         redirect: true,
         callbackUrl: '/setup'
       });
@@ -140,165 +149,285 @@ export default function SignIn() {
     }
   };
 
+  const getPasswordStrength = (password) => {
+    if (password.length === 0) return { strength: 0, label: '' };
+    if (password.length < 6) return { strength: 1, label: 'Weak' };
+    if (password.length < 8) return { strength: 2, label: 'Fair' };
+    if (password.length < 12) return { strength: 3, label: 'Good' };
+    return { strength: 4, label: 'Strong' };
+  };
+
+  const passwordStrength = getPasswordStrength(signUpPassword);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Welcome to Sheet Ninja</CardTitle>
-          <CardDescription>
-            Sign in to save your configurations and sync data between GitLab and Google Sheets
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Demo Sign-In Buttons */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Quick Demo:</Label>
-            <div className="grid grid-cols-1 gap-2">
-              <Button
-                onClick={() => handleDemoSignIn('demo1@example.com', 'Demo User 1')}
-                disabled={isLoading}
-                variant="outline"
-                size="sm"
-              >
-                Demo User 1
-              </Button>
-              <Button
-                onClick={() => handleDemoSignIn('demo2@example.com', 'Demo User 2')}
-                disabled={isLoading}
-                variant="outline"
-                size="sm"
-              >
-                Demo User 2
-              </Button>
-              <Button
-                onClick={() => handleDemoSignIn('admin@example.com', 'Admin User')}
-                disabled={isLoading}
-                variant="outline"
-                size="sm"
-              >
-                Admin Demo
-              </Button>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
+        {/* Header */}
+        <div className="text-center">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-4">
+            <Zap className="w-8 h-8 text-white" />
           </div>
+          <h1 className="text-3xl font-bold text-gray-900">Sheet Ninja</h1>
+          <p className="text-gray-600 mt-2">Automate your GitLab-Google Sheets workflow</p>
+        </div>
 
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or</span>
-            </div>
-          </div>
-
-          {/* Sign In / Sign Up Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="signin" className="space-y-4">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div>
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={signInEmail}
-                    onChange={(e) => setSignInEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="signin-name">Name (Optional)</Label>
-                  <Input
-                    id="signin-name"
-                    type="text"
-                    placeholder="Enter your name"
-                    value={signInName}
-                    onChange={(e) => setSignInName(e.target.value)}
-                  />
-                </div>
-                <Button type="submit" disabled={isLoading} className="w-full">
-                  {isLoading ? 'Signing in...' : 'Sign In'}
+        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="text-center pb-2">
+            <CardTitle className="text-xl">Welcome Back</CardTitle>
+            <CardDescription>
+              Sign in to your account or create a new one
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Demo Sign-In Buttons */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-blue-600" />
+                <Label className="text-sm font-medium">Quick Demo Access:</Label>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Button
+                  onClick={() => handleDemoSignIn('demo1@example.com', 'Demo User 1')}
+                  disabled={isLoading}
+                  variant="outline"
+                  size="sm"
+                  className="justify-start"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Demo User 1
                 </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup" className="space-y-4">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div>
-                  <Label htmlFor="signup-name">Full Name *</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={signUpName}
-                    onChange={(e) => setSignUpName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="signup-email">Email *</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={signUpEmail}
-                    onChange={(e) => setSignUpEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="signup-password">Password *</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="Create a password (min 6 characters)"
-                    value={signUpPassword}
-                    onChange={(e) => setSignUpPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="confirm-password">Confirm Password *</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    placeholder="Confirm your password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" disabled={isLoading} className="w-full">
-                  {isLoading ? 'Creating Account...' : 'Create Account'}
+                <Button
+                  onClick={() => handleDemoSignIn('demo2@example.com', 'Demo User 2')}
+                  disabled={isLoading}
+                  variant="outline"
+                  size="sm"
+                  className="justify-start"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Demo User 2
                 </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+                <Button
+                  onClick={() => handleDemoSignIn('admin@example.com', 'Admin User')}
+                  disabled={isLoading}
+                  variant="outline"
+                  size="sm"
+                  className="justify-start"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Admin Demo
+                </Button>
+              </div>
+            </div>
 
-          {/* OAuth Providers */}
-          {Object.values(providers).filter(p => p.id !== 'credentials').map((provider) => (
-            <Button
-              key={provider.name}
-              onClick={() => signIn(provider.id)}
-              className="w-full"
-              variant="outline"
-            >
-              Sign in with {provider.name}
-            </Button>
-          ))}
-          
-          <div className="text-center text-xs text-gray-500 mt-4">
-            Demo mode: Just enter your email to continue.<br/>
-            Your configurations and credentials will be securely encrypted and stored.
-          </div>
-        </CardContent>
-      </Card>
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-3 text-gray-500 font-medium">Or continue with</span>
+              </div>
+            </div>
+
+            {/* Sign In / Sign Up Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin" className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  Sign In
+                </TabsTrigger>
+                <TabsTrigger value="signup" className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Sign Up
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="signin" className="space-y-4 mt-6">
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-email" className="flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      Email Address
+                    </Label>
+                    <Input
+                      id="signin-email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={signInEmail}
+                      onChange={(e) => setSignInEmail(e.target.value)}
+                      required
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-password" className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="signin-password"
+                        type={showSignInPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        value={signInPassword}
+                        onChange={(e) => setSignInPassword(e.target.value)}
+                        required
+                        className="h-11 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignInPassword(!showSignInPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showSignInPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button type="submit" disabled={isLoading} className="w-full h-11">
+                    {isLoading ? 'Signing in...' : 'Sign In'}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="signup" className="space-y-4 mt-6">
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-name" className="flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Full Name *
+                    </Label>
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={signUpName}
+                      onChange={(e) => setSignUpName(e.target.value)}
+                      required
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email" className="flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      Email Address *
+                    </Label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={signUpEmail}
+                      onChange={(e) => setSignUpEmail(e.target.value)}
+                      required
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password" className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Password *
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="signup-password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Create a password (min 6 characters)"
+                        value={signUpPassword}
+                        onChange={(e) => setSignUpPassword(e.target.value)}
+                        required
+                        minLength={6}
+                        className="h-11 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {signUpPassword && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full transition-all ${
+                              passwordStrength.strength === 1 ? 'bg-red-500 w-1/4' :
+                              passwordStrength.strength === 2 ? 'bg-yellow-500 w-2/4' :
+                              passwordStrength.strength === 3 ? 'bg-blue-500 w-3/4' :
+                              'bg-green-500 w-full'
+                            }`}
+                          />
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {passwordStrength.label}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password" className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Confirm Password *
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm your password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        className="h-11 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <Button type="submit" disabled={isLoading} className="w-full h-11">
+                    {isLoading ? 'Creating Account...' : 'Create Account'}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+
+            {/* OAuth Providers */}
+            {Object.values(providers).filter(p => p.id !== 'credentials').length > 0 && (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-gray-200" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-3 text-gray-500 font-medium">Or</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {Object.values(providers).filter(p => p.id !== 'credentials').map((provider) => (
+                    <Button
+                      key={provider.name}
+                      onClick={() => signIn(provider.id)}
+                      className="w-full h-11"
+                      variant="outline"
+                    >
+                      Sign in with {provider.name}
+                    </Button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div className="text-center text-xs text-gray-500 pt-4 border-t">
+              <p className="mb-2">Demo mode: Use password "demo123" for demo accounts.</p>
+              <p>Your configurations and credentials will be securely encrypted and stored.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

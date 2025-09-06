@@ -41,9 +41,7 @@ export async function POST(request) {
       data: {
         email,
         name,
-        // Note: In a real app, you'd store the hashed password
-        // For demo purposes with NextAuth credentials, we'll just create the user
-        // The actual password handling is done by NextAuth
+        password: hashedPassword, // Store the hashed password
       }
     });
 
