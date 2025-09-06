@@ -4,7 +4,8 @@ const steps = [
   { id: 1, title: 'GitLab Setup', description: 'Configure GitLab connection' },
   { id: 2, title: 'Sheets Setup', description: 'Configure Google Sheets' },
   { id: 3, title: 'Column Mapping', description: 'Map sheet columns' },
-  { id: 4, title: 'Run Sync', description: 'Execute synchronization' },
+  { id: 4, title: 'Project Mapping', description: 'Map projects to sheets' },
+  { id: 5, title: 'Run Sync', description: 'Execute synchronization' },
 ];
 
 export function ProgressSteps({ currentStep }) {

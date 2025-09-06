@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -203,7 +203,7 @@ export function ProjectMapping({
   const [loadingProjectData, setLoadingProjectData] = useState({});
 
   // Fetch unique project names from Google Sheet
-  const fetchProjectNamesFromSheet = async () => {
+  const fetchProjectNamesFromSheet = useCallback(async () => {
     if (!config.spreadsheetId || !config.worksheetName) {
       return;
     }
@@ -247,15 +247,18 @@ export function ProjectMapping({
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl, config.spreadsheetId, config.worksheetName, projectMappings.length, setProjectMappings]);
 
-  // Extract unique project names from sheet data when headers change
+  // Extract unique project names from sheet data when headers or sheet config change
   useEffect(() => {
     if (currentHeaders && currentHeaders.length > 0) {
-      // Fetch actual project names from the Google Sheet
-      fetchProjectNamesFromSheet();
+      // Only fetch if we don't already have mappings initialized to avoid repeated calls
+      if (projectMappings.length === 0) {
+        fetchProjectNamesFromSheet();
+      }
     }
-  }, [currentHeaders, config.spreadsheetId, config.worksheetName, fetchProjectNamesFromSheet]);
+    // We intentionally only depend on currentHeaders and sheet identifiers + projectMappings.length
+  }, [currentHeaders, config.spreadsheetId, config.worksheetName, projectMappings.length, fetchProjectNamesFromSheet]);
 
   // Update project mapping and fetch project-specific data when project ID changes
   const handleProjectIdChange = async (projectMappingId, gitlabProjectId) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -80,31 +80,10 @@ export default function SetupPage() {
     setConfig(prev => ({ ...prev, ...updates }));
   };
 
-  const loadDefaultConfig = async () => {
-    try {
-      const response = await fetch('/api/user/configs');
-      if (response.ok) {
-        const data = await response.json();
-        const defaultConfig = data.configs?.find(c => c.isDefault);
-        if (defaultConfig) {
-          loadConfigFromSaved(defaultConfig);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading default config:', error);
-    }
-  };
-
-  // Load default configuration if user is authenticated
-  useEffect(() => {
-    if (session?.user && showDashboard === false) {
-      loadDefaultConfig();
-    }
-  }, [session, showDashboard, loadDefaultConfig]);
-
-  const loadConfigFromSaved = (savedConfig) => {
-    setConfig({
-      ...config,
+  // Apply a saved configuration into local state
+  const loadConfigFromSaved = useCallback((savedConfig) => {
+    setConfig(prev => ({
+      ...prev,
       gitlabUrl: savedConfig.gitlabUrl,
       gitlabToken: savedConfig.gitlabToken,
       spreadsheetId: savedConfig.spreadsheetId,
@@ -113,7 +92,7 @@ export default function SetupPage() {
       defaultMilestone: savedConfig.defaultMilestone,
       defaultLabel: savedConfig.defaultLabel,
       defaultEstimate: savedConfig.defaultEstimate,
-    });
+    }));
 
     if (savedConfig.columnMappings) {
       setCurrentMappings(savedConfig.columnMappings);
@@ -134,7 +113,29 @@ export default function SetupPage() {
     }
 
     toast.success('Configuration loaded successfully!');
-  };
+  }, [setCurrentMappings, setProjectMappings, setConfig]);
+
+  // Load default configuration if user is authenticated
+  const loadDefaultConfig = useCallback(async () => {
+    try {
+      const response = await fetch('/api/user/configs');
+      if (response.ok) {
+        const data = await response.json();
+        const defaultConfig = data.configs?.find(c => c.isDefault);
+        if (defaultConfig) {
+          loadConfigFromSaved(defaultConfig);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading default config:', error);
+    }
+  }, [loadConfigFromSaved]);
+
+  useEffect(() => {
+    if (session?.user && showDashboard === false) {
+      loadDefaultConfig();
+    }
+  }, [session, showDashboard, loadDefaultConfig]);
 
   const handleSelectConfig = (savedConfig) => {
     loadConfigFromSaved(savedConfig);
@@ -351,12 +352,6 @@ export default function SetupPage() {
                     <span>GitLab Token:</span>
                     <span className={config.gitlabToken ? 'text-green-600' : 'text-red-500'}>
                       {config.gitlabToken ? '✓' : '✗'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Project ID:</span>
-                    <span className={config.projectId ? 'text-green-600' : 'text-red-500'}>
-                      {config.projectId ? '✓' : '✗'}
                     </span>
                   </div>
                   <div className="flex justify-between">
