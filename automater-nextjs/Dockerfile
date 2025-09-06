@@ -1,49 +1,39 @@
-# Base Dockerfile
-FROM node:22-alpine3.20 AS base
-# Configure pnpm global
-ENV PNPM_HOME="/pnpm"
-ENV PATH=$PNPM_HOME:$PATH
-RUN apk add --no-cache libc6-compat
-RUN apk update
+# --- Build stage ----------------------------------------------------------
+FROM node:22-alpine3.20 AS builder
+RUN apk add --no-cache libc6-compat git
 WORKDIR /app
-RUN --mount=type=cache,id=npm,target=/root/.npm \
-    npm install --global turbo corepack && \
-    corepack enable && \
-    corepack prepare pnpm@9.0.0 --activate && \
-    pnpm --version && turbo --version
 
-# Pruner - removes development dependencies
-FROM base AS pruner
+# Ensure pnpm is available
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+# Copy manifests first for efficient caching
+COPY package.json pnpm-lock.yaml* ./
+COPY pnpm-workspace.yaml* ./
+
+# Install dependencies (including dev deps needed for build)
+RUN pnpm install --frozen-lockfile
+
+# Copy the rest of the source
 COPY . .
-RUN turbo prune --scope=automater-nextjs --docker --out-dir /automater-pruned 
 
-# Builder - builds the application
-FROM base AS builder
-COPY --from=pruner /automater-pruned/json/ .
-COPY --from=pruner /automater-pruned/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=pruner /automater-pruned/pnpm-workspace.yaml ./pnpm-workspace.yaml
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-COPY --from=pruner /automater-pruned/full/ .
-COPY turbo.json turbo.json
-
-RUN pnpm run db:generate
+# Generate Prisma client (no-op if not configured) and build
+RUN pnpm run db:generate || true
 RUN pnpm run build
 
-# Runtime - use Node.js instead of Bun
+# --- Runtime stage --------------------------------------------------------
 FROM node:22-alpine3.20 AS runtime
-RUN apk add --no-cache tzdata
-RUN adduser --system --uid 1001 nextjs
+RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 WORKDIR /app
 
-# Copy built application
-COPY --from=builder --chown=nextjs:node /app/package.json ./package.json
-COPY --from=builder --chown=nextjs:node /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:node /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:node /app/public ./public
-COPY --from=builder --chown=nextjs:node /app/.env.local ./.env
+# Copy the standalone build produced by Next.js
+COPY --from=builder /app/.next/standalone .
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/package.json ./package.json
 
-# Remove .env copy - use docker-compose environment instead
+ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE ${PORT}
+
 USER nextjs
 CMD ["node", "server.js"]
