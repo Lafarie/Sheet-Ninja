@@ -20,7 +20,6 @@ export default function SignIn() {
 
   // Sign In state
   const [signInEmail, setSignInEmail] = useState('');
-  const [signInName, setSignInName] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   const [showSignInPassword, setShowSignInPassword] = useState(false);
 
@@ -49,7 +48,6 @@ export default function SignIn() {
     try {
       const result = await signIn('credentials', {
         email: signInEmail,
-        name: signInName || signInEmail,
         password: signInPassword,
         redirect: true,
         callbackUrl: '/setup'
@@ -130,7 +128,6 @@ export default function SignIn() {
     try {
       const result = await signIn('credentials', {
         email: demoEmail,
-        name: demoName,
         password: 'demo123', // Default demo password
         redirect: true,
         callbackUrl: '/setup'
@@ -179,45 +176,6 @@ export default function SignIn() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Demo Sign-In Buttons */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-blue-600" />
-                <Label className="text-sm font-medium">Quick Demo Access:</Label>
-              </div>
-              <div className="grid grid-cols-1 gap-2">
-                <Button
-                  onClick={() => handleDemoSignIn('demo1@example.com', 'Demo User 1')}
-                  disabled={isLoading}
-                  variant="outline"
-                  size="sm"
-                  className="justify-start"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Demo User 1
-                </Button>
-                <Button
-                  onClick={() => handleDemoSignIn('demo2@example.com', 'Demo User 2')}
-                  disabled={isLoading}
-                  variant="outline"
-                  size="sm"
-                  className="justify-start"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Demo User 2
-                </Button>
-                <Button
-                  onClick={() => handleDemoSignIn('admin@example.com', 'Admin User')}
-                  disabled={isLoading}
-                  variant="outline"
-                  size="sm"
-                  className="justify-start"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Admin Demo
-                </Button>
-              </div>
-            </div>
 
             {/* Divider */}
             <div className="relative">
