@@ -20,6 +20,7 @@ const syncSteps = [
 
 export function SyncRunner({ 
   config,
+  projectMappings,
   syncRunning,
   setSyncRunning,
   syncProgress,
@@ -45,9 +46,13 @@ export function SyncRunner({
     const issues = [];
     
     if (!config.gitlabToken) issues.push('GitLab Token is required');
-    if (!config.projectId) issues.push('Project ID is required');
     if (!config.spreadsheetId) issues.push('Spreadsheet ID is required');
     if (!config.worksheetName) issues.push('Worksheet Name is required');
+    
+    // Check if either single project or project mappings are configured
+    if (!config.projectId && (!projectMappings || projectMappings.length === 0)) {
+      issues.push('Either Project ID or Project Mappings must be configured');
+    }
     
     if (issues.length > 0) {
       toast.error('Configuration issues: ' + issues.join(', '));
@@ -116,6 +121,7 @@ export function SyncRunner({
         defaultMilestone: syncMilestone || config.defaultMilestone,
         defaultLabels: syncLabels.length > 0 ? syncLabels : (config.defaultLabel ? [config.defaultLabel] : []),
         defaultEstimate: syncEstimate || config.defaultEstimate,
+        projectMappings: projectMappings || []
       };
 
       if (enableDateFilter) {
@@ -327,10 +333,36 @@ export function SyncRunner({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Project Mappings Display */}
+          {projectMappings && projectMappings.length > 0 && (
+            <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
+              <h4 className="font-medium text-sm">Project Mappings ({projectMappings.length} configured)</h4>
+              <div className="space-y-2">
+                {projectMappings.map((mapping, index) => (
+                  <div key={index} className="text-sm bg-white p-2 rounded border">
+                    <div className="font-medium">{mapping.projectName}</div>
+                    <div className="text-gray-600">
+                      Project ID: {mapping.projectId} | 
+                      {mapping.assignee && mapping.assignee !== 'none' && ` Assignee: @${mapping.assignee} |`}
+                      {mapping.milestone && mapping.milestone !== 'none' && ` Milestone: ${mapping.milestone} |`}
+                      {mapping.labels && mapping.labels.length > 0 && ` Labels: ${mapping.labels.join(', ')}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Using project mappings mode. Issues will be created in the appropriate project based on the project name in each sheet row.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
           {/* Sync Settings */}
           {config.projectData && (
             <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-sm">Sync Settings</h4>
+              <h4 className="font-medium text-sm">Sync Settings {(!projectMappings || projectMappings.length === 0) && '(Default Project Mode)'}</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Assignee Selection */}
                 <div>

@@ -9,12 +9,27 @@ export async function POST(request) {
     const syncData = await request.json();
     
     // Validate required fields
-    const requiredFields = ['gitlabUrl', 'gitlabToken', 'projectId', 'spreadsheetId', 'worksheetName'];
+    const requiredFields = ['gitlabUrl', 'gitlabToken', 'spreadsheetId', 'worksheetName'];
     const missingFields = requiredFields.filter(field => !syncData[field]);
     
     if (missingFields.length > 0) {
       return NextResponse.json(
         { error: `Missing required fields: ${missingFields.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    // Validate project mappings if provided
+    if (syncData.projectMappings && Array.isArray(syncData.projectMappings)) {
+      if (syncData.projectMappings.length === 0) {
+        return NextResponse.json(
+          { error: 'No project mappings configured. Please set up at least one project mapping.' },
+          { status: 400 }
+        );
+      }
+    } else if (!syncData.projectId) {
+      return NextResponse.json(
+        { error: 'Either projectId or projectMappings must be provided' },
         { status: 400 }
       );
     }
@@ -87,7 +102,13 @@ async function performActualSync(syncData) {
     // Step 3: Create GitLab Issues
     syncStateManager.setCurrentStep('creating-issues');
     syncStateManager.addOutput(`[${new Date().toISOString()}] Creating Issues...\n`);
-    syncStateManager.addOutput(`  - Connecting to GitLab project: ${syncData.projectId}\n`);
+    
+    // Log project mapping mode vs single project mode
+    if (syncData.projectMappings && Array.isArray(syncData.projectMappings)) {
+      syncStateManager.addOutput(`  - Using project mappings (${syncData.projectMappings.length} projects configured)\n`);
+    } else {
+      syncStateManager.addOutput(`  - Using single project mode: ${syncData.projectId}\n`);
+    }
     
     const gitlabUrl = syncData.gitlabUrl.endsWith('/') ? syncData.gitlabUrl : syncData.gitlabUrl + '/';
     const headers = {
@@ -120,8 +141,33 @@ async function performActualSync(syncData) {
       }
 
       try {
-        // Create GitLab issue
-        const issue = await createGitLabIssue(gitlabUrl, headers, syncData, taskData);
+        // Determine which project configuration to use
+        let projectConfig;
+        let targetProjectId;
+
+        if (syncData.projectMappings && Array.isArray(syncData.projectMappings)) {
+          // Find matching project mapping
+          projectConfig = findProjectMapping(syncData.projectMappings, taskData);
+          if (!projectConfig) {
+            syncStateManager.addOutput(`  - Skipping row ${i + 2}: No matching project mapping found\n`);
+            continue;
+          }
+          targetProjectId = projectConfig.projectId;
+          syncStateManager.addOutput(`  - Using project mapping: ${projectConfig.projectName} (${targetProjectId})\n`);
+        } else {
+          // Use default single project configuration
+          targetProjectId = syncData.projectId;
+          projectConfig = {
+            projectId: targetProjectId,
+            projectName: 'Default Project',
+            assignee: syncData.defaultAssignee || '',
+            milestone: syncData.defaultMilestone || '',
+            labels: syncData.defaultLabels || []
+          };
+        }
+
+        // Create GitLab issue with project-specific configuration
+        const issue = await createGitLabIssue(gitlabUrl, headers, targetProjectId, projectConfig, taskData);
         createdIssues++;
         
         syncStateManager.addOutput(`  - Created issue #${issue.iid}: ${issue.title}\n`);
@@ -174,6 +220,35 @@ function findColumnName(headers, possibleNames) {
   return null;
 }
 
+// Find matching project mapping for task data
+function findProjectMapping(projectMappings, taskData) {
+  // Try to match by project name first, then specific project
+  const projectName = taskData.projectName || '';
+  const specificProject = taskData.specificProject || '';
+  
+  // Look for exact matches first
+  let match = projectMappings.find(mapping => 
+    mapping.projectName.toLowerCase() === projectName.toLowerCase()
+  );
+  
+  if (!match && specificProject) {
+    // Try to find by specific project name
+    match = projectMappings.find(mapping => 
+      mapping.projectName.toLowerCase() === specificProject.toLowerCase()
+    );
+  }
+  
+  if (!match && projectName) {
+    // Try partial matching
+    match = projectMappings.find(mapping => 
+      projectName.toLowerCase().includes(mapping.projectName.toLowerCase()) ||
+      mapping.projectName.toLowerCase().includes(projectName.toLowerCase())
+    );
+  }
+  
+  return match;
+}
+
 // Extract task data from a sheet row
 function extractTaskData(row, headers) {
   const taskData = {};
@@ -202,7 +277,7 @@ function extractTaskData(row, headers) {
 }
 
 // Create a GitLab issue
-async function createGitLabIssue(gitlabUrl, headers, syncData, taskData) {
+async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, taskData) {
   const title = taskData.mainTask;
   let description = '';
   
@@ -229,36 +304,36 @@ async function createGitLabIssue(gitlabUrl, headers, syncData, taskData) {
     description: description,
   };
   
-    // Add optional fields if configured
-    if (syncData.defaultAssignee && syncData.defaultAssignee !== 'none' && syncData.defaultAssignee !== '') {
+    // Add optional fields if configured in project config
+    if (projectConfig.assignee && projectConfig.assignee !== 'none' && projectConfig.assignee !== '') {
       // For assignee, we need to get the user ID by username
-      const assigneeResponse = await fetch(`${gitlabUrl}projects/${syncData.projectId}/members/all`, {
+      const assigneeResponse = await fetch(`${gitlabUrl}projects/${projectId}/members/all`, {
         headers: headers,
       });
       
       if (assigneeResponse.ok) {
         const members = await assigneeResponse.json();
-        const assignee = members.find(m => m.username === syncData.defaultAssignee);
+        const assignee = members.find(m => m.username === projectConfig.assignee);
         if (assignee) {
           issueData.assignee_ids = [assignee.id];
         }
       }
     }
     
-    if (syncData.defaultMilestone && syncData.defaultMilestone !== 'none' && syncData.defaultMilestone !== '') {
+    if (projectConfig.milestone && projectConfig.milestone !== 'none' && projectConfig.milestone !== '') {
       // Milestone ID should be numeric
-      issueData.milestone_id = parseInt(syncData.defaultMilestone);
+      issueData.milestone_id = parseInt(projectConfig.milestone);
     }
     
-    if (syncData.defaultLabels && Array.isArray(syncData.defaultLabels) && syncData.defaultLabels.length > 0) {
+    if (projectConfig.labels && Array.isArray(projectConfig.labels) && projectConfig.labels.length > 0) {
       // Filter out empty labels and 'none' values
-      const validLabels = syncData.defaultLabels.filter(label => label && label !== 'none' && label !== '');
+      const validLabels = projectConfig.labels.filter(label => label && label !== 'none' && label !== '');
       if (validLabels.length > 0) {
         issueData.labels = validLabels;
       }
     }
   
-  const response = await fetch(`${gitlabUrl}projects/${syncData.projectId}/issues`, {
+  const response = await fetch(`${gitlabUrl}projects/${projectId}/issues`, {
     method: 'POST',
     headers: headers,
     body: JSON.stringify(issueData),

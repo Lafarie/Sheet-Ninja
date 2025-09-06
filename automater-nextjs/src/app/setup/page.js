@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GitLabConfig } from '@/components/setup/GitLabConfig';
 import { SheetsConfig } from '@/components/setup/SheetsConfig';
 import { ColumnMapping } from '@/components/setup/ColumnMapping';
+import { ProjectMapping } from '@/components/setup/ProjectMapping';
 import { SyncRunner } from '@/components/setup/SyncRunner';
 import { ProgressSteps } from '@/components/setup/ProgressSteps';
 
@@ -43,6 +44,9 @@ export default function SetupPage() {
     projectData: { labels: [], milestones: [], assignees: [] },
     sheetNames: []
   });
+
+  // Project mappings state
+  const [projectMappings, setProjectMappings] = useState([]);
 
   // Column mapping state
   const [currentHeaders, setCurrentHeaders] = useState([]);
@@ -89,10 +93,11 @@ export default function SetupPage() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="gitlab" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="gitlab">GitLab</TabsTrigger>
                 <TabsTrigger value="sheets">Sheets</TabsTrigger>
                 <TabsTrigger value="columns">Columns</TabsTrigger>
+                <TabsTrigger value="projects">Projects</TabsTrigger>
                 <TabsTrigger value="sync">Sync</TabsTrigger>
               </TabsList>
 
@@ -128,9 +133,21 @@ export default function SetupPage() {
                 />
               </TabsContent>
 
+              <TabsContent value="projects" className="mt-6">
+                <ProjectMapping
+                  config={config}
+                  projectMappings={projectMappings}
+                  setProjectMappings={setProjectMappings}
+                  currentHeaders={currentHeaders}
+                  apiBaseUrl={API_BASE_URL}
+                  setCurrentStep={setCurrentStep}
+                />
+              </TabsContent>
+
               <TabsContent value="sync" className="mt-6">
                 <SyncRunner
                   config={config}
+                  projectMappings={projectMappings}
                   syncRunning={syncRunning}
                   setSyncRunning={setSyncRunning}
                   syncProgress={syncProgress}
