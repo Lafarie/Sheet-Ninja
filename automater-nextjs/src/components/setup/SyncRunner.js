@@ -183,8 +183,12 @@ export function SyncRunner({
       }
 
       const data = await response.json();
+      // debug: log server status for diagnosis
+      try {
+        console.debug('sync-status response', data);
+      } catch (e) {}
       
-  // Update progress step
+      // Update progress step
       if (data.currentStep) {
         const stepIndex = syncSteps.findIndex(step => step.id === data.currentStep);
         if (stepIndex !== -1) {
@@ -197,49 +201,64 @@ export function SyncRunner({
         setSyncOutput(data.output);
       }
 
-      // Check if sync is complete
-      if (data.status === 'completed' && !latestAnnounced) {
+      // Determine status based on syncStateManager shape
+      const serverStep = data.currentStep || null;
+      const serverRunning = typeof data.running === 'boolean' ? data.running : true;
+      const serverError = data.error || null;
+
+      // Completed: either explicit currentStep === 'completed' or running === false and endTime exists
+      const isCompleted = serverStep === 'completed' || (serverRunning === false && data.endTime);
+      if (isCompleted && !latestAnnounced) {
         setSyncRunning(false);
         setSyncProgress('completed');
+        try { console.debug('sync -> setting completed'); } catch (e) {}
         syncProgressRef.current = 'completed';
-        setCurrentSyncStep(syncSteps.length - 1); // Ensure the last step shows as completed
-        setCompletionAnnounced(true); // Prevent duplicate announcements
+        setCurrentSyncStep(syncSteps.length - 1);
+        setCompletionAnnounced(true);
         completionAnnouncedRef.current = true;
 
-        // Stop polling immediately
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
 
-        toast.success('Sync completed successfully!');
-        setCurrentStep(5); // Mark setup as complete
-        return; // Exit early to prevent further processing
-      } else if (data.status === 'error') {
+  toast.success('Sync completed successfully!');
+  try { console.debug('sync state after complete', { syncRunning: false, syncProgress: 'completed' }); } catch (e) {}
+        setCurrentStep(5);
+        return;
+      }
+
+      // Error
+      if (serverError || serverStep === 'error') {
         setSyncRunning(false);
         setSyncProgress('error');
+        try { console.debug('sync -> setting error', serverError); } catch (e) {}
         syncProgressRef.current = 'error';
 
-        // Stop polling on error
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
 
-        toast.error('Sync failed: ' + (data.error || 'Unknown error'));
-        return; // Exit early to prevent further processing
-      } else if (data.status === 'stopped') {
+  toast.error('Sync failed: ' + (serverError || 'Unknown error'));
+  try { console.debug('sync state after error', { syncRunning: false, syncProgress: 'error' }); } catch (e) {}
+        return;
+      }
+
+      // Stopped
+      if (serverStep === 'stopped' || (serverRunning === false && serverStep === 'stopped')) {
         setSyncRunning(false);
         setSyncProgress('stopped');
+        try { console.debug('sync -> setting stopped'); } catch (e) {}
         syncProgressRef.current = 'stopped';
 
-        // Stop polling when stopped
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
 
-        return; // Exit early to prevent further processing
+  try { console.debug('sync state after stopped', { syncRunning: false, syncProgress: 'stopped' }); } catch (e) {}
+  return;
       }
     } catch (error) {
       console.error('Progress polling error:', error);

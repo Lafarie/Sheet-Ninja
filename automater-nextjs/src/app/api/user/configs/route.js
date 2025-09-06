@@ -26,16 +26,58 @@ export async function GET(request) {
     });
 
     // Decrypt sensitive data before sending to client
-    const decryptedConfigs = configs.map(config => ({
-      ...config,
-      gitlabToken: decrypt(config.gitlabToken),
-      serviceAccount: config.serviceAccount ? decrypt(config.serviceAccount) : null,
-      columnMappings: config.columnMappings ? JSON.parse(config.columnMappings) : null,
-      projectMappings: config.projectMappings.map(pm => ({
-        ...pm,
-        labels: pm.labels ? JSON.parse(pm.labels) : []
-      }))
-    }));
+    const decryptedConfigs = configs.map(config => {
+      // gitlabToken stored encrypted
+      const gitlabToken = decrypt(config.gitlabToken);
+
+      // serviceAccount stored as encrypted JSON string; parse after decrypt
+      let serviceAccount = null;
+      if (config.serviceAccount) {
+        try {
+          const decrypted = decrypt(config.serviceAccount);
+          serviceAccount = typeof decrypted === 'string' ? JSON.parse(decrypted) : decrypted;
+        } catch (e) {
+          // fallback: if decrypt returned already-parsed object or parsing fails, return raw
+          serviceAccount = decrypt(config.serviceAccount);
+        }
+      }
+
+      // columnMappings may be stored as JSON (object) or as a JSON string (legacy); handle both
+      let columnMappings = null;
+      if (config.columnMappings) {
+        try {
+          columnMappings = typeof config.columnMappings === 'string'
+            ? JSON.parse(config.columnMappings)
+            : config.columnMappings;
+        } catch (e) {
+          columnMappings = config.columnMappings;
+        }
+      }
+
+      const projectMappings = (config.projectMappings || []).map(pm => {
+        let labels = [];
+        if (pm.labels) {
+          try {
+            labels = typeof pm.labels === 'string' ? JSON.parse(pm.labels) : pm.labels;
+          } catch (e) {
+            labels = pm.labels;
+          }
+        }
+
+        return {
+          ...pm,
+          labels,
+        };
+      });
+
+      return {
+        ...config,
+        gitlabToken,
+        serviceAccount,
+        columnMappings,
+        projectMappings,
+      };
+    });
 
     return NextResponse.json({ configs: decryptedConfigs });
   } catch (error) {
@@ -91,8 +133,9 @@ export async function POST(request) {
         gitlabToken: encrypt(gitlabToken),
         spreadsheetId,
         worksheetName,
-        serviceAccount: serviceAccount ? encrypt(JSON.stringify(serviceAccount)) : null,
-        columnMappings: columnMappings ? JSON.stringify(columnMappings) : null,
+  // store JSON fields directly (Prisma Json type) and encrypt serviceAccount as string
+  serviceAccount: serviceAccount ? encrypt(JSON.stringify(serviceAccount)) : null,
+  columnMappings: columnMappings ? columnMappings : null,
         defaultAssignee,
         defaultMilestone,
         defaultLabel,
@@ -104,7 +147,7 @@ export async function POST(request) {
             projectId: pm.projectId,
             assignee: pm.assignee,
             milestone: pm.milestone,
-            labels: pm.labels ? JSON.stringify(pm.labels) : null,
+            labels: pm.labels ? pm.labels : null,
             estimate: pm.estimate,
           })) || [],
         },
