@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// NextAuth.js Models
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -24,8 +20,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -39,20 +34,17 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?       @unique
   emailVerified DateTime?
   image         String?
-  password      String?   // Hashed password for credentials login
+  password      String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   accounts      Account[]
-  sessions      Session[]
-  
-  // User's saved configurations
   savedConfigs  SavedConfig[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sessions      Session[]
 }
 
 model VerificationToken {
@@ -63,58 +55,41 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// Custom Models for GitLab Sync Configuration
 model SavedConfig {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String   // User-friendly name for this config
-  
-  // GitLab Configuration
-  gitlabUrl   String
-  gitlabToken String // Encrypted
-  
-  // Google Sheets Configuration  
-  spreadsheetId   String
-  worksheetName   String
-  serviceAccount  String? // Encrypted JSON
-  
-  // Column Mappings
-  columnMappings  String? // JSON as string for SQLite
-  
-  // Project Mappings
-  projectMappings ProjectMapping[]
-  
-  // Default settings
+  id               String           @id @default(cuid())
+  userId           String
+  name             String
+  gitlabUrl        String
+  gitlabToken      String
+  spreadsheetId    String
+  worksheetName    String
+  serviceAccount   String?
+  columnMappings   String?
   defaultAssignee  String?
   defaultMilestone String?
   defaultLabel     String?
   defaultEstimate  String?
-  
-  isDefault Boolean @default(false) // Mark one config as default
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  isDefault        Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  projectMappings  ProjectMapping[]
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model ProjectMapping {
-  id           String @id @default(cuid())
-  configId     String
-  
-  projectName  String
-  projectId    String? // GitLab Project ID
-  assignee     String?
-  milestone    String?
-  labels       String? // JSON array of label names as string for SQLite
-  estimate     String?
-  
-  config SavedConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  id          String      @id @default(cuid())
+  configId    String
+  projectName String
+  projectId   String?
+  assignee    String?
+  milestone   String?
+  labels      String?
+  estimate    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  config      SavedConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
   @@index([configId])
 }

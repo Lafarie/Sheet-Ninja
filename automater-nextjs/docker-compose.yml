@@ -38,21 +38,6 @@ services:
     volumes:
       - ./uploads:/app/uploads
 
-  # Database migration service (runs once)
-  migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: automater-migrate
-    environment:
-      - DATABASE_URL=postgresql://automater:password123@postgres:5432/automater_nextjs
-    depends_on:
-      - postgres
-    networks:
-      - automater-network
-    command: npx prisma migrate deploy
-    restart: "no"
-
 volumes:
   postgres_data:
 
