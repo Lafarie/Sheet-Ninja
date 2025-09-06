@@ -63,8 +63,8 @@ model SavedConfig {
   gitlabToken      String
   spreadsheetId    String
   worksheetName    String
-  serviceAccount   String?
-  columnMappings   String?
+  serviceAccount   Json?
+  columnMappings   Json?
   defaultAssignee  String?
   defaultMilestone String?
   defaultLabel     String?
@@ -85,7 +85,7 @@ model ProjectMapping {
   projectId   String?
   assignee    String?
   milestone   String?
-  labels      String?
+  labels      Json?
   estimate    String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

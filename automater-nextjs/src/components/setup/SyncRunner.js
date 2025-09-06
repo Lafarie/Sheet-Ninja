@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -28,11 +28,23 @@ export function SyncRunner({
 }) {
   const [syncOutput, setSyncOutput] = useState('');
   const [currentSyncStep, setCurrentSyncStep] = useState(0);
-  const [syncInterval, setSyncInterval] = useState(null);
+  const intervalRef = useRef(null);
   const [enableDateFilter, setEnableDateFilter] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [completionAnnounced, setCompletionAnnounced] = useState(false);
+  // Refs to keep latest values inside the interval callback to avoid stale closures
+  const syncProgressRef = useRef(syncProgress);
+  const completionAnnouncedRef = useRef(completionAnnounced);
+
+  // Keep refs updated when state changes
+  useEffect(() => {
+    syncProgressRef.current = syncProgress;
+  }, [syncProgress]);
+
+  useEffect(() => {
+    completionAnnouncedRef.current = completionAnnounced;
+  }, [completionAnnounced]);
 
   const validateSyncConfiguration = () => {
     const issues = [];
@@ -123,9 +135,9 @@ export function SyncRunner({
       setSyncProgress('stopped');
       setCurrentSyncStep(0);
       
-      if (syncInterval) {
-        clearInterval(syncInterval);
-        setSyncInterval(null);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
       
       toast.warning('Sync stopped by user');
@@ -136,16 +148,29 @@ export function SyncRunner({
   };
 
   const startProgressPolling = () => {
-    const interval = setInterval(updateSyncProgress, 2000);
-    setSyncInterval(interval);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    // Do an immediate tick then schedule interval. Use the update function which reads refs.
+    updateSyncProgress();
+    intervalRef.current = setInterval(updateSyncProgress, 2000);
+    // debug
+    // console.debug('startProgressPolling: interval started', intervalRef.current);
   };
 
   const updateSyncProgress = async () => {
+    // Read latest statuses from refs to avoid stale closures
+    const latestProgress = syncProgressRef.current;
+    const latestAnnounced = completionAnnouncedRef.current;
+
     // Don't poll if sync is already completed, stopped, or errored
-    if (syncProgress === 'completed' || syncProgress === 'stopped' || syncProgress === 'error') {
-      if (syncInterval) {
-        clearInterval(syncInterval);
-        setSyncInterval(null);
+    if (latestProgress === 'completed' || latestProgress === 'stopped' || latestProgress === 'error') {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        // console.debug('updateSyncProgress: cleared interval due to progress state', latestProgress);
       }
       return;
     }
@@ -159,7 +184,7 @@ export function SyncRunner({
 
       const data = await response.json();
       
-      // Update progress step
+  // Update progress step
       if (data.currentStep) {
         const stepIndex = syncSteps.findIndex(step => step.id === data.currentStep);
         if (stepIndex !== -1) {
@@ -173,43 +198,47 @@ export function SyncRunner({
       }
 
       // Check if sync is complete
-      if (data.status === 'completed' && !completionAnnounced) {
+      if (data.status === 'completed' && !latestAnnounced) {
         setSyncRunning(false);
         setSyncProgress('completed');
+        syncProgressRef.current = 'completed';
         setCurrentSyncStep(syncSteps.length - 1); // Ensure the last step shows as completed
         setCompletionAnnounced(true); // Prevent duplicate announcements
-        
+        completionAnnouncedRef.current = true;
+
         // Stop polling immediately
-        if (syncInterval) {
-          clearInterval(syncInterval);
-          setSyncInterval(null);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
-        
+
         toast.success('Sync completed successfully!');
         setCurrentStep(5); // Mark setup as complete
         return; // Exit early to prevent further processing
       } else if (data.status === 'error') {
         setSyncRunning(false);
         setSyncProgress('error');
-        
+        syncProgressRef.current = 'error';
+
         // Stop polling on error
-        if (syncInterval) {
-          clearInterval(syncInterval);
-          setSyncInterval(null);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
-        
+
         toast.error('Sync failed: ' + (data.error || 'Unknown error'));
         return; // Exit early to prevent further processing
       } else if (data.status === 'stopped') {
         setSyncRunning(false);
         setSyncProgress('stopped');
-        
+        syncProgressRef.current = 'stopped';
+
         // Stop polling when stopped
-        if (syncInterval) {
-          clearInterval(syncInterval);
-          setSyncInterval(null);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
-        
+
         return; // Exit early to prevent further processing
       }
     } catch (error) {
@@ -225,28 +254,31 @@ export function SyncRunner({
     setSyncOutput('');
     setCompletionAnnounced(false); // Reset completion flag
     
-    if (syncInterval) {
-      clearInterval(syncInterval);
-      setSyncInterval(null);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
   };
 
   // Cleanup interval on unmount
   useEffect(() => {
     return () => {
-      if (syncInterval) {
-        clearInterval(syncInterval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [syncInterval]);
+  }, []);
 
   // Cleanup interval when sync is completed, stopped, or errored
   useEffect(() => {
-    if ((syncProgress === 'completed' || syncProgress === 'stopped' || syncProgress === 'error') && syncInterval) {
-      clearInterval(syncInterval);
-      setSyncInterval(null);
+    if (syncProgress === 'completed' || syncProgress === 'stopped' || syncProgress === 'error') {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
-  }, [syncProgress, syncInterval]);
+  }, [syncProgress]);
 
   const getStepStatus = (index) => {
     // If sync is completed, show all steps including the last one as completed
