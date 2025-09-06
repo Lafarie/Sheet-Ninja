@@ -1,0 +1,47 @@
+# Base Dockerfile
+FROM node:22-alpine3.20 AS base
+# Configure pnpm global
+ENV PNPM_HOME="/pnpm"
+ENV PATH=$PNPM_HOME:$PATH
+RUN apk add --no-cache libc6-compat
+RUN apk update
+WORKDIR /app
+RUN --mount=type=cache,id=npm,target=/root/.npm \
+    npm install --global pnpm turbo
+
+
+# Pruner - removes development dependencies
+FROM base AS pruner
+COPY . .
+RUN turbo prune --scope=automater-nextjs --docker
+
+# Builder - builds the applications
+FROM base AS builder
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=pruner /app/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
+# First install the dependencies (as they change less often)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+COPY --from=pruner /app/out/full/ .
+COPY --from=pruner /app/out/full/turbo.json turbo.json
+RUN turbo db:generate
+RUN turbo run build --filter=automater-nextjs...
+
+
+FROM oven/bun:1.1.37-alpine AS bunnis
+RUN apk add --no-cache tzdata
+RUN curl -sfS https://dotenvx.sh/install.sh | sh
+
+# Customer webapp
+FROM bunnis AS guest
+RUN adduser --system --uid 1001 nextjs
+RUN mkdir -p ./app/automater-nextjs/.next
+RUN chown -R nextjs:bun ./app/automater-nextjs/.next
+COPY --from=builder --chown=nextjs:bun /app/apps/automater-nextjs/package.json .
+COPY --from=builder --chown=nextjs:bun /app/apps/automater-nextjs/.next/standalone ./
+COPY --from=builder --chown=nextjs:bun /app/apps/automater-nextjs/.next/static ./apps/automater-nextjs/.next/static
+COPY --from=builder --chown=nextjs:bun /app/apps/automater-nextjs/public ./apps/automater-nextjs/public
+COPY --from=builder --chown=nextjs:bun /app/apps/automater-nextjs/.env ./.env
+ENV PORT=3000
+EXPOSE ${PORT}
+CMD bun apps/automater-nextjs/server.js

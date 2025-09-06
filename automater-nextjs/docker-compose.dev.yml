@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for development
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: automater-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: automater_nextjs
+      POSTGRES_USER: automater
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - automater-dev-network
+
+volumes:
+  postgres_dev_data:
+
+networks:
+  automater-dev-network:
+    driver: bridge

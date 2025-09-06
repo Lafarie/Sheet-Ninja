@@ -1,0 +1,61 @@
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: automater-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: automater_nextjs
+      POSTGRES_USER: automater
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - automater-network
+
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: automater-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://automater:password123@postgres:5432/automater_nextjs
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=your-secret-key-here-please-change-in-production-make-it-long-and-secure
+      - ENCRYPTION_KEY=abcdef1234567890abcdef1234567890
+    depends_on:
+      - postgres
+    networks:
+      - automater-network
+    volumes:
+      - ./uploads:/app/uploads
+
+  # Database migration service (runs once)
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: automater-migrate
+    environment:
+      - DATABASE_URL=postgresql://automater:password123@postgres:5432/automater_nextjs
+    depends_on:
+      - postgres
+    networks:
+      - automater-network
+    command: npx prisma migrate deploy
+    restart: "no"
+
+volumes:
+  postgres_data:
+
+networks:
+  automater-network:
+    driver: bridge
