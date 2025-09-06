@@ -46,20 +46,32 @@ export default function SignIn() {
 
     setIsLoading(true);
     try {
+      console.log('🔐 Attempting sign in with:', { email: signInEmail });
       const result = await signIn('credentials', {
         email: signInEmail,
         password: signInPassword,
-        redirect: true,
+        redirect: false,
         callbackUrl: '/setup'
       });
 
+      console.log('🔐 Sign in result:', result);
+
       if (result?.error) {
-        toast.error('Sign in failed');
+        console.error('❌ Sign in error:', result.error);
+        toast.error('Sign in failed: ' + result.error);
+        setIsLoading(false);
+      } else if (result?.ok) {
+        console.log('✅ Sign in successful, redirecting...');
+        toast.success('Signed in successfully!');
+        // Force redirect after successful sign in
+        window.location.href = '/setup';
+      } else {
+        console.log('🤔 Unexpected result:', result);
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Sign in error:', error);
       toast.error('Something went wrong');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -103,12 +115,17 @@ export default function SignIn() {
           email: signUpEmail,
           name: signUpName,
           password: signUpPassword,
-          redirect: true,
+          redirect: false,
           callbackUrl: '/setup'
         });
 
         if (result?.error) {
           toast.error('Registration successful, but sign in failed. Please try signing in manually.');
+          setIsLoading(false);
+        } else if (result?.ok) {
+          toast.success('Signed in successfully!');
+          // Force redirect after successful sign in
+          window.location.href = '/setup';
         }
       } else {
         const data = await response.json();
@@ -129,19 +146,21 @@ export default function SignIn() {
       const result = await signIn('credentials', {
         email: demoEmail,
         password: 'demo123', // Default demo password
-        redirect: true,
+        redirect: false,
         callbackUrl: '/setup'
       });
 
       if (result?.error) {
         toast.error('Demo sign in failed');
-      } else {
+        setIsLoading(false);
+      } else if (result?.ok) {
         toast.success(`Signed in as ${demoName}`);
+        // Force redirect after successful sign in
+        window.location.href = '/setup';
       }
     } catch (error) {
       console.error('Demo sign in error:', error);
       toast.error('Something went wrong');
-    } finally {
       setIsLoading(false);
     }
   };

@@ -5,8 +5,6 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import { Play, Square, RotateCcw, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 

@@ -4,7 +4,12 @@ import syncStateManager from '@/lib/syncStateManager';
 export async function GET(request) {
   try {
     const status = syncStateManager.getStatus();
-    return NextResponse.json(status);
+    // Convert output array to formatted string for easier consumption
+    const formattedStatus = {
+      ...status,
+      output: syncStateManager.getFormattedOutput()
+    };
+    return NextResponse.json(formattedStatus);
   } catch (error) {
     console.error('Error getting sync status:', error);
     return NextResponse.json(
