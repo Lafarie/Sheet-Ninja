@@ -62,13 +62,13 @@ export async function POST(request) {
         }
       }
       
-      // Get specific project name
-      if (projectColumns.specific) {
-        const specificProject = row.get(projectColumns.specific);
-        if (specificProject && specificProject.trim()) {
-          projectNames.add(specificProject.trim());
-        }
-      }
+      // // Get specific project name
+      // if (projectColumns.specific) {
+      //   const specificProject = row.get(projectColumns.specific);
+      //   if (specificProject && specificProject.trim()) {
+      //     projectNames.add(specificProject.trim());
+      //   }
+      // }
     }
 
     // Convert to array and remove empty values
@@ -99,9 +99,9 @@ function findProjectColumns(headers) {
   const mainProjectPatterns = ['project name', 'project', 'main project', 'project_name'];
   result.main = findColumnName(headers, mainProjectPatterns);
   
-  // Look for specific project column
-  const specificProjectPatterns = ['specific project', 'specific_project', 'sub project', 'subproject'];
-  result.specific = findColumnName(headers, specificProjectPatterns);
+  // // Look for specific project column
+  // const specificProjectPatterns = ['specific project', 'specific_project', 'sub project', 'subproject'];
+  // result.specific = findColumnName(headers, specificProjectPatterns);
   
   return result;
 }
