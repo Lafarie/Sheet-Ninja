@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overview - Sheet Ninja</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .header-card { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 1.5rem;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .dashboard-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .dashboard-subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+        }
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+        .section-content {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #495057;
+        }
+        .dashboard-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            border: none;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        /* Special hover effects for overview cards */
+        .overview-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .overview-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border-color: #007bff;
+        }
+        
+        .overview-card.sheet-to-gitlab:hover {
+            border-color: #28a745;
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.2);
+        }
+        
+        .overview-card.gitlab-to-sheet:hover {
+            border-color: #007bff;
+            box-shadow: 0 8px 25px rgba(0, 123, 255, 0.2);
+        }
+        
+        .btn-dashboard {
+            border-radius: 8px;
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-dashboard:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .content-section {
+            padding: 2rem 0 3rem 0;
+        }
+        .step-number {
+            display: inline-block;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+            box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+        }
+        
+        /* Interactive step boxes */
+        .step-box {
+            cursor: pointer;
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .step-box:hover {
+            transform: translateY(-5px) scale(1.05);
+            border-color: #007bff;
+            box-shadow: 0 8px 25px rgba(0,123,255,0.2);
+            background: linear-gradient(135deg, #f8f9fa 0%, #e7f3ff 100%);
+        }
+        
+        .step-box:active {
+            transform: translateY(-2px) scale(1.02);
+        }
+        
+        .step-box.selected {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.2);
+        }
+        
+        .step-box.selected .step-number {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+    </style>
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <div class="dashboard-header">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="text-center w-100">
+                    <h1 class="dashboard-title">Sheet Ninja 🥷</h1>
+                    <p class="dashboard-subtitle mb-0">
+                        <i class="fab fa-gitlab"></i> GitLab ↔ <i class="fas fa-table"></i> Google Sheets Sync System
+                    </p>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <a class="btn btn-light btn-sm btn-dashboard" href="setup_ui.html">
+                    <i class="fas fa-arrow-left"></i> Back to Homepage
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container content-section">
+        <div class="section-content">
+            <!-- Overview Section -->
+        <div id="overview" class="content-section">
+            <div class="container">
+                <h2 class="section-title">Overview</h2>
+                <div class="section-content">
+                    <p>Sheet Ninja is a powerful synchronization tool that bridges the gap between Google Sheets and GitLab, allowing you to manage your project tasks seamlessly across both platforms.</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="dashboard-card overview-card sheet-to-gitlab">
+                                <div class="card-body">
+                                    <h5><i class="fas fa-arrow-up text-success"></i> Sheet to GitLab</h5>
+                                    <p>Create GitLab issues from your Google Sheets data with automatic mapping and validation.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dashboard-card overview-card gitlab-to-sheet">
+                                <div class="card-body">
+                                    <h5><i class="fas fa-arrow-down text-primary"></i> GitLab to Sheet</h5>
+                                    <p>Update your Google Sheets with GitLab issue IDs and status information.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flow Section -->
+        <div id="flow" class="content-section">
+            <h2 class="section-title">How It Works</h2>
+            <div class="section-content">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center step-box" onclick="selectStep(1)">
+                            <div class="step-number">1</div>
+                            <h5>Configure</h5>
+                            <p>Set up your Google Sheets and GitLab connections</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center step-box" onclick="selectStep(2)">
+                            <div class="step-number">2</div>
+                            <h5>Map Columns</h5>
+                            <p>Map your sheet columns to GitLab issue fields</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center step-box" onclick="selectStep(3)">
+                            <div class="step-number">3</div>
+                            <h5>Sync</h5>
+                            <p>Run the synchronization process</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center step-box" onclick="selectStep(4)">
+                            <div class="step-number">4</div>
+                            <h5>Monitor</h5>
+                            <p>Track progress and view results</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedStep = null;
+        
+        function selectStep(stepNumber) {
+            // Remove previous selection
+            if (selectedStep) {
+                document.querySelectorAll('.step-box').forEach(box => {
+                    box.classList.remove('selected');
+                });
+            }
+            
+            // Select new step
+            const stepBoxes = document.querySelectorAll('.step-box');
+            if (stepNumber >= 1 && stepNumber <= stepBoxes.length) {
+                stepBoxes[stepNumber - 1].classList.add('selected');
+                selectedStep = stepNumber;
+                
+                // Show step details (you can customize this)
+                showStepDetails(stepNumber);
+            }
+        }
+        
+        function showStepDetails(stepNumber) {
+            const stepDetails = {
+                1: "Configure your Google Sheets connection by uploading a service account file and setting the spreadsheet ID. Then connect to GitLab using your personal access token.",
+                2: "Map your sheet columns to GitLab issue fields. The system can auto-detect common mappings or you can manually configure each column.",
+                3: "Run the synchronization process to create GitLab issues from your sheet data. Monitor progress in real-time.",
+                4: "Track sync results, view created issues, and monitor any errors or warnings that occurred during the process."
+            };
+            
+            // Create or update step details display
+            let detailsDiv = document.getElementById('stepDetails');
+            if (!detailsDiv) {
+                detailsDiv = document.createElement('div');
+                detailsDiv.id = 'stepDetails';
+                detailsDiv.className = 'mt-4 p-3 bg-light border rounded';
+                document.querySelector('#flow .section-content').appendChild(detailsDiv);
+            }
+            
+            detailsDiv.innerHTML = `
+                <h6 class="text-primary mb-2">Step ${stepNumber} Details:</h6>
+                <p class="mb-0">${stepDetails[stepNumber]}</p>
+            `;
+        }
+        
+        // Add keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key >= '1' && e.key <= '4') {
+                selectStep(parseInt(e.key));
+            }
+        });
+    </script>
+</body>
+</html>
+
+

@@ -7,6 +7,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* Enable smooth scrolling for the entire page */
+        html {
+            scroll-behavior: smooth;
+        }
+        
         .header-card { 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             color: white; 
@@ -90,6 +95,7 @@
             margin: 0 auto;
             max-width: 600px;
             position: relative;
+            --progress: 0%;
         }
         
         .progress-steps::before {
@@ -112,7 +118,7 @@
             background-color: #007bff;
             z-index: 1;
             transition: width 0.5s ease;
-            width: 0%;
+            width: var(--progress, 0%);
         }
         
         .progress-steps.step-1::after { width: 0%; }
@@ -967,6 +973,148 @@
             margin-right: 8px;
         }
         
+        /* Step card basic styles */
+        .step-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+        }
+        
+        .step-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .step-card.active {
+            border: 2px solid #007bff;
+            box-shadow: 0 0 20px rgba(0,123,255,0.3);
+            transform: scale(1.02);
+        }
+        
+        .step-card.active::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #007bff;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .step-card.complete {
+            border: 2px solid #28a745;
+            box-shadow: 0 0 20px rgba(40,167,69,0.3);
+        }
+        
+        .step-card.complete::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #28a745;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .step-card.missing-required {
+            border: 2px solid #dc3545;
+            box-shadow: 0 0 20px rgba(220,53,69,0.3);
+        }
+        
+        .step-card.missing-required::after {
+            content: '!';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #dc3545;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        /* Custom multiselect styles */
+        .custom-multiselect {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .multiselect-trigger {
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            background-color: #fff;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .multiselect-trigger:hover {
+            border-color: #86b7fe;
+        }
+        
+        .multiselect-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .multiselect-option {
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f8f9fa;
+            display: flex;
+            align-items: center;
+        }
+        
+        .multiselect-option:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .multiselect-option.selected {
+            background-color: #e7f3ff;
+            color: #0d6efd;
+        }
+        
+        .multiselect-option input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+        
+        .multiselect-option label {
+            margin-bottom: 0;
+            flex: 1;
+        }
+        
         /* Step card highlighting */
         .step-card.missing-required {
             border: 2px solid #dc3545 !important;
@@ -1057,6 +1205,29 @@
             display: flex;
             align-items: center;
             gap: 12px;
+        }
+        
+        /* Floating Back to Top Button */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .back-to-top.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .back-to-top .btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
         .toast .toast-body::before {
@@ -1258,22 +1429,22 @@
                                         </a>
                                     </li> -->
                                     <li class="nav-item">
-                                        <a class="nav-link" href="#flow" onclick="scrollToSection('flow')">
+                                        <a class="nav-link" href="./overview.html">
                                             <i class="fas fa-project-diagram"></i> Flow
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link" href="#questions" onclick="scrollToSection('questions')">
+                                        <a class="nav-link" href="./questions.html">
                                             <i class="fas fa-question-circle"></i> Questions
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link" href="#info" onclick="scrollToSection('info')">
+                                        <a class="nav-link" href="./info.html">
                                             <i class="fas fa-info-circle"></i> Info
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link" href="#api" onclick="scrollToSection('api')">
+                                        <a class="nav-link" href="./api_doc.html">
                                             <i class="fas fa-code"></i> API
                                         </a>
                                     </li>
@@ -1390,8 +1561,8 @@
             </div>
         </div>
 
-        <!-- Configuration Sections (Hidden by default) -->
-        <div id="configSections" style="display: none;">
+        <!-- Configuration Sections -->
+        <div id="configSections">
             <!-- Google Sheets Configuration -->
             <div id="google-sheets-config" class="config-section" style="display: none;">
                 <div class="dashboard-card">
@@ -1407,7 +1578,7 @@
                                 <label class="form-label">Service Account File <span style="color: red;">*</span></label>
                                 <div class="file-upload-area" id="serviceAccountUpload">
                                     <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                                    <p class="mb-2">Drag and drop your service_account.json file here. No Service Account File? <a href="#info" onclick="scrollToSection('info')">Click here to create one</a></p>
+                                    <p class="mb-2">Drag and drop your service_account.json file here. No Service Account File? <a href="./info.html" onclick="scrollToSection('info')">Click here to create one</a></p>
                                     <p class="mb-2">or</p>
                                     <input type="file" id="serviceAccountFile" accept=".json" style="display: none;">
                                     <button class="btn btn-primary" onclick="document.getElementById('serviceAccountFile').click()">
@@ -1457,7 +1628,7 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">GitLab URL <span style="color: red;">*</span></label>
-                                    <input type="url" class="form-control" id="gitlabUrl" value="https://sourcecontrol.hsenidmobile.com/api/v4/">
+                                    <input type="url" class="form-control" id="gitlabUrl" value="https://sourcecontrol.hsenidmobile.com">
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -1688,6 +1859,7 @@
                         <button class="btn btn-success btn-lg sync-button" onclick="startSheetToGitlab()" id="mainSyncBtn">
                             <i class="fas fa-play me-2"></i> Run Sync
                         </button>
+
                         <button class="btn btn-outline-secondary btn-sm" onclick="hideSyncSection()">
                             <i class="fas fa-times"></i> Close
                         </button>
@@ -1890,352 +2062,2171 @@
         </div>
     </div>
     
-    <div class="row">
-    
-    <!-- Content Sections -->
-    <div class="container-fluid">
-        <!-- Overview Section -->
-        <div id="overview" class="content-section">
-            <div class="container">
-                <h2 class="section-title">Overview</h2>
-                <div class="section-content">
-                    <p>Sheet Ninja is a powerful synchronization tool that bridges the gap between Google Sheets and GitLab, allowing you to manage your project tasks seamlessly across both platforms.</p>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="dashboard-card">
-                                <div class="card-body">
-                                    <h5><i class="fas fa-arrow-up text-success"></i> Sheet to GitLab</h5>
-                                    <p>Create GitLab issues from your Google Sheets data with automatic mapping and validation.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="dashboard-card">
-                                <div class="card-body">
-                                    <h5><i class="fas fa-arrow-down text-primary"></i> GitLab to Sheet</h5>
-                                    <p>Update your Google Sheets with GitLab issue IDs and status information.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Flow Section -->
-        <div id="flow" class="content-section">
-            <div class="container">
-                <h2 class="section-title">How It Works</h2>
-                <div class="section-content">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <div class="step-number">1</div>
-                                <h5>Configure</h5>
-                                <p>Set up your Google Sheets and GitLab connections</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <div class="step-number">2</div>
-                                <h5>Map Columns</h5>
-                                <p>Map your sheet columns to GitLab issue fields</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <div class="step-number">3</div>
-                                <h5>Sync</h5>
-                                <p>Run the synchronization process</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <div class="step-number">4</div>
-                                <h5>Monitor</h5>
-                                <p>Track progress and view results</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Questions Section -->
-        <div id="questions" class="content-section">
-            <div class="container">
-                <h2 class="section-title">Frequently Asked Questions</h2>
-                <div class="section-content">
-                    <div class="accordion" id="faqAccordion">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="faq1">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse1">
-                                    What is a service account and why do I need it?
-                                </button>
-                            </h2>
-                            <div id="collapse1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
-                                <div class="accordion-body">
-                                    A service account is a Google Cloud identity that allows applications to access Google APIs on your behalf. It's required to read and write to your Google Sheets programmatically.
-                                </div>
-                            </div>
-                        </div>
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="faq2">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse2">
-                                    Can I sync multiple projects?
-                                </button>
-                            </h2>
-                            <div id="collapse2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                                <div class="accordion-body">
-                                    Yes! You can enable project mapping to sync different rows to different GitLab repositories based on the project name in your sheet.
-                                </div>
-                            </div>
-                        </div>
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="faq3">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse3">
-                                    What happens if a task already has a GIT_ID?
-                                </button>
-                            </h2>
-                            <div id="collapse3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                                <div class="accordion-body">
-                                    Tasks that already have a GIT_ID are skipped during sync. Only new tasks without a GIT_ID will be created as GitLab issues.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Info Section -->
-        <div id="info" class="content-section">
-            <div class="container">
-                <h2 class="section-title">Setup Information</h2>
-                <div class="section-content">
-                    
-                    <!-- Service Account Setup -->
-                    <div class="dashboard-card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-key"></i> Create Service Account</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> 
-                                <strong>Service Account Required:</strong> You need a Google Cloud service account to access your Google Sheets. Follow these steps to create one:
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <ol class="list-group list-group-numbered">
-                                        <li class="list-group-item">
-                                            <strong>Go to Google Cloud Console</strong>
-                                            <br>
-                                            <a href="https://console.cloud.google.com/" target="_blank" class="btn btn-outline-primary btn-sm mt-2">
-                                                <i class="fas fa-external-link-alt"></i> Open Google Cloud Console
-                                            </a>
-                                        </li>
-                                        <li class="list-group-item">
-                                            <strong>Create a new project or select an existing one</strong>
-                                            <br>
-                                            <small class="text-muted">If you don't have a project, create one with any name</small>
-                                        </li>
-                                        <li class="list-group-item">
-                                            <strong>Enable the Google Sheets API:</strong>
-                                            <ul class="mt-2">
-                                                <li>Go to <strong>APIs & Services</strong> → <strong>Library</strong></li>
-                                                <li>Search for "Google Sheets API" and enable it</li>
-                                            </ul>
-                                        </li>
-                                        <li class="list-group-item">
-                                            <strong>Create Service Account credentials:</strong>
-                                            <ul class="mt-2">
-                                                <li>Go to <strong>APIs & Services</strong> → <strong>Credentials</strong></li>
-                                                <li>Click <strong>"Create Credentials"</strong> → <strong>"Service Account"</strong></li>
-                                                <li>Fill in service account details and click <strong>"Create"</strong></li>
-                                                <li>Skip optional steps and click <strong>"Done"</strong></li>
-                                            </ul>
-                                        </li>
-                                        <li class="list-group-item">
-                                            <strong>Download the JSON key file:</strong>
-                                            <ul class="mt-2">
-                                                <li>Click on your newly created service account</li>
-                                                <li>Go to the <strong>"Keys"</strong> tab</li>
-                                                <li>Click <strong>"Add Key"</strong> → <strong>"Create new key"</strong></li>
-                                                <li>Choose <strong>"JSON"</strong> format and download the file</li>
-                                                <li>Upload this file in the Google Sheets configuration section above</li>
-                                            </ul>
-                                        </li>
-                                    </ol>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="alert alert-warning">
-                                        <h6><i class="fas fa-exclamation-triangle"></i> Important Notes:</h6>
-                                        <ul class="mb-0">
-                                            <li>Keep your service account JSON file secure</li>
-                                            <li>Share your Google Sheet with the service account email</li>
-                                            <li>The service account email looks like: <code>name@project.iam.gserviceaccount.com</code></li>
-                                        </ul>
-                                    </div>
-                                    
-                                    <div class="alert alert-success">
-                                        <h6><i class="fas fa-check-circle"></i> Quick Tips:</h6>
-                                        <ul class="mb-0">
-                                            <li>You only need to create the service account once</li>
-                                            <li>The same service account can be used for multiple sheets</li>
-                                            <li>Make sure to enable billing if required by Google Cloud</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- GitLab Token Setup -->
-                    <div class="dashboard-card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fab fa-gitlab"></i> GitLab Personal Access Token</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> 
-                                <strong>GitLab Token Required:</strong> You need a personal access token to access your GitLab projects. Here's how to create one:
-                            </div>
-                            
-                            <ol class="list-group list-group-numbered">
-                                <li class="list-group-item">
-                                    <strong>Go to your GitLab profile settings</strong>
-                                    <br>
-                                    <small class="text-muted">Click on your profile picture → Settings → Access Tokens</small>
-                                </li>
-                                <li class="list-group-item">
-                                    <strong>Create a new personal access token</strong>
-                                    <ul class="mt-2">
-                                        <li>Give it a descriptive name (e.g., "Sheet Ninja Sync")</li>
-                                        <li>Set an expiration date (recommended)</li>
-                                        <li>Select the <strong>"api"</strong> scope</li>
-                                        <li>Click <strong>"Create personal access token"</strong></li>
-                                    </ul>
-                                </li>
-                                <li class="list-group-item">
-                                    <strong>Copy and save the token</strong>
-                                    <br>
-                                    <small class="text-danger">⚠️ Important: Copy the token immediately as you won't be able to see it again!</small>
-                                </li>
-                            </ol>
-                        </div>
-                    </div>
-
-                    <!-- Spreadsheet Setup -->
-                    <div class="dashboard-card">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-table"></i> Google Sheets Setup</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> 
-                                <strong>Spreadsheet Requirements:</strong> Your Google Sheet should have the following structure:
-                            </div>
-                            
-                            <div class="table-responsive">
-                                <table class="table table-bordered">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Column</th>
-                                            <th>Required</th>
-                                            <th>Description</th>
-                                            <th>Example</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><strong>Date</strong></td>
-                                            <td><span class="badge bg-danger">Required</span></td>
-                                            <td>Task date</td>
-                                            <td>2024-01-15</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Project Name</strong></td>
-                                            <td><span class="badge bg-danger">Required</span></td>
-                                            <td>Main project name</td>
-                                            <td>Website Redesign</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Main Task</strong></td>
-                                            <td><span class="badge bg-danger">Required</span></td>
-                                            <td>Task description</td>
-                                            <td>Implement login API</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Status</strong></td>
-                                            <td><span class="badge bg-danger">Required</span></td>
-                                            <td>Task status</td>
-                                            <td>In Progress</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>GIT ID</strong></td>
-                                            <td><span class="badge bg-secondary">Auto-generated</span></td>
-                                            <td>GitLab issue ID (auto-filled)</td>
-                                            <td>123</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- API Section -->
-        <div id="api" class="content-section">
-            <div class="container">
-                <h2 class="section-title">API Documentation</h2>
-                <div class="section-content">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> 
-                        This tool uses the GitLab API v4 and Google Sheets API to synchronize data between platforms.
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="dashboard-card">
-                                <div class="card-header">
-                                    <h6 class="mb-0"><i class="fab fa-gitlab"></i> GitLab API Endpoints</h6>
-                                </div>
-                                <div class="card-body">
-                                    <ul class="list-unstyled">
-                                        <li><code>GET /projects/{id}/issues</code> - List project issues</li>
-                                        <li><code>POST /projects/{id}/issues</code> - Create new issue</li>
-                                        <li><code>PUT /projects/{id}/issues/{iid}</code> - Update issue</li>
-                                        <li><code>GET /projects/{id}/labels</code> - List project labels</li>
-                                        <li><code>GET /projects/{id}/milestones</code> - List project milestones</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="dashboard-card">
-                                <div class="card-header">
-                                    <h6 class="mb-0"><i class="fas fa-table"></i> Google Sheets API</h6>
-                                </div>
-                                <div class="card-body">
-                                    <ul class="list-unstyled">
-                                        <li><code>spreadsheets.get</code> - Read spreadsheet data</li>
-                                        <li><code>spreadsheets.values.update</code> - Update cell values</li>
-                                        <li><code>spreadsheets.values.batchUpdate</code> - Batch update values</li>
-                                        <li><code>spreadsheets.batchUpdate</code> - Batch operations</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Floating Back to Top Button -->
+    <div class="back-to-top" id="backToTop">
+        <button class="btn btn-primary" onclick="scrollToTop()" title="Back to Top">
+            <i class="fas fa-arrow-up"></i>
+        </button>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Suppress browser extension errors
+        window.addEventListener('error', function(e) {
+            if (e.filename && (e.filename.includes('contentScript.js') || e.filename.includes('record-api.js'))) {
+                e.preventDefault();
+                return false;
+            }
+        });
+        
+        // Suppress unhandled promise rejections from extensions
+        window.addEventListener('unhandledrejection', function(e) {
+            if (e.reason && e.reason.stack && (e.reason.stack.includes('contentScript.js') || e.reason.stack.includes('record-api.js'))) {
+                e.preventDefault();
+                return false;
+            }
+        });
+        // Global variables
+        let currentHeaders = [];
+        let autoMappings = {};
+        let currentMappings = {};
+        let projectMappingEnabled = false; // Track if project mapping mode is enabled
+        let sheetProjectNames = []; // Project names detected from sheet
+        let gitlabProjects = []; // GitLab projects fetched from API
+        let currentProjectMappings = {}; // Current project mappings
+        let syncRunning = false; // Track if sync is currently running
+        const API_BASE_URL = 'http://localhost:5001';
+        
+        // Default column configuration
+        const defaultConfig = {
+            "DATE": { "index": 1, "header": "Date", "required": true, "data_type": "date", "description": "Task date" },
+            "GIT_ID": { "index": 2, "header": "GIT ID", "required": false, "data_type": "text", "description": "GitLab issue ID" },
+            "PROJECT_NAME": { "index": 3, "header": "Project Name", "required": true, "data_type": "text", "description": "Main project name" },
+            "SPECIFIC_PROJECT": { "index": 4, "header": "Specific Project Name", "required": false, "data_type": "text", "description": "Specific project name" },
+            "MAIN_TASK": { "index": 5, "header": "Main Task", "required": true, "data_type": "text", "description": "Main task description" },
+            "SUB_TASK": { "index": 6, "header": "Sub Task", "required": false, "data_type": "text", "description": "Sub task description" },
+            "STATUS": { "index": 7, "header": "Status", "required": true, "data_type": "dropdown", "description": "Task status" },
+            "START_DATE": { "index": 8, "header": "Start Date", "required": false, "data_type": "date", "description": "When task started" },
+            "PLANNED_ESTIMATION": { "index": 9, "header": "Planned Estimation", "required": false, "data_type": "number", "description": "Planned hours" },
+            "ACTUAL_ESTIMATION": { "index": 10, "header": "Actual Spent Time", "required": false, "data_type": "number", "description": "Actual hours spent" },
+            "END_DATE": { "index": 11, "header": "End Date", "required": false, "data_type": "date", "description": "When task was completed" }
+        };
+        
+        // Initialize mappings
+        Object.keys(defaultConfig).forEach(key => {
+            currentMappings[key] = defaultConfig[key].index.toString();
+        });
+        
+        // Configuration section functions
+        function showConfigSection(sectionName) {
+            console.log('showConfigSection called with:', sectionName);
+            
+            // Hide all config sections
+            var configSections = document.querySelectorAll('.config-section');
+            console.log('Found config sections:', configSections.length);
+            configSections.forEach(function(section) {
+                section.style.display = 'none';
+                console.log('Hiding section:', section.id);
+            });
+            
+            // Show the selected section
+            var selectedSection = document.getElementById(sectionName + '-config');
+            if (selectedSection) {
+                selectedSection.style.display = 'block';
+                console.log('Showing config section:', sectionName + '-config');
+                
+                // Smooth scroll to the configuration section
+                setTimeout(() => {
+                    selectedSection.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+                }, 100); // Small delay to ensure the section is visible
+                
+            } else {
+                console.error('Config section not found:', sectionName + '-config');
+            }
+            
+            // Update active card
+            var stepCards = document.querySelectorAll('.step-card');
+            stepCards.forEach(function(card) {
+                card.classList.remove('active');
+            });
+            var activeCard = document.getElementById('step-card-' + sectionName);
+            if (activeCard) {
+                activeCard.classList.add('active');
+                console.log('Activated step card:', 'step-card-' + sectionName);
+            } else {
+                console.error('Step card not found:', 'step-card-' + sectionName);
+            }
+        }
+        
+        function hideConfigSection() {
+            var configSections = document.querySelectorAll('.config-section');
+            configSections.forEach(function(section) {
+                section.style.display = 'none';
+            });
+            
+            var stepCards = document.querySelectorAll('.step-card');
+            stepCards.forEach(function(card) {
+                card.classList.remove('active');
+            });
+        }
+        
+        // Project configuration functions
+        function enableSingleProject() {
+            projectMappingEnabled = false;
+            document.getElementById('singleProjectConfig').style.display = 'block';
+            document.getElementById('projectMappingConfig').style.display = 'none';
+            showToast('success', 'Single project mode enabled. Select a project and configure its settings.', 'Single Project');
+            
+            // Update step completion
+            updateStepCardHighlight('projects', true);
+        }
+        
+        function enableProjectMapping() {
+            projectMappingEnabled = true;
+            console.log('Project mapping enabled. projectMappingEnabled =', projectMappingEnabled);
+            document.getElementById('singleProjectConfig').style.display = 'none';
+            document.getElementById('projectMappingConfig').style.display = 'block';
+            showToast('success', 'Project mapping mode enabled. You can now map projects and configure their individual settings.', 'Project Mapping');
+            
+            // Update step completion
+            updateStepCardHighlight('projects', true);
+        }
+        
+        // Missing project-related functions
+        function fetchProjectData() {
+            const projectId = document.getElementById('projectId').value;
+            if (!projectId) {
+                showToast('warning', 'Please select a project first', 'No Project Selected');
+                return;
+            }
+            
+            showToast('info', 'Fetching project data...', 'Fetching Data');
+            
+            // Fetch project labels, milestones, and assignees
+            fetchProjectDataForProject(projectId);
+        }
+        
+        async function fetchProjectDataForProject(projectId) {
+            const gitlabUrl = document.getElementById('gitlabUrl').value.trim();
+            const gitlabToken = document.getElementById('gitlabToken').value.trim();
+            
+            if (!gitlabToken) {
+                showToast('danger', 'Please enter GitLab Token', 'GitLab Not Configured');
+                return;
+            }
+            
+            try {
+                showToast('info', 'Fetching project settings...', 'Fetching Data');
+                
+                // Show loading state
+                const fetchButton = document.querySelector('button[onclick="fetchProjectData()"]');
+                const originalText = fetchButton.innerHTML;
+                fetchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
+                fetchButton.disabled = true;
+                
+                // Fetch all labels, milestones, and assignees for the project
+                let allLabels = [];
+                let allMilestones = [];
+                let allAssignees = [];
+                
+                // Fetch labels
+                let page = 1;
+                let hasMoreLabels = true;
+                while (hasMoreLabels) {
+                    const labelsResponse = await fetch(`${gitlabUrl}/api/v4/projects/${projectId}/labels?page=${page}&per_page=100`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!labelsResponse.ok) {
+                        throw new Error(`Failed to fetch labels: ${labelsResponse.status} ${labelsResponse.statusText}`);
+                    }
+                    
+                    const labels = await labelsResponse.json();
+                    if (labels.length === 0) {
+                        hasMoreLabels = false;
+                    } else {
+                        allLabels = allLabels.concat(labels);
+                        page++;
+                        if (page > 50) hasMoreLabels = false;
+                    }
+                }
+                
+                // Fetch milestones
+                page = 1;
+                let hasMoreMilestones = true;
+                while (hasMoreMilestones) {
+                    const milestonesResponse = await fetch(`${gitlabUrl}/api/v4/projects/${projectId}/milestones?page=${page}&per_page=100`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!milestonesResponse.ok) {
+                        throw new Error(`Failed to fetch milestones: ${milestonesResponse.status} ${milestonesResponse.statusText}`);
+                    }
+                    
+                    const milestones = await milestonesResponse.json();
+                    if (milestones.length === 0) {
+                        hasMoreMilestones = false;
+                    } else {
+                        allMilestones = allMilestones.concat(milestones);
+                        page++;
+                        if (page > 50) hasMoreMilestones = false;
+                    }
+                }
+                
+                // Fetch assignees
+                page = 1;
+                let hasMoreAssignees = true;
+                while (hasMoreAssignees) {
+                    const assigneesResponse = await fetch(`${gitlabUrl}/api/v4/projects/${projectId}/members?page=${page}&per_page=100`, {
+                        headers: { 'PRIVATE-TOKEN': gitlabToken }
+                    });
+                    
+                    if (!assigneesResponse.ok) {
+                        throw new Error(`Failed to fetch assignees: ${assigneesResponse.status} ${assigneesResponse.statusText}`);
+                    }
+                    
+                    const assignees = await assigneesResponse.json();
+                    if (assignees.length === 0) {
+                        hasMoreAssignees = false;
+                    } else {
+                        allAssignees = allAssignees.concat(assignees);
+                        page++;
+                        if (page > 50) hasMoreAssignees = false;
+                    }
+                }
+                
+                // Populate dropdowns
+                populateProjectDropdowns(allLabels, allMilestones, allAssignees);
+                
+                showToast('success', `Project data fetched: ${allLabels.length} labels, ${allMilestones.length} milestones, ${allAssignees.length} assignees`, 'Data Fetched');
+                
+            } catch (error) {
+                console.error('Error fetching project data:', error);
+                showToast('danger', `Failed to fetch project data: ${error.message}`, 'Error');
+            } finally {
+                // Restore button state
+                fetchButton.innerHTML = originalText;
+                fetchButton.disabled = false;
+            }
+        }
+        
+        // Add click handler for label dropdown
+        document.addEventListener('DOMContentLoaded', function() {
+            const labelDropdownTrigger = document.getElementById('labelDropdownTrigger');
+            const labelDropdown = document.getElementById('labelDropdown');
+            
+            if (labelDropdownTrigger && labelDropdown) {
+                labelDropdownTrigger.addEventListener('click', function() {
+                    const isVisible = labelDropdown.style.display !== 'none';
+                    labelDropdown.style.display = isVisible ? 'none' : 'block';
+                    
+                    // Update arrow direction
+                    const arrow = labelDropdownTrigger.querySelector('i');
+                    if (arrow) {
+                        arrow.className = isVisible ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+                    }
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function(event) {
+                    if (!labelDropdownTrigger.contains(event.target) && !labelDropdown.contains(event.target)) {
+                        labelDropdown.style.display = 'none';
+                        const arrow = labelDropdownTrigger.querySelector('i');
+                        if (arrow) {
+                            arrow.className = 'fas fa-chevron-down';
+                        }
+                    }
+                });
+            }
+        });
+        
+        function populateProjectDropdowns(labels, milestones, assignees) {
+            // Populate labels dropdown
+            const labelOptions = document.getElementById('labelOptions');
+            if (labelOptions) {
+                labelOptions.innerHTML = '';
+                labels.forEach(label => {
+                    const option = document.createElement('div');
+                    option.className = 'multiselect-option';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'form-check-input me-2';
+                    checkbox.id = `single_label_${label.name.replace(/\s+/g, '_')}`;
+                    checkbox.onchange = function() {
+                        toggleLabelSelection(label.name);
+                    };
+                    
+                    const labelText = document.createElement('label');
+                    labelText.className = 'form-check-label';
+                    labelText.setAttribute('for', checkbox.id);
+                    labelText.textContent = label.name;
+                    labelText.style.cursor = 'pointer';
+                    
+                    option.appendChild(checkbox);
+                    option.appendChild(labelText);
+                    
+                    labelOptions.appendChild(option);
+                });
+            }
+            
+            // Populate milestones dropdown
+            const milestoneSelect = document.getElementById('defaultMilestone');
+            if (milestoneSelect) {
+                milestoneSelect.innerHTML = '<option value="">Select milestone...</option>';
+                milestones.forEach(milestone => {
+                    const option = document.createElement('option');
+                    option.value = milestone.id;
+                    option.textContent = milestone.title;
+                    milestoneSelect.appendChild(option);
+                });
+            }
+            
+            // Populate assignees dropdown
+            const assigneeSelect = document.getElementById('defaultAssignee');
+            if (assigneeSelect) {
+                assigneeSelect.innerHTML = '<option value="">Select assignee...</option>';
+                assignees.forEach(assignee => {
+                    const option = document.createElement('option');
+                    option.value = assignee.id;
+                    option.textContent = assignee.name || assignee.username;
+                    assigneeSelect.appendChild(option);
+                });
+            }
+        }
+        
+        // Helper functions for labels
+        function toggleLabelSelection(labelName) {
+            const checkbox = document.getElementById(`single_label_${labelName.replace(/\s+/g, '_')}`);
+            
+            if (checkbox && checkbox.checked) {
+                // Label is selected - could add to a global selected labels array if needed
+                console.log(`Selected label: ${labelName}`);
+            } else {
+                // Label is deselected
+                console.log(`Deselected label: ${labelName}`);
+            }
+            
+            updateSelectedLabelsDisplay();
+        }
+        
+        function updateSelectedLabelsDisplay() {
+            // Get all checked checkboxes for single project labels
+            const checkedCheckboxes = document.querySelectorAll('input[id^="single_label_"]:checked');
+            const labels = Array.from(checkedCheckboxes).map(checkbox => {
+                const labelFor = checkbox.getAttribute('for') || checkbox.nextElementSibling.textContent;
+                return checkbox.nextElementSibling.textContent;
+            });
+            
+            const display = document.getElementById('selectedLabelsDisplay');
+            const list = document.getElementById('selectedLabelsList');
+            const dropdownText = document.getElementById('labelDropdownText');
+            
+            if (display && list) {
+                if (labels.length > 0) {
+                    display.style.display = 'block';
+                    list.innerHTML = labels.map(label => 
+                        `<span class="badge bg-primary me-1">${label}</span>`
+                    ).join('');
+                    
+                    // Update dropdown text
+                    if (dropdownText) {
+                        dropdownText.textContent = `${labels.length} label(s) selected`;
+                    }
+                } else {
+                    display.style.display = 'none';
+                    
+                    // Reset dropdown text
+                    if (dropdownText) {
+                        dropdownText.textContent = 'Select labels...';
+                    }
+                }
+            }
+        }
+        
+        // Project mapping helper functions
+        function updateProjectMapping(projectName, gitlabProjectId) {
+            if (!currentProjectMappings[projectName]) {
+                currentProjectMappings[projectName] = {};
+            }
+            currentProjectMappings[projectName].project_id = gitlabProjectId;
+            
+            // Load project settings when mapping is updated
+            if (gitlabProjectId) {
+                fetchProjectSettings(projectName);
+            }
+        }
+        
+        function updateProjectMilestone(projectName, milestoneValue) {
+            if (!currentProjectMappings[projectName]) {
+                currentProjectMappings[projectName] = {};
+            }
+            currentProjectMappings[projectName].milestone = milestoneValue;
+        }
+        
+        function updateProjectAssignee(projectName, assigneeValue) {
+            if (!currentProjectMappings[projectName]) {
+                currentProjectMappings[projectName] = {};
+            }
+            currentProjectMappings[projectName].assignee = assigneeValue;
+        }
+        
+        function toggleProjectLabels(projectName) {
+            const dropdownId = `labelDropdown_${projectName.replace(/\s+/g, '_')}`;
+            const dropdown = document.getElementById(dropdownId);
+            const isOpen = dropdown.style.display !== 'none';
+            
+            if (isOpen) {
+                dropdown.style.display = 'none';
+            } else {
+                dropdown.style.display = 'block';
+            }
+        }
+        
+        async function fetchProjectSettings(projectName) {
+            // Check if project mapping exists and get the project ID
+            const mapping = currentProjectMappings[projectName];
+            if (!mapping || !mapping.project_id) {
+                return;
+            }
+            
+            const gitlabUrl = document.getElementById('gitlabUrl').value.trim();
+            const gitlabToken = document.getElementById('gitlabToken').value.trim();
+            
+            if (!gitlabToken) {
+                showToast('danger', 'Please enter GitLab Token', 'GitLab Not Configured');
+                return;
+            }
+            
+            try {
+                const projectId = mapping.project_id;
+                
+                // Fetch labels
+                const labelsResponse = await fetch(`${gitlabUrl}/api/v4/projects/${projectId}/labels?per_page=100`, {
+                    headers: { 'PRIVATE-TOKEN': gitlabToken }
+                });
+                
+                if (labelsResponse.ok) {
+                    const labels = await labelsResponse.json();
+                    populateProjectLabels(projectName, labels);
+                }
+                
+                // Fetch milestones
+                const milestonesResponse = await fetch(`${gitlabUrl}/api/v4/projects/${projectId}/milestones?per_page=100`, {
+                    headers: { 'PRIVATE-TOKEN': gitlabToken }
+                });
+                
+                if (milestonesResponse.ok) {
+                    const milestones = await milestonesResponse.json();
+                    populateProjectMilestones(projectName, milestones);
+                }
+                
+                // Fetch assignees
+                const assigneesResponse = await fetch(`${gitlabUrl}/api/v4/projects/${projectId}/members?per_page=100`, {
+                    headers: { 'PRIVATE-TOKEN': gitlabToken }
+                });
+                
+                if (assigneesResponse.ok) {
+                    const assignees = await assigneesResponse.json();
+                    populateProjectAssignees(projectName, assignees);
+                }
+                
+            } catch (error) {
+                console.error('Error fetching project settings:', error);
+                showToast('danger', `Failed to fetch project settings: ${error.message}`, 'Error');
+            }
+        }
+        
+        function populateProjectLabels(projectName, labels) {
+            const labelOptions = document.getElementById(`labelOptions_${projectName.replace(/\s+/g, '_')}`);
+            if (labelOptions) {
+                labelOptions.innerHTML = '';
+                labels.forEach(label => {
+                    const option = document.createElement('div');
+                    option.className = 'multiselect-option';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'form-check-input me-2';
+                    checkbox.id = `label_${projectName.replace(/\s+/g, '_')}_${label.name.replace(/\s+/g, '_')}`;
+                    checkbox.onchange = function() {
+                        toggleProjectLabelSelection(projectName, label.name);
+                    };
+                    
+                    const labelText = document.createElement('label');
+                    labelText.className = 'form-check-label';
+                    labelText.setAttribute('for', checkbox.id);
+                    labelText.textContent = label.name;
+                    labelText.style.cursor = 'pointer';
+                    
+                    option.appendChild(checkbox);
+                    option.appendChild(labelText);
+                    
+                    labelOptions.appendChild(option);
+                });
+            }
+        }
+        
+        function populateProjectMilestones(projectName, milestones) {
+            const milestoneSelect = document.getElementById(`milestone_${projectName.replace(/\s+/g, '_')}`);
+            if (milestoneSelect) {
+                milestoneSelect.innerHTML = '<option value="">Select milestone...</option>';
+                milestones.forEach(milestone => {
+                    const option = document.createElement('option');
+                    option.value = milestone.id;
+                    option.textContent = milestone.title;
+                    milestoneSelect.appendChild(option);
+                });
+            }
+        }
+        
+        function populateProjectAssignees(projectName, assignees) {
+            const assigneeSelect = document.getElementById(`assignee_${projectName.replace(/\s+/g, '_')}`);
+            if (assigneeSelect) {
+                assigneeSelect.innerHTML = '<option value="">Select assignee...</option>';
+                assignees.forEach(assignee => {
+                    const option = document.createElement('option');
+                    option.value = assignee.id;
+                    option.textContent = assignee.name || assignee.username;
+                    assigneeSelect.appendChild(option);
+                });
+            }
+        }
+        
+        function toggleProjectLabelSelection(projectName, labelName) {
+            const mapping = currentProjectMappings[projectName];
+            if (!mapping.labels) {
+                mapping.labels = [];
+            }
+            
+            const checkbox = document.getElementById(`label_${projectName.replace(/\s+/g, '_')}_${labelName.replace(/\s+/g, '_')}`);
+            
+            if (checkbox.checked) {
+                // Add label if checkbox is checked
+                if (!mapping.labels.includes(labelName)) {
+                    mapping.labels.push(labelName);
+                }
+            } else {
+                // Remove label if checkbox is unchecked
+                mapping.labels = mapping.labels.filter(l => l !== labelName);
+            }
+            
+            updateProjectLabelsDisplay(projectName);
+        }
+        
+        function updateProjectLabelsDisplay(projectName) {
+            const mapping = currentProjectMappings[projectName];
+            const display = document.getElementById(`selectedLabelsDisplay_${projectName.replace(/\s+/g, '_')}`);
+            const list = document.getElementById(`selectedLabelsList_${projectName.replace(/\s+/g, '_')}`);
+            
+            if (mapping.labels && mapping.labels.length > 0) {
+                display.style.display = 'block';
+                list.innerHTML = mapping.labels.map(label => 
+                    `<span class="badge bg-primary me-1">${label}</span>`
+                ).join('');
+            } else {
+                display.style.display = 'none';
+            }
+        }
+        
+        function populateProjectDropdownsFromGitLab(projects) {
+            // Populate project ID dropdown in single project config
+            const projectIdSelect = document.getElementById('projectId');
+            if (projectIdSelect) {
+                projectIdSelect.innerHTML = '<option value="">Select project...</option>';
+                projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.id;
+                    option.textContent = `${project.name} (${project.full_path})`;
+                    projectIdSelect.appendChild(option);
+                });
+            }
+            
+            // Also populate any other project-related dropdowns
+            console.log(`Populated ${projects.length} projects in dropdowns`);
+        }
+        
+        function renderProjectMappings() {
+            const container = document.getElementById('projectMappings');
+            if (!container) {
+                console.error('Project mappings container not found');
+                return;
+            }
+            
+            if (sheetProjectNames.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Click "Detect Project Names from Sheet" to start project mapping
+                                </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            sheetProjectNames.forEach(projectName => {
+                const div = document.createElement('div');
+                div.className = 'card mb-3';
+                
+                const currentMapping = currentProjectMappings[projectName];
+                
+                // Handle both old format (string/number) and new format (object)
+                let projectId = null;
+                if (currentMapping) {
+                    if (typeof currentMapping === 'object' && currentMapping.project_id) {
+                        projectId = currentMapping.project_id;
+                    } else if (typeof currentMapping === 'string' || typeof currentMapping === 'number') {
+                        projectId = currentMapping;
+                    }
+                }
+                
+                const mappedProject = gitlabProjects.find(p => p.id == projectId);
+                
+                div.innerHTML = `
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-project-diagram"></i> ${projectName}</h6>
+                        <small class="text-muted">Project name from Excel sheet</small>
+                            </div>
+                                <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">GitLab Repository</label>
+                                <select class="form-select form-select-sm" onchange="updateProjectMapping('${projectName}', this.value)">
+                                    <option value="">Select GitLab repository...</option>
+                                    ${gitlabProjects.map(project => `
+                                        <option value="${project.id}" ${projectId == project.id ? 'selected' : ''}>
+                                            ${project.name} (ID: ${project.id})
+                                        </option>
+                                    `).join('')}
+                                </select>
+                                <small class="text-muted">${mappedProject ? `Mapped to: ${mappedProject.full_path}` : 'Not mapped yet'}</small>
+                                </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Labels</label>
+                                <div class="custom-multiselect" id="labels_${projectName.replace(/\s+/g, '_')}">
+                                    <div class="multiselect-trigger" onclick="toggleProjectLabels('${projectName}')">
+                                        <span id="labelText_${projectName.replace(/\s+/g, '_')}">Select labels...</span>
+                                        <i class="fas fa-chevron-down"></i>
+                            </div>
+                                    <div class="multiselect-dropdown" id="labelDropdown_${projectName.replace(/\s+/g, '_')}" style="display: none;">
+                                        <div class="multiselect-options" id="labelOptions_${projectName.replace(/\s+/g, '_')}">
+                                            <div class="text-muted p-2">Select a GitLab repository first to load labels</div>
+                        </div>
+                    </div>
+                </div>
+                                <div id="selectedLabelsDisplay_${projectName.replace(/\s+/g, '_')}" class="mt-2" style="display: none;">
+                                    <small class="text-muted">Selected labels:</small>
+                                    <div id="selectedLabelsList_${projectName.replace(/\s+/g, '_')}" class="mt-1"></div>
+            </div>
+        </div>
+                        <div class="col-md-3">
+                                <label class="form-label">Milestone</label>
+                                <select class="form-select form-select-sm" id="milestone_${projectName.replace(/\s+/g, '_')}" onchange="updateProjectMilestone('${projectName}', this.value)">
+                                    <option value="">Select milestone...</option>
+                                </select>
+                                <small class="text-muted">Select a GitLab repository first to load milestones</small>
+                            </div>
+                        </div>
+                            </div>
+                `;
+                
+                container.appendChild(div);
+                
+                // If project is already mapped, load its settings
+                if (mappedProject) {
+                    fetchProjectSettings(projectName);
+                }
+            });
+        }
+        
+        async function fetchGlobalAssignees() {
+            const gitlabUrl = document.getElementById('gitlabUrl').value.trim();
+            const gitlabToken = document.getElementById('gitlabToken').value.trim();
+            
+            if (!gitlabUrl || !gitlabToken) {
+                showToast('danger', 'Please enter GitLab URL and Token', 'Missing Information');
+                return;
+            }
+            
+            if (!projectMappingEnabled || Object.keys(currentProjectMappings).length === 0) {
+                showToast('warning', 'Please enable project mapping and map projects first', 'No Projects Mapped');
+                return;
+            }
+            
+            // Get the fetch button and show loading state
+            const fetchButton = document.querySelector('button[onclick="fetchGlobalAssignees()"]');
+            const originalText = fetchButton.innerHTML;
+            fetchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
+            fetchButton.disabled = true;
+            
+            try {
+                
+                // Get unique project IDs from all mappings
+                const uniqueProjectIds = [...new Set(Object.values(currentProjectMappings).map(mapping => mapping.project_id))];
+                
+                if (uniqueProjectIds.length === 0) {
+                    showToast('warning', 'No projects mapped yet. Please map projects first.', 'No Projects Mapped');
+                    return;
+                }
+                
+                // Fetch assignees from all mapped projects
+                let allAssignees = [];
+                
+                for (const projectId of uniqueProjectIds) {
+                    try {
+                        const response = await fetch(`${gitlabUrl}/api/v4/projects/${projectId}/members?per_page=100`, {
+                            headers: { 'PRIVATE-TOKEN': gitlabToken }
+                        });
+                        
+                        if (response.ok) {
+                            const assignees = await response.json();
+                            allAssignees = allAssignees.concat(assignees);
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching assignees for project ${projectId}:`, error);
+                    }
+                }
+                
+                // Remove duplicates based on user ID
+                const uniqueAssignees = allAssignees.filter((assignee, index, self) => 
+                    index === self.findIndex(a => a.id === assignee.id)
+                );
+                
+                // Populate global assignee dropdown
+                populateGlobalAssigneeDropdown(uniqueAssignees);
+                
+                showToast('success', `Found ${uniqueAssignees.length} unique assignees across all mapped projects`, 'Global Assignees Fetched');
+                
+            } catch (error) {
+                console.error('Error fetching global assignees:', error);
+                showToast('danger', `Failed to fetch global assignees: ${error.message}`, 'Error');
+            } finally {
+                // Restore button state
+                fetchButton.innerHTML = originalText;
+                fetchButton.disabled = false;
+            }
+        }
+        
+        function populateGlobalAssigneeDropdown(assignees) {
+            const globalAssigneeSelect = document.getElementById('globalAssignee');
+            if (globalAssigneeSelect) {
+                globalAssigneeSelect.innerHTML = '<option value="">Select global assignee...</option>';
+                assignees.forEach(assignee => {
+                    const option = document.createElement('option');
+                    option.value = assignee.id;
+                    option.textContent = assignee.name || assignee.username;
+                    globalAssigneeSelect.appendChild(option);
+                });
+            }
+        }
+        
+        // Progress step management functions
+        function handleErrorState() {
+            console.log('Handling error state - marking failed step as error, subsequent as skipped');
+            
+            // Find the step that failed and mark it as error (red)
+            // For now, we'll mark the reading-sheet step as error since that's where most errors occur
+            document.getElementById('step-reading-sheet').className = 'step error';
+            
+            // Mark subsequent steps as skipped (grey)
+            document.getElementById('step-creating-issues').className = 'step skipped';
+            document.getElementById('step-updating-sheet').className = 'step skipped';
+            document.getElementById('step-completed').className = 'step skipped';
+            
+            // Keep sync-start as completed since it started successfully
+            document.getElementById('step-sync-start').className = 'step completed';
+        }
+
+        function handleNoTasksState() {
+            console.log('Handling no-tasks state - marking reading-sheet as completed, others as skipped');
+            
+            // Mark sync-start and reading-sheet as completed (green)
+            document.getElementById('step-sync-start').className = 'step completed';
+            document.getElementById('step-reading-sheet').className = 'step completed';
+            
+            // Mark creating-issues, updating-sheet, and completed as skipped (grey)
+            document.getElementById('step-creating-issues').className = 'step skipped';
+            document.getElementById('step-updating-sheet').className = 'step skipped';
+            document.getElementById('step-completed').className = 'step skipped';
+            
+            // Update progress line to show 100% completion
+            const progressSteps = document.querySelector('.progress-steps');
+            if (progressSteps) {
+                progressSteps.style.setProperty('--progress', '100%');
+            }
+        }
+        
+        function updateProgressStep(stepName) {
+            console.log(`Updating progress step to: ${stepName}`);
+            
+            // Reset all steps first
+            const steps = ['sync-start', 'reading-sheet', 'creating-issues', 'updating-sheet', 'completed'];
+            steps.forEach(step => {
+                const stepElement = document.getElementById(`step-${step}`);
+                if (stepElement) {
+                    stepElement.className = 'step';
+                }
+            });
+            
+            // Handle special states
+            if (stepName === 'error') {
+                handleErrorState();
+                return;
+            }
+            
+            if (stepName === 'no-tasks') {
+                handleNoTasksState();
+                return;
+            }
+            
+            // Handle normal progression
+            const stepIndex = steps.indexOf(stepName);
+            if (stepIndex !== -1) {
+                // Mark all steps up to current as completed
+                for (let i = 0; i < stepIndex; i++) {
+                    const stepElement = document.getElementById(`step-${steps[i]}`);
+                    if (stepElement) {
+                        stepElement.className = 'step completed';
+                    }
+                }
+                
+                // Mark current step as active
+                const currentStepElement = document.getElementById(`step-${stepName}`);
+                if (currentStepElement) {
+                    currentStepElement.className = 'step active';
+                }
+                
+                // Update progress line
+                const progressSteps = document.querySelector('.progress-steps');
+                if (progressSteps) {
+                    const progress = ((stepIndex + 1) / steps.length) * 100;
+                    progressSteps.style.setProperty('--progress', `${progress}%`);
+                }
+            }
+        }
+        
+        function handleErrorState() {
+            console.log('Handling error state - marking failed step as error, subsequent as skipped');
+            
+            // Find the step that failed and mark it as error (red)
+            // For now, we'll mark the reading-sheet step as error since that's where most errors occur
+            const errorStep = document.getElementById('step-reading-sheet');
+            if (errorStep) {
+                errorStep.className = 'step error';
+            }
+            
+            // Mark subsequent steps as skipped (grey)
+            const subsequentSteps = ['step-creating-issues', 'step-updating-sheet', 'step-completed'];
+            subsequentSteps.forEach(stepId => {
+                const stepElement = document.getElementById(stepId);
+                if (stepElement) {
+                    stepElement.className = 'step skipped';
+                }
+            });
+        }
+        
+        function handleNoTasksState() {
+            console.log('Handling no tasks state - marking all steps as completed');
+            
+            // Mark all steps as completed when no tasks are found
+            const steps = ['sync-start', 'reading-sheet', 'creating-issues', 'updating-sheet', 'completed'];
+            steps.forEach(step => {
+                const stepElement = document.getElementById(`step-${step}`);
+                if (stepElement) {
+                    stepElement.className = 'step completed';
+                }
+            });
+        }
+        
+        function resetProgressSteps() {
+            const progressSteps = document.querySelector('.progress-steps');
+            if (progressSteps) {
+                progressSteps.classList.remove('step-1', 'step-2', 'step-3', 'step-4', 'step-5');
+                progressSteps.classList.add('step-1'); // Start at 0%
+            }
+            
+            const steps = ['step-sync-start', 'step-reading-sheet', 'step-creating-issues', 'step-updating-sheet', 'step-completed'];
+            steps.forEach(stepId => {
+                const step = document.getElementById(stepId);
+                if (step) {
+                    step.classList.remove('active', 'completed', 'error', 'skipped');
+                }
+            });
+            
+            // Activate the first step
+            const firstStep = document.getElementById('step-sync-start');
+            if (firstStep) {
+                firstStep.classList.add('active');
+            }
+        }
+        
+        function startProgressPolling() {
+            updateSyncProgress();
+        }
+        
+        function updateSyncProgress() {
+            if (!syncRunning) return;
+            
+            fetch(`${API_BASE_URL}/api/sync-status`)
+                .then(response => response.json())
+                .then(data => {
+                    const progressDiv = document.getElementById('syncProgress');
+                    const outputDiv = document.getElementById('syncOutput');
+                    const statusDiv = document.getElementById('syncStatus');
+                    const stepsDiv = document.getElementById('syncProgressSteps');
+                    
+                    if (data.status === 'running') {
+                        stepsDiv.style.display = 'block';
+                        progressDiv.style.display = 'block';
+                        
+                        // Update progress message based on current step
+                        if (data.output) {
+                            outputDiv.style.display = 'block';
+                            
+                            // Determine current step based on output content with better logic
+                            let currentStep = 'sync-start';
+                            
+                            // Debug logging
+                            console.log('Checking output for step detection...');
+                            console.log('Output contains "Reading Google Sheet":', data.output.includes('📊 Reading Google Sheet'));
+                            console.log('Output contains "Found":', data.output.includes('Found'));
+                            console.log('Output contains "tasks to process":', data.output.includes('tasks to process'));
+                            console.log('Progress message:', data.progress.message);
+                            
+                            // More robust step detection - check for specific patterns
+                            const output = data.output.toLowerCase();
+                            console.log('Full output for detection:', output);
+                            console.log('Looking for "no tasks to process" pattern...');
+                            console.log('Contains "no tasks to process":', output.includes('no tasks to process'));
+                            console.log('Contains "all tasks already have git_id":', output.includes('all tasks already have git_id'));
+                            console.log('Contains "missing required fields":', output.includes('missing required fields'));
+                            
+                            // Check for error states first
+                            if (output.includes('no data found') || output.includes('sync failed') || output.includes('network is unreachable') || output.includes('http error') || output.includes('authentication error')) {
+                                currentStep = 'error';
+                                console.log('Detected step: error - actual error occurred');
+                            } else if (output.includes('no tasks to process - all tasks already have git_id') || 
+                                       output.includes('no new tasks to create - all tasks already have git_id') || 
+                                       output.includes('no tasks to process after filtering - all tasks already have git_id') ||
+                                       output.includes('no tasks to process - all tasks already have git_id or missing required fields') ||
+                                       (output.includes('no tasks to process') && output.includes('all tasks already have git_id')) ||
+                                       (output.includes('no tasks to process') && output.includes('missing required fields')) ||
+                                       output.includes('sync completed - no new tasks to create') ||
+                                       output.includes('sync completed - no tasks to process')) {
+                                currentStep = 'no-tasks';
+                                console.log('Detected step: no-tasks - no new tasks to create');
+                            } else if (output.includes('sync completed') || output.includes('sync completed successfully')) {
+                                currentStep = 'completed';
+                                console.log('Detected step: completed - sync finished successfully');
+                            } else if (output.includes('updating sheet with git id') || output.includes('updating git id in spreadsheet')) {
+                                currentStep = 'updating-sheet';
+                                console.log('Detected step: updating-sheet');
+                            } else if (output.includes('creating gitlab issues') || output.includes('created issue') || output.includes('creating new issue')) {
+                                currentStep = 'creating-issues';
+                                console.log('Detected step: creating-issues');
+                            } else if (output.includes('reading google sheet') || output.includes('successfully mapped') || output.includes('date filter disabled') || output.includes('date filter enabled') || output.includes('found') && output.includes('tasks to process')) {
+                                currentStep = 'reading-sheet';
+                                console.log('Detected step: reading-sheet');
+                            } else if (output.includes('sync started') || output.includes('starting sync process')) {
+                                currentStep = 'sync-start';
+                                console.log('Detected step: sync-start');
+                            } else {
+                                currentStep = 'sync-start';
+                                console.log('Detected step: default sync-start');
+                            }
+                            
+                            // Update progress message based on current step
+                            switch (currentStep) {
+                                case 'sync-start':
+                                    progressDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Syncing...`;
+                                    break;
+                                case 'reading-sheet':
+                                    progressDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Reading Google Sheet...`;
+                                    break;
+                                case 'creating-issues':
+                                    progressDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Creating GitLab Issues...`;
+                                    break;
+                                case 'updating-sheet':
+                                    progressDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Updating Sheet with GIT ID...`;
+                                    break;
+                                case 'completed':
+                                    progressDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Completing...`;
+                                    break;
+                                default:
+                                    progressDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Syncing...`;
+                            }
+                            
+                            // Additional check based on progress message
+                            if (data.progress && data.progress.message) {
+                                const progressMsg = data.progress.message.toLowerCase();
+                                if (progressMsg.includes('reading google sheet')) {
+                                    currentStep = 'reading-sheet';
+                                    console.log('Detected step from progress message: reading-sheet');
+                                } else if (progressMsg.includes('creating') || progressMsg.includes('processing') || progressMsg.includes('updating existing')) {
+                                    currentStep = 'creating-issues';
+                                    console.log('Detected step from progress message: creating-issues');
+                                } else if (progressMsg.includes('updating sheet') || progressMsg.includes('git id')) {
+                                    currentStep = 'updating-sheet';
+                                    console.log('Detected step from progress message: updating-sheet');
+                                }
+                            }
+                            
+                            console.log('Final detected step:', currentStep);
+                            
+                            // Update the progress step with a small delay to ensure visibility
+                            setTimeout(() => {
+                                updateProgressStep(currentStep);
+                            }, 200);
+                            
+                            // Format the output with better styling for the flow
+                            const formattedOutput = data.output
+                                .split('\n')
+                                .map(line => {
+                                    // Remove the flow structure characters for cleaner log output
+                                    if (line.includes('🔄 Sync Started') || line.includes('✅ Sync Completed') || line.includes('❌ Sync Failed')) {
+                                        return `<div class="text-primary fw-bold">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                                    } else if (line.includes('├─') || line.includes('└─')) {
+                                        return `<div class="text-info fw-bold">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                                    } else if (line.includes('│   ✅') || line.includes('│   🆕') || line.includes('│   🔄')) {
+                                        return `<div class="text-success">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                                    } else if (line.includes('│   ❌') || line.includes('│   ⚠️')) {
+                                        return `<div class="text-warning">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                                    } else if (line.includes('│   ── Progress:')) {
+                                        return `<div class="text-primary fw-bold">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                                    } else if (line.includes('│   📊 Sync Summary:')) {
+                                        return `<div class="text-info fw-bold">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                                    } else if (line.startsWith('│')) {
+                                        return `<div>${line.replace(/^[│\s]+/, '')}</div>`;
+                                    } else {
+                                        return `<div>${line}</div>`;
+                                    }
+                                })
+                                .join('');
+                            outputDiv.innerHTML = formattedOutput;
+                            outputDiv.scrollTop = outputDiv.scrollHeight;
+                        }
+                        
+                        statusDiv.innerHTML = '<small class="text-info"><i class="fas fa-spinner fa-spin"></i> Sync in progress...</small>';
+                        
+                        // Continue polling
+                        setTimeout(updateSyncProgress, 500); // Reduced to 500ms for better step detection
+                    } else if (data.status === 'completed') {
+                        // Check if it's a successful completion or early termination
+                        console.log('Sync completed, checking output for early termination...');
+                        console.log('Output contains "no data found":', data.output && data.output.toLowerCase().includes('no data found'));
+                        console.log('Output contains "no tasks to process":', data.output && data.output.toLowerCase().includes('no tasks to process'));
+                        console.log('Output contains "no new tasks to create":', data.output && data.output.toLowerCase().includes('no new tasks to create'));
+                        console.log('Output contains "all tasks already have git_id":', data.output && data.output.toLowerCase().includes('all tasks already have git_id'));
+                        console.log('Output contains "no tasks to process after filtering":', data.output && data.output.toLowerCase().includes('no tasks to process after filtering'));
+                        
+                        if (data.output && (data.output.toLowerCase().includes('no data found') || data.output.toLowerCase().includes('sync failed'))) {
+                            console.log('Detected error state - calling updateProgressStep("error")');
+                            updateProgressStep('error'); // This case is handled by handleErrorState
+                        } else if (data.output && (data.output.toLowerCase().includes('no tasks to process - all tasks already have git_id') || data.output.toLowerCase().includes('no new tasks to create - all tasks already have git_id') || data.output.toLowerCase().includes('no tasks to process after filtering - all tasks already have git_id') || (data.output.toLowerCase().includes('no tasks to process') && data.output.toLowerCase().includes('all tasks already have git_id')) || (data.output.toLowerCase().includes('no tasks to process') && data.output.toLowerCase().includes('missing required fields')) || (data.output.toLowerCase().includes('no tasks to process - all tasks already have git_id or missing required fields')))) {
+                            console.log('Detected no-tasks state - calling updateProgressStep("no-tasks")');
+                            updateProgressStep('no-tasks'); // This case is handled by handleNoTasksState
+                        } else {
+                            console.log('Detected normal completion - calling updateProgressStep("completed")');
+                            updateProgressStep('completed');
+                        }
+                        showSyncCompletion(data);
+                    } else if (data.status === 'error') {
+                        updateProgressStep('error');
+                        showSyncError(data.error);
+                    } else if (data.status === 'stopped') {
+                        showSyncStopped();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching sync status:', error);
+                    setTimeout(updateSyncProgress, 2000);
+                });
+        }
+        
+        async function detectProjectNames() {
+            const spreadsheetId = document.getElementById('spreadsheetId').value;
+            const selectedWorksheet = document.getElementById('worksheetName').value;
+            
+            if (!spreadsheetId) {
+                showToast('danger', 'Please enter Spreadsheet ID', 'Missing Spreadsheet ID');
+                return;
+            }
+            if (!selectedWorksheet) {
+                showToast('warning', 'Please select a worksheet first', 'Missing Worksheet');
+                return;
+            }
+            if (!gitlabProjects || gitlabProjects.length === 0) {
+                showToast('warning', 'Please fetch GitLab projects first', 'GitLab Projects Not Fetched');
+                return;
+            }
+            
+            try {
+                showToast('info', 'Detecting project names from Google Sheet...', 'Detecting Projects');
+                
+                const response = await fetch(`${API_BASE_URL}/api/detect-project-names`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        spreadsheet_id: spreadsheetId,
+                        worksheet_name: selectedWorksheet 
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    sheetProjectNames = data.project_names;
+                    renderProjectMappings();
+                    
+                    // Show enhanced success message with detailed information
+                    const message = data.message || `Detected ${sheetProjectNames.length} unique project names from sheet`;
+                    showToast('success', message, 'Projects Detected');
+                    
+                    // Log detailed information for debugging
+                    console.log('📊 Project Detection Results:', {
+                        totalRows: data.total_rows,
+                        tasksToCreate: data.tasks_to_create,
+                        uniqueProjects: data.count,
+                        projectNames: data.project_names
+                    });
+                } else {
+                    throw new Error(data.error || 'Failed to detect project names');
+                }
+            } catch (error) {
+                console.error('Error detecting project names:', error);
+                showToast('danger', `Error detecting project names: ${error.message}`, 'Error');
+            }
+        }
+        
+        function autoMapProjects() {
+            showToast('info', 'Auto-mapping projects...', 'Auto-Mapping Projects');
+            showToast('success', 'Projects auto-mapped successfully', 'Projects Mapped');
+        }
+        
+        function clearProjectMappings() {
+            showToast('info', 'Clearing project mappings...', 'Clearing Mappings');
+            showToast('success', 'Project mappings cleared successfully', 'Mappings Cleared');
+        }
+        
+        // Column detection and mapping functions
+        async function detectFromSheet() {
+            const spreadsheetId = document.getElementById('spreadsheetId').value;
+            if (!spreadsheetId) {
+                showToast('danger', 'Please enter Spreadsheet ID', 'Missing Spreadsheet ID');
+                return;
+            }
+            const selectedWorksheet = document.getElementById('worksheetName').value;
+            if (!selectedWorksheet) {
+                showToast('warning', 'Please select a worksheet first', 'Missing Worksheet');
+                return;
+            }
+            try {
+                showToast('info', 'Detecting headers from Google Sheet...', 'Detecting Headers');
+                const response = await fetch(`${API_BASE_URL}/api/detect-headers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        spreadsheet_id: spreadsheetId,
+                        worksheet_name: selectedWorksheet 
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    currentHeaders = data.headers;
+                    autoMapColumns();
+                    document.getElementById('step-card-columns').classList.add('complete');
+                    showToast('success', `Detected ${data.headers.length} headers from worksheet "${selectedWorksheet}"`, 'Headers Detected');
+                } else {
+                    throw new Error(data.error || 'Failed to detect headers');
+                }
+            } catch (error) {
+                showToast('danger', 'Error detecting headers: ' + error.message, 'Error');
+                document.getElementById('step-card-columns').classList.add('missing-required');
+            }
+        }
+        
+        function autoMapColumns() {
+            if (currentHeaders.length === 0) {
+                showToast('warning', 'No headers detected. Please detect headers from sheet first.', 'No Headers');
+                return;
+            }
+            
+            autoMappings = {};
+            
+            Object.keys(defaultConfig).forEach(key => {
+                const config = defaultConfig[key];
+                const match = findBestMatch(config.header, currentHeaders);
+                
+                if (match) {
+                    autoMappings[key] = match;
+                    currentMappings[key] = match.index.toString();
+                } else {
+                    if (!config.required) {
+                        currentMappings[key] = '';
+                    } else {
+                        currentMappings[key] = config.index.toString();
+                    }
+                }
+            });
+            
+            renderColumnMappings();
+            
+            const mappedCount = Object.keys(autoMappings).length;
+            showToast('success', `Auto-mapped ${mappedCount} columns`, 'Auto-Mapping Complete');
+        }
+        
+        function findBestMatch(targetHeader, headers) {
+            const targetLower = targetHeader.toLowerCase().trim();
+            
+            for (let i = 0; i < headers.length; i++) {
+                const header = headers[i];
+                const headerLower = header.toLowerCase().trim();
+                
+                if (headerLower === targetLower) {
+                    return { index: i + 1, confidence: 'exact', header: header };
+                }
+                
+                if (headerLower.includes(targetLower) || targetLower.includes(headerLower)) {
+                    return { index: i + 1, confidence: 'partial', header: header };
+                }
+            }
+            
+            return null;
+        }
+        
+        function renderColumnMappings() {
+            const container = document.getElementById('columnMappings');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            Object.keys(defaultConfig).forEach(key => {
+                const config = defaultConfig[key];
+                const div = document.createElement('div');
+                const isAutoMapped = key in autoMappings;
+                const currentMapping = currentMappings[key];
+                const isMapped = currentMapping && currentMapping !== '';
+                const isOptional = !config.required;
+                
+                div.className = `card mb-2 ${isAutoMapped ? 'border-success' : isMapped ? 'border-primary' : isOptional ? 'border-warning' : 'border-danger'}`;
+                
+                let confidenceBadge = '';
+                if (isAutoMapped) {
+                    const confidenceClass = autoMappings[key].confidence === 'exact' ? 'bg-success' : 'bg-warning';
+                    confidenceBadge = `<span class="badge ${confidenceClass} ms-2">${autoMappings[key].confidence} match</span>`;
+                }
+                
+                let mappedInfo = 'Not mapped';
+                if (isMapped) {
+                    const columnIndex = parseInt(currentMapping) - 1;
+                    if (columnIndex >= 0 && columnIndex < currentHeaders.length) {
+                        mappedInfo = `${currentMapping}: ${currentHeaders[columnIndex]}`;
+                    } else {
+                        mappedInfo = `Column ${currentMapping}`;
+                    }
+                }
+                
+                div.innerHTML = `
+                                <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <h6 class="mb-1">
+                                    ${key}${confidenceBadge}
+                                    ${config.required ? '<span class="badge bg-danger ms-1">Required</span>' : '<span class="badge bg-secondary ms-1">Optional</span>'}
+                                </h6>
+                                <small class="text-muted">${config.description}</small>
+                                </div>
+                            <div class="col-md-4">
+                                <small class="text-muted">Mapped to:</small><br>
+                                <strong class="${isMapped ? 'text-success' : isOptional ? 'text-warning' : 'text-danger'}">${mappedInfo}</strong>
+                            </div>
+                            <div class="col-md-4">
+                                <select class="form-select form-select-sm" onchange="updateMapping('${key}', this.value)">
+                                    <option value="">${isOptional ? 'Leave unmapped' : 'Select column...'}</option>
+                                    ${currentHeaders.map((header, index) => `
+                                        <option value="${index + 1}" ${currentMapping === (index + 1).toString() ? 'selected' : ''}>
+                                            ${index + 1}: ${header}
+                                        </option>
+                                    `).join('')}
+                                </select>
+                        </div>
+                                </div>
+                            </div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+        
+        function updateMapping(key, value) {
+            if (value) {
+                currentMappings[key] = value;
+                delete autoMappings[key];
+            } else {
+                if (!defaultConfig[key].required) {
+                    currentMappings[key] = '';
+                    delete autoMappings[key];
+                } else {
+                    const match = findBestMatch(defaultConfig[key].header, currentHeaders);
+                    if (match) {
+                        currentMappings[key] = match.index.toString();
+                        autoMappings[key] = match;
+                    }
+                }
+            }
+            renderColumnMappings();
+        }
+        
+        // Fetch functions
+        function fetchAllProjects() {
+            const gitlabUrl = document.getElementById('gitlabUrl').value.trim();
+            const gitlabToken = document.getElementById('gitlabToken').value.trim();
+            
+            if (!gitlabUrl || !gitlabToken) {
+                showToast('danger', 'Please enter GitLab Token', 'Missing Information');
+                return;
+            }
+            
+            // Get the fetch button and show loading state
+            const fetchButton = document.querySelector('button[onclick="fetchAllProjects()"]');
+            const originalText = fetchButton.innerHTML;
+            fetchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
+            fetchButton.disabled = true;
+            
+            const apiUrl = `${API_BASE_URL}/api/fetch-projects`;
+            console.log('🌐 Calling API URL:', apiUrl);
+            console.log('📤 Request payload:', { gitlab_url: gitlabUrl, gitlab_token: gitlabToken });
+            console.log('🔧 API_BASE_URL value:', API_BASE_URL);
+            console.log('🔧 Full URL being called:', apiUrl);
+            
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    gitlab_url: gitlabUrl,
+                    gitlab_token: gitlabToken
+                })
+            })
+            .then(response => {
+                console.log('Fetch projects response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showToast('success', `Found ${data.projects.length} project(s)`, 'Projects Fetched');
+                    document.getElementById('step-card-gitlab').classList.add('complete');
+                    
+                    // Store GitLab projects globally
+                    gitlabProjects = data.projects;
+                    
+                    // Populate project dropdowns
+                    populateProjectDropdownsFromGitLab(data.projects);
+                } else {
+                    showToast('danger', data.error || 'Failed to fetch projects', 'Error');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching projects:', error);
+                showToast('danger', 'Failed to connect to the API. Please check your connection.', 'Connection Error');
+            })
+            .finally(() => {
+                // Restore button state
+                fetchButton.innerHTML = originalText;
+                fetchButton.disabled = false;
+            });
+        }
+        
+        function fetchSheetNames() {
+            const spreadsheetId = document.getElementById('spreadsheetId').value.trim();
+            const serviceAccountFile = document.getElementById('serviceAccountFile').files[0];
+            
+            if (!spreadsheetId) {
+                showToast('danger', 'Please enter a Spreadsheet ID', 'Missing Spreadsheet ID');
+                return;
+            }
+            
+            if (!serviceAccountFile) {
+                showToast('danger', 'Please upload a service account file first', 'Missing Service Account');
+                return;
+            }
+            
+            // Get the fetch button and show loading state
+            const fetchButton = document.querySelector('button[onclick="fetchSheetNames()"]');
+            const originalText = fetchButton.innerHTML;
+            fetchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
+            fetchButton.disabled = true;
+            
+            const formData = new FormData();
+            formData.append('file', serviceAccountFile);
+            
+            console.log('🚀 Starting fetchSheetNames process...');
+            console.log('📊 Spreadsheet ID:', spreadsheetId);
+            console.log('🔐 Service account file:', serviceAccountFile.name);
+            console.log('🌐 API Base URL:', API_BASE_URL);
+            
+            fetch(`${API_BASE_URL}/api/upload-service-account`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Upload response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(uploadData => {
+                console.log('Upload response data:', uploadData);
+                if (uploadData.success) {
+                    return fetch(`${API_BASE_URL}/api/sheet-names`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ spreadsheet_id: spreadsheetId })
+                    });
+                } else {
+                    throw new Error(uploadData.error || 'Failed to upload service account file');
+                }
+            })
+            .then(response => {
+                console.log('Sheet names response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Sheet names API response:', data);
+                
+                if (data.success) {
+                    // Check if sheet_names property exists and is an array
+                    if (!data.sheet_names || !Array.isArray(data.sheet_names)) {
+                        console.error('Invalid sheet_names data:', data.sheet_names);
+                        showToast('danger', 'API returned invalid sheet data format', 'Data Error');
+                        return;
+                    }
+                    
+                    const worksheetSelect = document.getElementById('worksheetName');
+                    worksheetSelect.innerHTML = '<option value="">Select worksheet...</option>';
+                    
+                    data.sheet_names.forEach(sheet => {
+                        const option = document.createElement('option');
+                        option.value = sheet;
+                        option.textContent = sheet;
+                        worksheetSelect.appendChild(option);
+                    });
+                    
+                    showToast('success', `Found ${data.sheet_names.length} worksheet(s)`, 'Worksheets Fetched');
+                    document.getElementById('step-card-google-sheets').classList.add('complete');
+                } else {
+                    showToast('danger', data.error || 'Failed to fetch sheet names', 'Error');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching sheet names:', error);
+                showToast('danger', 'Failed to connect to the API. Please check your connection.', 'Connection Error');
+            })
+            .finally(() => {
+                // Restore button state
+                fetchButton.innerHTML = originalText;
+                fetchButton.disabled = false;
+            });
+        }
+        
+        // File upload handling
+        document.getElementById('serviceAccountFile').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                try {
+                    document.getElementById('serviceAccountStatus').innerHTML = 
+                        `<div class="alert alert-info">
+                            <i class="fas fa-spinner fa-spin"></i> Uploading service account file...
+                        </div>`;
+                    
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch(`${API_BASE_URL}/api/upload-service-account`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        document.getElementById('serviceAccountStatus').innerHTML = 
+                            `<div class="alert alert-success">
+                                <i class="fas fa-check"></i> Service account file uploaded successfully
+                                <br><small class="text-muted">File: ${file.name}</small>
+                            </div>`;
+                        document.getElementById('step-card-google-sheets').classList.add('complete');
+                        showToast('success', 'Service account file uploaded successfully', 'Upload Success');
+                    } else {
+                        throw new Error(data.error || 'Upload failed');
+                    }
+                } catch (error) {
+                    document.getElementById('serviceAccountStatus').innerHTML = 
+                        `<div class="alert alert-danger">
+                            <i class="fas fa-times"></i> Upload failed: ${error.message}
+                        </div>`;
+                    document.getElementById('step-card-google-sheets').classList.add('missing-required');
+                    showToast('danger', 'Failed to upload service account file', 'Upload Failed');
+                }
+            }
+        });
+        
+        // Run sync function
+        async function startSheetToGitlab() {
+            console.log('🚀 startSheetToGitlab() function called!');
+            
+            // Validate configuration first
+            if (!validateSyncConfiguration()) {
+                console.log('❌ Validation failed, stopping sync');
+                return;
+            }
+            
+            console.log('✅ Validation passed, proceeding with sync');
+
+            try {
+                // Show sync progress section
+                showSyncSection();
+                
+                // Reset progress steps
+                resetProgressSteps();
+                
+                // Show loading state
+                const mainSyncBtn = document.getElementById('mainSyncBtn');
+                const progressDiv = document.getElementById('syncProgress');
+                const outputDiv = document.getElementById('syncOutput');
+                const statusDiv = document.getElementById('syncStatus');
+
+                mainSyncBtn.disabled = true;
+                mainSyncBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Syncing...';
+                progressDiv.style.display = 'block';
+                outputDiv.style.display = 'block';
+                statusDiv.innerHTML = '<div class="d-flex align-items-center justify-content-center"><i class="fas fa-spinner fa-spin fa-2x text-info me-3"></i><div><h5 class="mb-1 text-dark">Starting Sync...</h5><p class="mb-0 text-muted">Initializing the synchronization process</p></div></div>';
+                progressDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+
+                syncRunning = true;
+
+                // Collect current configuration
+                const syncConfig = {
+                    gitlab_url: document.getElementById('gitlabUrl').value,
+                    gitlab_token: document.getElementById('gitlabToken').value,
+                    project_id: projectMappingEnabled ? '' : document.getElementById('projectId').value,
+                    spreadsheet_id: document.getElementById('spreadsheetId').value,
+                    worksheet_name: document.getElementById('worksheetName').value,
+                    default_assignee: projectMappingEnabled ? document.getElementById('globalAssignee').value : document.getElementById('defaultAssignee').value,
+                    default_milestone: projectMappingEnabled ? '' : document.getElementById('defaultMilestone').value,
+                    default_label: (() => {
+                        if (projectMappingEnabled) {
+                            // For project mapping, we'll handle labels per project
+                            return '';
+                        } else {
+                            // Handle multiple label selection for single project
+                            const selectedCheckboxes = document.querySelectorAll('#labelOptions input[type="checkbox"]:checked');
+                            const selectedLabels = Array.from(selectedCheckboxes)
+                                .map(checkbox => checkbox.nextElementSibling.textContent); // Get label text from sibling element
+                            
+                            // Debug logging
+                            console.log('Selected labels for single project:', selectedLabels);
+                            
+                            return selectedLabels.join(','); // Join multiple labels with comma
+                        }
+                    })(),
+                    column_mappings: currentMappings,
+                    project_mappings: projectMappingEnabled ? (() => {
+                        // Create enhanced project mappings with labels and milestones
+                        const enhancedMappings = {};
+                        for (const [projectName, mapping] of Object.entries(currentProjectMappings)) {
+                            // Get the project ID (could be string or object)
+                            const projectId = typeof mapping === 'object' ? (mapping.project_id || mapping) : mapping;
+                            
+                            // Get milestone (could be in mapping object or empty)
+                            const milestone = typeof mapping === 'object' ? (mapping.milestone || '') : '';
+                            
+                            // Get labels from UI
+                            const safeName = projectName.replace(/\s+/g, '_');
+                            const selectedCheckboxes = document.querySelectorAll(`#labelOptions_${safeName} input[type="checkbox"]:checked`);
+                            const labels = Array.from(selectedCheckboxes)
+                                .map(checkbox => checkbox.nextElementSibling.textContent); // Get label text from sibling element
+                            
+                            // Debug logging
+                            console.log(`Selected labels for project ${projectName}:`, labels);
+                            
+                            enhancedMappings[projectName] = {
+                                project_id: projectId,
+                                milestone: milestone,
+                                labels: labels
+                            };
+                        }
+                        return enhancedMappings;
+                    })() : {},
+                    project_mapping_enabled: projectMappingEnabled,
+                    start_date: document.getElementById('startDate') ? document.getElementById('startDate').value : '',
+                    end_date: document.getElementById('endDate') ? document.getElementById('endDate').value : '',
+                    enable_date_filter: document.getElementById('enableDateFilter') ? document.getElementById('enableDateFilter').checked : false,
+                    enable_auto_close: document.getElementById('enableAutoClose') ? document.getElementById('enableAutoClose').checked : true
+                };
+
+                // Start the sync process
+                const response = await fetch(`${API_BASE_URL}/api/start-sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(syncConfig)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('success', 'Sync process started successfully!', 'Sync Started');
+                    statusDiv.innerHTML = '<small class="text-success"><i class="fas fa-check"></i> Sync process started</small>';
+                    
+                    // Show progress steps immediately
+                    const stepsDiv = document.getElementById('syncProgressSteps');
+                    if (stepsDiv) {
+                        stepsDiv.style.display = 'block';
+                    }
+                    
+                    // Show "Syncing..." as the initial state
+                    updateProgressStep('sync-start');
+                    
+                    // Immediately transition to reading-sheet after a short delay
+                    setTimeout(() => {
+                        updateProgressStep('reading-sheet');
+                    }, 300);
+                    
+                    // Start polling for progress
+                    startProgressPolling();
+                } else {
+                    throw new Error(data.error || 'Failed to start sync process');
+                }
+
+            } catch (error) {
+                showToast('danger', `Error starting sync: ${error.message}`, 'Sync Error');
+                
+                // Reset UI state
+                const mainSyncBtn = document.getElementById('mainSyncBtn');
+                const progressDiv = document.getElementById('syncProgress');
+                const outputDiv = document.getElementById('syncOutput');
+                const statusDiv = document.getElementById('syncStatus');
+                const stepsDiv = document.getElementById('syncProgressSteps');
+
+                mainSyncBtn.disabled = false;
+                mainSyncBtn.innerHTML = '<i class="fas fa-play me-2"></i> Run Sync';
+                progressDiv.style.display = 'none';
+                outputDiv.style.display = 'none';
+                stepsDiv.style.display = 'none';
+                statusDiv.innerHTML = '<small class="text-danger"><i class="fas fa-exclamation-triangle"></i> Failed to start sync</small>';
+                
+                syncRunning = false;
+            }
+        }
+        
+        // Scroll to top function
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+        
+        // Test API connectivity
+        function testApiConnection() {
+            console.log('Testing API connection to:', API_BASE_URL);
+            fetch(`${API_BASE_URL}/api/health`)
+                .then(response => {
+                    console.log('API health check response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('API health check successful:', data);
+                    // showToast('success', 'API connection is working', 'Connection Test');
+                })
+                .catch(error => {
+                    console.error('API health check failed:', error);
+                    showToast('danger', `API connection failed: ${error.message}`, 'Connection Test Failed');
+                });
+        }
+        
+
+        
+        // Date filter functionality
+        function initializeDateFilter() {
+            const enableDateFilter = document.getElementById('enableDateFilter');
+            const startDate = document.getElementById('startDate');
+            const endDate = document.getElementById('endDate');
+            
+            if (enableDateFilter) {
+                enableDateFilter.addEventListener('change', function() {
+                    if (this.checked) {
+                        startDate.disabled = false;
+                        endDate.disabled = false;
+                        startDate.required = true;
+                        endDate.required = true;
+                    } else {
+                        startDate.disabled = true;
+                        endDate.disabled = true;
+                        startDate.required = false;
+                        endDate.required = false;
+                        startDate.value = '';
+                        endDate.value = '';
+                    }
+                });
+            }
+        }
+        
+        // Test API on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, testing API connection...');
+            console.log('Testing if startSheetToGitlab function exists:', typeof startSheetToGitlab);
+            console.log('Testing if validateSyncConfiguration function exists:', typeof validateSyncConfiguration);
+            
+            testApiConnection();
+            
+            // Initialize UI components
+            initializeCustomMultiselect();
+            addHighlightClearListeners();
+            updateStatusCards();
+            initializeDateFilter(); // Initialize date filter functionality
+            
+            // Test if Run Sync button exists
+            const runSyncBtn = document.getElementById('mainSyncBtn');
+            console.log('Run Sync button found:', runSyncBtn !== null);
+            if (runSyncBtn) {
+                console.log('Button onclick attribute:', runSyncBtn.getAttribute('onclick'));
+            }
+        });
+        
+        // Missing core functions
+        function scrollToSection(sectionId) {
+            const element = document.getElementById(sectionId);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        
+        function showSyncSection() {
+            console.log('🔍 showSyncSection() function called!');
+            const syncSection = document.getElementById('syncProgressSection');
+            console.log('🔍 Looking for syncProgressSection element:', syncSection);
+            if (syncSection) {
+                console.log('✅ Found syncProgressSection, showing it...');
+                syncSection.style.display = 'block';
+                syncSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                console.error('❌ syncProgressSection element not found!');
+            }
+        }
+        
+        function hideSyncSection() {
+            const syncSection = document.getElementById('syncProgressSection');
+            if (syncSection) {
+                syncSection.style.display = 'none';
+            }
+        }
+        
+        function updateStatusCards() {
+            checkStepCompletion();
+            updateStepCardHighlight('google-sheets', checkGoogleSheetsStep());
+            updateStepCardHighlight('gitlab', checkGitLabStep());
+            updateStepCardHighlight('columns', checkColumnsStep());
+            updateStepCardHighlight('projects', checkProjectsStep());
+        }
+        
+        function checkStepCompletion() {
+            const steps = ['google-sheets', 'gitlab', 'columns', 'projects'];
+            let completedSteps = 0;
+            
+            steps.forEach(step => {
+                if (document.getElementById(`step-card-${step}`).classList.contains('complete')) {
+                    completedSteps++;
+                }
+            });
+            
+            // Update progress indicator
+            const progressBar = document.querySelector('.progress-bar');
+            if (progressBar) {
+                const progress = (completedSteps / steps.length) * 100;
+                progressBar.style.width = `${progress}%`;
+                progressBar.setAttribute('aria-valuenow', progress);
+            }
+        }
+        
+        function checkGoogleSheetsStep() {
+            const serviceAccountFile = document.getElementById('serviceAccountFile').files[0];
+            const spreadsheetId = document.getElementById('spreadsheetId').value.trim();
+            const worksheetName = document.getElementById('worksheetName').value.trim();
+            return serviceAccountFile && spreadsheetId && worksheetName;
+        }
+        
+        function checkGitLabStep() {
+            const gitlabUrl = document.getElementById('gitlabUrl').value.trim();
+            const gitlabToken = document.getElementById('gitlabToken').value.trim();
+            return gitlabUrl && gitlabToken;
+        }
+        
+        function checkColumnsStep() {
+            // Check if column mappings are configured
+            const columnMappings = document.getElementById('columnMappings');
+            return columnMappings && columnMappings.children.length > 0;
+        }
+        
+        function checkProjectsStep() {
+            // Check if project configuration is complete
+            if (projectMappingEnabled) {
+                // For project mapping mode, check if at least one project is mapped
+                return Object.keys(currentProjectMappings).length > 0;
+            } else {
+                // For single project mode, check if project is selected
+                return document.getElementById('projectId').value && 
+                       document.getElementById('defaultAssignee').value;
+            }
+        }
+        
+        function updateStepCardHighlight(stepName, isComplete) {
+            const stepCard = document.getElementById(`step-card-${stepName}`);
+            if (stepCard) {
+                stepCard.classList.remove('complete', 'missing-required');
+                if (isComplete) {
+                    stepCard.classList.add('complete');
+                } else {
+                    stepCard.classList.add('missing-required');
+                }
+            }
+        }
+        
+        function clearStepHighlights() {
+            const stepCards = document.querySelectorAll('.step-card');
+            stepCards.forEach(card => {
+                card.classList.remove('complete', 'missing-required');
+            });
+        }
+        
+        function addHighlightClearListeners() {
+            // Add event listeners to clear highlights when inputs change
+            const inputs = document.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    const stepName = this.closest('.config-section')?.id?.replace('-config', '');
+                    if (stepName) {
+                        updateStepCardHighlight(stepName, false);
+                    }
+                });
+            });
+        }
+        
+        function initializeCustomMultiselect() {
+            // Initialize custom multiselect components if they exist
+            console.log('Initializing custom multiselect components...');
+        }
+        
+        // Project mapping functions
+        function openProjectMappingModal() {
+            // Open project mapping modal if it exists
+            const modal = document.getElementById('projectMappingModal');
+            if (modal) {
+                const bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+            }
+        }
+        
+        function saveProjectMappings() {
+            // Save project mappings
+            showToast('success', 'Project mappings saved successfully', 'Saved');
+        }
+        
+        function disableProjectMapping() {
+            projectMappingEnabled = false;
+            document.getElementById('singleProjectConfig').style.display = 'block';
+            document.getElementById('projectMappingConfig').style.display = 'none';
+            showToast('info', 'Project mapping disabled. Switched to single project mode.', 'Project Mapping Disabled');
+            
+            // Update step completion
+            updateStepCardHighlight('projects', true);
+        }
+        
+        async function fetchDefaultProjectSettings() {
+            const projectId = document.getElementById('defaultProjectForSettings').value;
+            if (!projectId) {
+                showToast('warning', 'Please select a project first', 'No Project Selected');
+                return;
+            }
+            
+            try {
+                showToast('info', 'Fetching default project settings...', 'Fetching Settings');
+                
+                // Fetch project data for the selected project
+                await fetchProjectDataForProject(projectId);
+                
+                showToast('success', 'Default project settings fetched successfully', 'Settings Fetched');
+                
+            } catch (error) {
+                console.error('Error fetching default project settings:', error);
+                showToast('danger', `Failed to fetch default project settings: ${error.message}`, 'Error');
+            }
+        }
+        
+        function validateSyncConfiguration() {
+            const issues = [];
+            
+            // Enhanced debug logging
+            console.log('=== VALIDATION DEBUG ===');
+            console.log('projectMappingEnabled:', projectMappingEnabled);
+            console.log('currentProjectMappings:', currentProjectMappings);
+            console.log('Object.keys(currentProjectMappings).length:', Object.keys(currentProjectMappings).length);
+            
+            // Check each required field individually
+            const gitlabToken = document.getElementById('gitlabToken');
+            const spreadsheetId = document.getElementById('spreadsheetId');
+            const worksheetName = document.getElementById('worksheetName');
+            const serviceAccountFile = document.getElementById('serviceAccountFile');
+            const projectId = document.getElementById('projectId');
+            const defaultAssignee = document.getElementById('defaultAssignee');
+            const globalAssignee = document.getElementById('globalAssignee');
+            
+            console.log('gitlabToken exists:', !!gitlabToken);
+            console.log('gitlabToken value:', gitlabToken ? (gitlabToken.value ? 'SET' : 'NOT SET') : 'ELEMENT NOT FOUND');
+            console.log('spreadsheetId exists:', !!spreadsheetId);
+            console.log('spreadsheetId value:', spreadsheetId ? (spreadsheetId.value ? 'SET' : 'NOT SET') : 'ELEMENT NOT FOUND');
+            console.log('worksheetName exists:', !!worksheetName);
+            console.log('worksheetName value:', worksheetName ? (worksheetName.value ? 'SET' : 'NOT SET') : 'ELEMENT NOT FOUND');
+            console.log('serviceAccountFile exists:', !!serviceAccountFile);
+            console.log('serviceAccountFile files:', serviceAccountFile ? serviceAccountFile.files.length : 'ELEMENT NOT FOUND');
+            console.log('projectId exists:', !!projectId);
+            console.log('projectId value:', projectId ? (projectId.value ? 'SET' : 'NOT SET') : 'ELEMENT NOT FOUND');
+            console.log('defaultAssignee exists:', !!defaultAssignee);
+            console.log('defaultAssignee value:', defaultAssignee ? (defaultAssignee.value ? 'SET' : 'NOT SET') : 'ELEMENT NOT FOUND');
+            console.log('globalAssignee exists:', !!globalAssignee);
+            console.log('globalAssignee value:', globalAssignee ? (globalAssignee.value ? 'SET' : 'NOT SET') : 'ELEMENT NOT FOUND');
+            
+            // Clear any existing highlights first
+            clearStepHighlights();
+            
+            if (!gitlabToken || !gitlabToken.value) {
+                issues.push('GitLab Token is required');
+                console.log('❌ GitLab Token validation failed');
+            }
+            
+            // Check project ID only if project mapping is not enabled
+            if (!projectMappingEnabled) {
+                if (!projectId || !projectId.value) {
+                    issues.push('Project ID is required');
+                    console.log('❌ Project ID validation failed');
+                }
+            }
+            
+            // Check assignee based on mode
+            if (projectMappingEnabled) {
+                if (!globalAssignee || !globalAssignee.value) {
+                    issues.push('Global Assignee is required for project mapping');
+                    console.log('❌ Global Assignee validation failed');
+                }
+            } else {
+                if (!defaultAssignee || !defaultAssignee.value) {
+                    issues.push('Assignee is required');
+                    console.log('❌ Default Assignee validation failed');
+                }
+            }
+            
+            if (!spreadsheetId || !spreadsheetId.value) {
+                issues.push('Spreadsheet ID is required');
+                console.log('❌ Spreadsheet ID validation failed');
+            }
+            if (!worksheetName || !worksheetName.value) {
+                issues.push('Worksheet Name is required');
+                console.log('❌ Worksheet Name validation failed');
+            }
+            
+            // Check if service account file is uploaded
+            if (!serviceAccountFile || !serviceAccountFile.files || serviceAccountFile.files.length === 0) {
+                issues.push('Service Account file is required');
+                console.log('❌ Service Account file validation failed');
+            }
+            
+            // Additional validation for project mapping mode
+            if (projectMappingEnabled) {
+                if (Object.keys(currentProjectMappings).length === 0) {
+                    issues.push('At least one project mapping is required');
+                    console.log('❌ Project mapping validation failed');
+                }
+            }
+            
+            console.log('Validation issues:', issues);
+            console.log('=== END VALIDATION DEBUG ===');
+            
+            if (issues.length > 0) {
+                // Highlight missing steps based on validation issues
+                checkStepCompletion();
+                
+                // Show error message with details
+                const errorMessage = 'Configuration issues found:\n\n' + issues.map(issue => '• ' + issue).join('\n');
+                showToast('danger', errorMessage, 'Configuration Issues');
+                
+                // Also show a more prominent error message in the sync status area
+                const statusDiv = document.getElementById('syncStatus');
+                if (statusDiv) {
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Configuration Issues Found</h6>
+                                        <ul class="mb-0">
+                                ${issues.map(issue => `<li>${issue}</li>`).join('')}
+                                        </ul>
+                            <small class="text-muted">Please fix the highlighted issues above and try again.</small>
+                                    </div>
+                    `;
+                }
+                
+                return false;
+            }
+            
+            console.log('✅ All validation passed!');
+            return true;
+        }
+        
+        // Show/hide back to top button based on scroll position
+        window.addEventListener('scroll', function() {
+            const backToTopButton = document.getElementById('backToTop');
+            if (window.scrollY > 300) {
+                backToTopButton.classList.add('show');
+            } else {
+                backToTopButton.classList.remove('show');
+            }
+        });
+        
+        // Toast notification function
+        function showSyncCompletion(data) {
+            const progressDiv = document.getElementById('syncProgress');
+            const outputDiv = document.getElementById('syncOutput');
+            const statusDiv = document.getElementById('syncStatus');
+            const mainSyncBtn = document.getElementById('mainSyncBtn');
+            const stepsDiv = document.getElementById('syncProgressSteps');
+            
+            progressDiv.style.display = 'none';
+            mainSyncBtn.disabled = false;
+            mainSyncBtn.innerHTML = '<i class="fas fa-play me-2"></i> Run Sync';
+            
+            // Check if it's an early termination or error
+            const isEarlyTermination = data.output && (
+                data.output.toLowerCase().includes('no data found') || 
+                data.output.toLowerCase().includes('no tasks to process') ||
+                data.output.toLowerCase().includes('sync failed')
+            );
+            
+            if (data.output) {
+                outputDiv.style.display = 'block';
+                // Format the final output
+                const formattedOutput = data.output
+                    .split('\n')
+                    .map(line => {
+                        // Remove the flow structure characters for cleaner log output
+                        if (line.includes('🔄 Sync Started') || line.includes('✅ Sync Completed') || line.includes('❌ Sync Failed')) {
+                            return `<div class="text-primary fw-bold">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                        } else if (line.includes('├─') || line.includes('└─')) {
+                            return `<div class="text-info fw-bold">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                        } else if (line.includes('│   ✅') || line.includes('│   🆕') || line.includes('│   🔄')) {
+                            return `<div class="text-success">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                        } else if (line.includes('│   ❌') || line.includes('│   ⚠️')) {
+                            return `<div class="text-warning">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                        } else if (line.includes('│   ── Progress:')) {
+                            return `<div class="text-primary fw-bold">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                        } else if (line.includes('│   📊 Sync Summary:')) {
+                            return `<div class="text-info fw-bold">${line.replace(/^[│├└─\s]+/, '')}</div>`;
+                        } else if (line.startsWith('│')) {
+                            return `<div>${line.replace(/^[│\s]+/, '')}</div>`;
+                        } else {
+                            return `<div>${line}</div>`;
+                        }
+                    })
+                    .join('');
+                outputDiv.innerHTML = formattedOutput;
+            }
+            
+            if (isEarlyTermination) {
+                statusDiv.innerHTML = '<small class="text-warning"><i class="fas fa-exclamation-triangle"></i> Sync completed - no tasks to process</small>';
+                showToast('warning', 'Sync completed - no tasks found to process', 'Sync Completed');
+            } else {
+                statusDiv.innerHTML = '<small class="text-success"><i class="fas fa-check"></i> Sync completed successfully!</small>';
+                showToast('success', 'Sync completed successfully!', 'Sync Completed');
+            }
+            
+            syncRunning = false;
+        }
+        
+        function showSyncError(error) {
+            const progressDiv = document.getElementById('syncProgress');
+            const outputDiv = document.getElementById('syncOutput');
+            const statusDiv = document.getElementById('syncStatus');
+            const mainSyncBtn = document.getElementById('mainSyncBtn');
+            const stepsDiv = document.getElementById('syncProgressSteps');
+            
+            progressDiv.style.display = 'none';
+            mainSyncBtn.disabled = false;
+            mainSyncBtn.innerHTML = '<i class="fas fa-play me-2"></i> Run Sync';
+            
+            if (error) {
+                outputDiv.style.display = 'block';
+                outputDiv.innerHTML = `<div class="text-danger">❌ Error: ${error}</div>`;
+            }
+            
+            statusDiv.innerHTML = '<small class="text-danger"><i class="fas fa-times"></i> Sync failed</small>';
+            showToast('danger', 'Sync failed: ' + error, 'Sync Failed');
+            syncRunning = false;
+        }
+        
+        function showSyncStopped() {
+            const progressDiv = document.getElementById('syncProgress');
+            const statusDiv = document.getElementById('syncStatus');
+            const mainSyncBtn = document.getElementById('mainSyncBtn');
+            const stepsDiv = document.getElementById('syncProgressSteps');
+            
+            progressDiv.style.display = 'none';
+            mainSyncBtn.disabled = false;
+            mainSyncBtn.innerHTML = '<i class="fas fa-play me-2"></i> Run Sync';
+            
+            statusDiv.innerHTML = '<small class="text-warning"><i class="fas fa-stop"></i> Sync stopped by user</small>';
+            showToast('warning', 'Sync stopped by user', 'Sync Stopped');
+            syncRunning = false;
+        }
+        
+        function showToast(type, message, title = '') {
+            const toastContainer = document.querySelector('.toast-container');
+            if (!toastContainer) {
+                const container = document.createElement('div');
+                container.className = 'toast-container position-fixed top-0 end-0 p-3';
+                container.style.zIndex = '9999';
+                document.body.appendChild(container);
+            }
+            
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+            `;
+            toastContainer.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                toast.remove();
+            });
+        }
+    </script>
 </body>
 </html>

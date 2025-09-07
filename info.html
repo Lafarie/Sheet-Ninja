@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Information - Sheet Ninja</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 1.5rem;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .dashboard-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .dashboard-subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+        }
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+        .section-content {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #495057;
+        }
+        .dashboard-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            border: none;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        .btn-dashboard {
+            border-radius: 8px;
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-dashboard:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .content-section {
+            padding: 2rem 0 3rem 0;
+        }
+    </style>
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <div class="dashboard-header">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="text-center w-100">
+                    <h1 class="dashboard-title">Sheet Ninja 🥷</h1>
+                    <p class="dashboard-subtitle mb-0">
+                        <i class="fab fa-gitlab"></i> GitLab ↔ <i class="fas fa-table"></i> Google Sheets Sync System
+                    </p>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <a class="btn btn-light btn-sm btn-dashboard" href="setup_ui.html">
+                    <i class="fas fa-arrow-left"></i> Back to Homepage
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container content-section">
+        <h2 class="section-title">Setup Information</h2>
+        <div class="section-content">
+            
+            <!-- Service Account Setup -->
+            <div id="service-account" class="dashboard-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-key"></i> Create Service Account</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Service Account Required:</strong> You need a Google Cloud service account to access your Google Sheets. Follow these steps to create one:
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <ol class="list-group list-group-numbered">
+                                <li class="list-group-item">
+                                    <strong>Go to Google Cloud Console</strong>
+                                    <br>
+                                    <a href="https://console.cloud.google.com/" target="_blank" class="btn btn-outline-primary btn-sm mt-2">
+                                        <i class="fas fa-external-link-alt"></i> Open Google Cloud Console
+                                    </a>
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Create a new project or select an existing one</strong>
+                                    <br>
+                                    <small class="text-muted">If you don't have a project, create one with any name</small>
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Enable the Google Sheets API:</strong>
+                                    <ul class="mt-2">
+                                        <li>Go to <strong>APIs & Services</strong> → <strong>Library</strong></li>
+                                        <li>Search for "Google Sheets API" and enable it</li>
+                                    </ul>
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Create Service Account credentials:</strong>
+                                    <ul class="mt-2">
+                                        <li>Go to <strong>APIs & Services</strong> → <strong>Credentials</strong></li>
+                                        <li>Click <strong>"Create Credentials"</strong> → <strong>"Service Account"</strong></li>
+                                        <li>Fill in service account details and click <strong>"Create"</strong></li>
+                                        <li>Skip optional steps and click <strong>"Done"</strong></li>
+                                    </ul>
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Download the JSON key file:</strong>
+                                    <ul class="mt-2">
+                                        <li>Click on your newly created service account</li>
+                                        <li>Go to the <strong>"Keys"</strong> tab</li>
+                                        <li>Click <strong>"Add Key"</strong> → <strong>"Create new key"</strong></li>
+                                        <li>Choose <strong>"JSON"</strong> format and download the file</li>
+                                        <li>Upload this file in the Google Sheets configuration section</li>
+                                    </ul>
+                                </li>
+                            </ol>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-warning">
+                                <h6><i class="fas fa-exclamation-triangle"></i> Important Notes:</h6>
+                                <ul class="mb-0">
+                                    <li>Keep your service account JSON file secure</li>
+                                    <li>Share your Google Sheet with the service account email</li>
+                                    <li>The service account email looks like: <code>name@project.iam.gserviceaccount.com</code></li>
+                                </ul>
+                            </div>
+                            
+                            <div class="alert alert-success">
+                                <h6><i class="fas fa-check-circle"></i> Quick Tips:</h6>
+                                <ul class="mb-0">
+                                    <li>You only need to create the service account once</li>
+                                    <li>The same service account can be used for multiple sheets</li>
+                                    <li>Make sure to enable billing if required by Google Cloud</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GitLab Token Setup -->
+            <div id="gitlab-token" class="dashboard-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fab fa-gitlab"></i> GitLab Personal Access Token</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>GitLab Token Required:</strong> You need a personal access token to access your GitLab projects. Here's how to create one:
+                    </div>
+                    
+                    <ol class="list-group list-group-numbered">
+                        <li class="list-group-item">
+                            <strong>Go to your GitLab profile settings</strong>
+                            <br>
+                            <small class="text-muted">Click on your profile picture → Settings → Access Tokens</small>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Create a new personal access token</strong>
+                            <ul class="mt-2">
+                                <li>Give it a descriptive name (e.g., "Sheet Ninja Sync")</li>
+                                <li>Set an expiration date (recommended)</li>
+                                <li>Select the <strong>"api"</strong> scope</li>
+                                <li>Click <strong>"Create personal access token"</strong></li>
+                            </ul>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Copy and save the token</strong>
+                            <br>
+                            <small class="text-danger">⚠️ Important: Copy the token immediately as you won't be able to see it again!</small>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Spreadsheet Setup -->
+            <div id="spreadsheet-setup" class="dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-table"></i> Google Sheets Setup</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Spreadsheet Requirements:</strong> Your Google Sheet should have the following structure:
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Required</th>
+                                    <th>Description</th>
+                                    <th>Example</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Date</strong></td>
+                                    <td><span class="badge bg-danger">Required</span></td>
+                                    <td>Task date</td>
+                                    <td>2024-01-15</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Project Name</strong></td>
+                                    <td><span class="badge bg-danger">Required</span></td>
+                                    <td>Main project name</td>
+                                    <td>Website Redesign</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Main Task</strong></td>
+                                    <td><span class="badge bg-danger">Required</span></td>
+                                    <td>Task description</td>
+                                    <td>Implement login API</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status</strong></td>
+                                    <td><span class="badge bg-danger">Required</span></td>
+                                    <td>Task status</td>
+                                    <td>In Progress</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>GIT ID</strong></td>
+                                    <td><span class="badge bg-secondary">Auto-generated</span></td>
+                                    <td>GitLab issue ID (auto-filled)</td>
+                                    <td>123</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+
