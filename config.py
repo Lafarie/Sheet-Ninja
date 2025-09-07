@@ -288,6 +288,11 @@ PROJECT_OPTIONS = {
         "display": "Ticket Generator", 
         "project_id": "263",
         "repo_path": "/appigo/ticket-generator"
+    },
+    "Source Control Automation": {
+        "display": "Source Control Automation", 
+        "project_id": "98",
+        "repo_path": "/appigo/sourcecontrol-automation"
     }
 }
 
@@ -369,4 +374,7 @@ def get_gitlab_issue_url(project_name, issue_id):
     """Generate GitLab issue URL based on project name and issue ID"""
     repo_path = get_repo_path_by_name(project_name)
     base_url = GITLAB_URL.replace('/api/v4/', '')  # Remove API path to get base URL
-    return f"{base_url}{repo_path}/-/issues/{issue_id}"
+    # Ensure base_url doesn't end with slash and repo_path doesn't start with slash
+    base_url = base_url.rstrip('/')
+    repo_path = repo_path.lstrip('/')
+    return f"{base_url}/{repo_path}/-/issues/{issue_id}"

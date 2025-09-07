@@ -8,6 +8,7 @@ import json
 import threading
 import subprocess
 import tempfile
+import requests
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import config
@@ -164,9 +165,12 @@ class ColumnManagerAPI:
             if not target_spreadsheet or not target_worksheet:
                 return None
             
+            # Handle worksheet names with special characters properly
+            range_name = f"'{target_worksheet}'!1:1"
+            
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=target_spreadsheet,
-                range=f"{target_worksheet}!1:1"
+                range=range_name
             ).execute()
             
             values = result.get('values', [])
@@ -532,6 +536,76 @@ def upload_service_account():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/fetch-projects', methods=['POST'])
+def fetch_projects():
+    """API endpoint to fetch projects from GitLab"""
+    try:
+        data = request.json
+        gitlab_url = data.get('gitlab_url')
+        gitlab_token = data.get('gitlab_token')
+        
+        if not gitlab_url or not gitlab_token:
+            return jsonify({'success': False, 'error': 'GitLab URL and token are required'}), 400
+        
+        print(f"🔍 Fetching projects from GitLab: {gitlab_url}")
+        
+        # Clean up GitLab URL (remove trailing slash if present)
+        if gitlab_url.endswith('/'):
+            gitlab_url = gitlab_url[:-1]
+        
+        # GitLab API endpoint for projects
+        api_url = f"{gitlab_url}/api/v4/projects"
+        
+        # Make request to GitLab API
+        headers = {
+            'Authorization': f'Bearer {gitlab_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        print(f"🌐 Making request to: {api_url}")
+        
+        response = requests.get(api_url, headers=headers, timeout=30)
+        
+        if response.status_code == 401:
+            return jsonify({'success': False, 'error': 'Invalid GitLab token. Please check your token.'}), 401
+        elif response.status_code == 403:
+            return jsonify({'success': False, 'error': 'Access denied. Please check your token permissions.'}), 403
+        elif response.status_code == 404:
+            return jsonify({'success': False, 'error': 'GitLab instance not found. Please check the URL.'}), 404
+        elif response.status_code != 200:
+            return jsonify({'success': False, 'error': f'GitLab API error: {response.status_code} - {response.text}'}), response.status_code
+        
+        projects_data = response.json()
+        
+        # Extract project information
+        projects = []
+        for project in projects_data:
+            projects.append({
+                'id': project.get('id'),
+                'name': project.get('name'),
+                'path': project.get('path'),
+                'full_path': project.get('path_with_namespace'),
+                'description': project.get('description', ''),
+                'web_url': project.get('web_url'),
+                'visibility': project.get('visibility')
+            })
+        
+        print(f"✅ Successfully fetched {len(projects)} projects from GitLab")
+        
+        return jsonify({
+            'success': True,
+            'projects': projects,
+            'count': len(projects)
+        })
+        
+    except requests.exceptions.Timeout:
+        return jsonify({'success': False, 'error': 'Request timeout. GitLab server is not responding.'}), 408
+    except requests.exceptions.ConnectionError:
+        return jsonify({'success': False, 'error': 'Connection failed. Please check your GitLab URL and network connection.'}), 503
+    except Exception as e:
+        print(f"❌ Error fetching projects from GitLab: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/detect-project-names', methods=['POST'])
 def detect_project_names():
     """API endpoint to detect unique project names from Google Sheet"""
@@ -554,9 +628,14 @@ def detect_project_names():
             return jsonify({'success': False, 'error': 'Failed to authenticate with Google Sheets'}), 500
         
         # Get all data from the sheet
+        # Handle worksheet names with special characters properly
+        # Always wrap worksheet names in single quotes to handle special characters
+        range_name = f"'{worksheet_name}'!A:Z"
+        print(f"🔍 Fetching data with range: {range_name}")
+        
         result = manager.service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range=f"{worksheet_name}!A:Z"
+            range=range_name
         ).execute()
         
         values = result.get('values', [])
@@ -566,27 +645,87 @@ def detect_project_names():
         headers = values[0]
         data_rows = values[1:]
         
-        # Find the PROJECT_NAME column (assuming it's column 3 based on default config)
-        project_name_column_index = 2  # 0-based index for column C (PROJECT_NAME)
+        # Find the GIT_ID and PROJECT_NAME columns
+        git_id_column_index = None
+        project_name_column_index = None
         
-        # Look for PROJECT_NAME in headers
+        # Look for GIT_ID and PROJECT_NAME in headers
         for i, header in enumerate(headers):
-            if header and 'project' in header.lower() and 'name' in header.lower():
-                project_name_column_index = i
-                break
+            if header:
+                header_lower = header.lower().strip()
+                print(f"🔍 Checking header {i}: '{header}' -> '{header_lower}'")
+                
+                # Check for GIT_ID column (could be "ID", "GIT ID", "GIT_ID", etc.)
+                if ('git' in header_lower and 'id' in header_lower) or header_lower == 'id':
+                    git_id_column_index = i
+                    print(f"✅ Found GIT_ID column at index {i}: '{header}'")
+                
+                # Check for PROJECT_NAME column
+                elif 'project' in header_lower and 'name' in header_lower:
+                    project_name_column_index = i
+                    print(f"✅ Found PROJECT_NAME column at index {i}: '{header}'")
         
-        # Extract unique project names
+        # Fallback to default positions if not found
+        if git_id_column_index is None:
+            git_id_column_index = 0  # Default to first column (A)
+            print(f"⚠️ GIT_ID column not found, using default index {git_id_column_index}")
+        
+        if project_name_column_index is None:
+            project_name_column_index = 1  # Default to second column (B)
+            print(f"⚠️ PROJECT_NAME column not found, using default index {project_name_column_index}")
+        
+        print(f"🔍 GIT_ID column index: {git_id_column_index}")
+        print(f"🔍 PROJECT_NAME column index: {project_name_column_index}")
+        
+        # Extract unique project names only from rows where GIT_ID is empty (tasks to be created)
         project_names = set()
-        for row in data_rows:
-            if len(row) > project_name_column_index:
+        tasks_to_create_count = 0
+        total_rows = 0
+        
+        for row_index, row in enumerate(data_rows):
+            total_rows += 1
+            
+            # Check if GIT_ID is empty (task not yet created)
+            git_id_empty = True
+            if len(row) > git_id_column_index:
+                git_id = row[git_id_column_index].strip()
+                git_id_empty = (git_id == '' or 
+                               git_id.lower() in ['', 'git id', 'git_id', 'n/a', 'none', 'null', 'undefined'] or
+                               git_id == '0' or git_id == 'N/A')
+                
+                # Debug logging for first few rows
+                if row_index < 5:
+                    print(f"🔍 Row {row_index + 2}: GIT_ID='{git_id}' -> Empty: {git_id_empty}")
+            else:
+                # Row doesn't have enough columns, consider it empty
+                git_id_empty = True
+                if row_index < 5:
+                    print(f"🔍 Row {row_index + 2}: Not enough columns, GIT_ID empty: {git_id_empty}")
+            
+            # Only extract project name if GIT_ID is empty
+            if git_id_empty and len(row) > project_name_column_index:
                 project_name = row[project_name_column_index].strip()
                 if project_name and project_name.lower() not in ['', 'project name', 'project_name']:
                     project_names.add(project_name)
+                    tasks_to_create_count += 1
+                    
+                    # Debug logging for first few matches
+                    if tasks_to_create_count <= 5:
+                        print(f"✅ Found task to create: Row {row_index + 2}, Project: '{project_name}', GIT_ID: '{git_id if 'git_id' in locals() else 'N/A'}'")
+            elif git_id_empty and len(row) <= project_name_column_index:
+                # GIT_ID is empty but no project name column
+                if row_index < 5:
+                    print(f"⚠️ Row {row_index + 2}: GIT_ID empty but no project name column")
+        
+        print(f"📊 Analysis: {total_rows} total rows, {tasks_to_create_count} tasks to create, {len(project_names)} unique projects")
         
         return jsonify({
             'success': True,
             'project_names': sorted(list(project_names)),
-            'count': len(project_names)
+            'count': len(project_names),
+            'total_rows': total_rows,
+            'tasks_to_create': tasks_to_create_count,
+            'message': f"Detected {len(project_names)} unique projects from {tasks_to_create_count} tasks that need to be created (out of {total_rows} total rows)"
         })
         
     except Exception as e:
@@ -648,6 +787,14 @@ def start_sync():
         # Generate .env content
         gitlab_token = data['gitlab_token']
         gitlab_url = data['gitlab_url']
+        
+        # Ensure GitLab URL has the correct format with /api/v4/ suffix
+        if not gitlab_url.endswith('/api/v4/'):
+            if gitlab_url.endswith('/'):
+                gitlab_url = gitlab_url + 'api/v4/'
+            else:
+                gitlab_url = gitlab_url + '/api/v4/'
+        
         project_id = data.get('project_id', '') if not project_mapping_enabled else ''
         spreadsheet_id = data['spreadsheet_id']
         worksheet_name = data['worksheet_name']
@@ -887,6 +1034,94 @@ def serve_setup_ui():
         return html_content, 200, {'Content-Type': 'text/html'}
     except Exception as e:
         return f"Error loading setup UI: {str(e)}", 500
+
+@app.route('/overview.html')
+def serve_overview():
+    """Serve the info HTML page"""
+    try:
+        # Read the info HTML file
+        with open('overview.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return html_content, 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return f"Error loading info page: {str(e)}", 500
+
+@app.route('/overview.html/<anchor>')
+def serve_overview_anchor(anchor):
+    """Serve the info HTML page with anchor support"""
+    try:
+        # Read the info HTML file
+        with open('overview.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return html_content, 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return f"Error loading info page: {str(e)}", 500
+
+@app.route('/info.html')
+def serve_info():
+    """Serve the info HTML page"""
+    try:
+        # Read the info HTML file
+        with open('info.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return html_content, 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return f"Error loading info page: {str(e)}", 500
+
+@app.route('/info.html/<anchor>')
+def serve_info_anchor(anchor):
+    """Serve the info HTML page with anchor support"""
+    try:
+        # Read the info HTML file
+        with open('info.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return html_content, 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return f"Error loading info page: {str(e)}", 500
+
+@app.route('/questions.html')
+def serve_questions():
+    """Serve the info HTML page"""
+    try:
+        # Read the info HTML file
+        with open('questions.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return html_content, 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return f"Error loading info page: {str(e)}", 500
+
+@app.route('/questions.html/<anchor>')
+def serve_questions_anchor(anchor):
+    """Serve the info HTML page with anchor support"""
+    try:
+        # Read the info HTML file
+        with open('questions.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return html_content, 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return f"Error loading info page: {str(e)}", 500
+
+@app.route('/api_doc.html')
+def serve_api_doc():
+    """Serve the info HTML page"""
+    try:
+        # Read the info HTML file
+        with open('api_doc.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return html_content, 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return f"Error loading info page: {str(e)}", 500
+
+@app.route('/api_doc.html/<anchor>')
+def serve_api_doc_anchor(anchor):
+    """Serve the info HTML page with anchor support"""
+    try:
+        # Read the info HTML file
+        with open('api_doc.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return html_content, 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return f"Error loading info page: {str(e)}", 500
 
 @app.route('/')
 def serve_index():
