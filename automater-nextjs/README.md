@@ -1,36 +1,102 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
-## Getting Started
+## Getting started
 
-First, run the development server:
+Follow these steps to run the project locally and what environment variables you need to provide.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Prerequisites
+- Node.js (recommended v22+)
+- pnpm (this repo uses pnpm; npm or yarn can also work but commands below use pnpm)
+- Docker and docker-compose (optional — used by the provided docker scripts)
+
+Install dependencies
+
+```powershell
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Run in development
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```powershell
+pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Build for production
 
-## Learn More
+```powershell
+pnpm build
+pnpm start
+```
 
-To learn more about Next.js, take a look at the following resources:
+Docker (dev) postgres only:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```powershell
+pnpm run docker:dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Environment variables (.env)
 
-## Deploy on Vercel
+This project reads a handful of environment variables used for auth, encryption, database, and the client API base URL. Create a `.env` file in the project root with the values below (example values shown):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+# NextAuth secret used to sign session/JWT tokens. Use a long, random string.
+NEXTAUTH_SECRET=replace-with-a-secure-random-string
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Encryption key used to encrypt saved credentials. Can be a 64-char hex string or a 32-byte string.
+ENCRYPTION_KEY=your-32-or-64-char-key-here
+
+# Database connection URL (Postgres). Required by Prisma.
+DATABASE_URL=postgresql://user:password@localhost:5434/dbname?schema=public
+
+# Public API base used by client code to talk to the backend service (defaults to http://localhost:3000 if unset)
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+
+# Optional: NODE_ENV=development|production
+NODE_ENV=development
+```
+
+Notes and guidance
+- NEXTAUTH_SECRET: Required for next-auth. If not set you will see a runtime warning and authentication may be insecure. Use a random 32+ character value.
+- ENCRYPTION_KEY: Used by `src/lib/encryption.ts` to encrypt/decrypt saved service account JSON and tokens. You can provide a 64-character hex string (it will be parsed as hex) or a UTF-8 string; the code will pad or truncate to 32 bytes. For best security, use a 64-char hex value or a 32-byte random string.
+- DATABASE_URL: This must point to a Postgres instance. The Prisma schema at `prisma/schema.prisma` expects PostgreSQL.
+- NEXT_PUBLIC_API_BASE_URL: Used in the browser to target the API. If you're running an external API server (for example a sync service) set this to the correct origin. The client falls back to `http://localhost:5001` when the env is unset.
+
+## Google Sheets / Service account
+
+This app expects Google service account credentials when you want to sync with Google Sheets. Example project stores an example path `uploads/service_account.json` in the repo — in production you should keep credentials out of source control and provide the JSON file path or contents via a secret management system.
+
+Saved configs stored in the DB may contain the `serviceAccount` JSON (encrypted). The Prisma model `SavedConfig.serviceAccount` is a `Json?` field (see `prisma/schema.prisma`).
+
+## Database (Prisma)
+
+Run migrations and generate the client:
+
+```powershell
+pnpm run db:migrate
+pnpm run db:generate
+pnpm run db:studio
+```
+
+## What to configure in the UI
+
+- GitLab URL and personal access token — stored per saved configuration.
+- Google Spreadsheet ID and optional service account — stored per saved configuration (service account JSON may be encrypted).
+- Column mappings and project mappings can be saved to the DB for reuse.
+
+## Useful npm scripts
+
+- pnpm dev — start dev server (Next.js)
+- pnpm build — build for production
+- pnpm start — start built app
+- pnpm run lint — run linter
+- pnpm run docker:dev — run docker-compose.dev.yml (detached)
+- pnpm run db:migrate — run Prisma migrations
+
+## Troubleshooting
+
+- If NextAuth warns about missing secret, set `NEXTAUTH_SECRET` and restart the server.
+- If encryption/decryption fails for saved credentials, verify `ENCRYPTION_KEY` matches the key used when saving those credentials (mismatch will prevent decryption).
+
+---
+
+If you'd like, I can also add a sample `.env.example` file to the repo or add a short section describing how to generate secure random values for `NEXTAUTH_SECRET` and `ENCRYPTION_KEY` on Windows/macOS/Linux.
