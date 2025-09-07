@@ -6,64 +6,16 @@ This script reads changes from Google Sheets and updates GitLab using Service Ac
 - Closes completed issues
 """
 
-import json
-import os
-import re
-import time
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any
-
 import requests
-from dotenv import load_dotenv
+from datetime import datetime, timedelta
+import config
+import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
-import config
-
-
-class Constants:
-    """Constants used throughout the application"""
-    
-    # HTTP Status Codes
-    HTTP_OK = 200
-    HTTP_CREATED = 201
-    HTTP_ACCEPTED = 202
-    
-    # API Timeouts
-    DEFAULT_TIMEOUT = 30
-    SHORT_TIMEOUT = 10
-    
-    # Date Formats
-    DATE_FORMATS = ['%Y-%m-%d', '%d-%m-%Y', '%m/%d/%Y', '%d/%m/%Y']
-    
-    # GitLab API Endpoints
-    GITLAB_API_PATH = '/api/v4/'
-    
-    # Google Sheets
-    DEFAULT_SHEET_RANGE = 'A:Z'
-    FALLBACK_SHEET_RANGE = 'A:J'
-    SMALL_SHEET_RANGE = 'A1:Z10'
-    
-    # Column Mapping
-    COLUMN_A_ASCII = 65
-    
-    # Issue Search
-    MAX_ISSUES_PER_PAGE = 100
-    
-    # Status Processing
-    COMPLETION_STATUSES = [
-        'closed', 'done', 'completed', 'finished', 'complete', 'finish',
-        'resolved', 'delivered', 'accepted', 'verified', 'tested', 'approved',
-        'finalized', 'ended', 'successful', 'success', 'passed', 'pass'
-    ]
-    
-    # Environment Variables to Clear
-    ENV_VARS_TO_CLEAR = [
-        'SPREADSHEET_ID', 'WORKSHEET_NAME', 'GITLAB_URL', 'GITLAB_TOKEN',
-        'PROJECT_ID', 'DEFAULT_ASSIGNEE', 'DEFAULT_MILESTONE', 'DEFAULT_LABEL'
-    ]
-
+import re
+from dotenv import load_dotenv
+import json
 
 # Load environment variables from the temporary .env file created by the API
 # Check for environment variables first, then fall back to centralized paths
@@ -74,7 +26,8 @@ if not env_file:
 
 if os.path.exists(env_file):
     # Clear any existing environment variables that might interfere
-    for key in Constants.ENV_VARS_TO_CLEAR:
+    for key in ['SPREADSHEET_ID', 'WORKSHEET_NAME', 'GITLAB_URL', 'GITLAB_TOKEN', 'PROJECT_ID', 
+                'DEFAULT_ASSIGNEE', 'DEFAULT_MILESTONE', 'DEFAULT_LABEL']:
         if key in os.environ:
             del os.environ[key]
     
@@ -119,8 +72,8 @@ if not GITLAB_URL:
     GITLAB_URL = config.GITLAB_URL
 
 # Ensure GITLAB_URL has the proper API endpoint
-if GITLAB_URL and not GITLAB_URL.endswith(Constants.GITLAB_API_PATH):
-    GITLAB_URL = GITLAB_URL.rstrip('/') + Constants.GITLAB_API_PATH
+if GITLAB_URL and not GITLAB_URL.endswith('/api/v4/'):
+    GITLAB_URL = GITLAB_URL.rstrip('/') + '/api/v4/'
 
 GITLAB_TOKEN = os.getenv('GITLAB_TOKEN')
 if not GITLAB_TOKEN:
@@ -167,9 +120,13 @@ class SheetsToGitLab:
         print(f"📋 Using Worksheet Name: {self.worksheet_name}")
         
         # Define completion status patterns for auto-close functionality
-        self.completion_statuses = Constants.COMPLETION_STATUSES
+        self.completion_statuses = [
+            'closed', 'done', 'completed', 'finished', 'complete', 'finish',
+            'resolved', 'delivered', 'accepted', 'verified', 'tested', 'approved',
+            'finalized', 'ended', 'successful', 'success', 'passed', 'pass'
+        ]
     
-    def normalize_status(self, status: str) -> str:
+    def normalize_status(self, status):
         """Normalize status text to handle alignment, case, and formatting issues"""
         if not status:
             return ''
@@ -185,12 +142,12 @@ class SheetsToGitLab:
         
         return normalized
     
-    def is_completion_status(self, status: str) -> bool:
+    def is_completion_status(self, status):
         """Check if a status indicates task completion"""
         normalized_status = self.normalize_status(status)
         return normalized_status in self.completion_statuses
     
-    def _authenticate_google_sheets(self) -> Any:
+    def _authenticate_google_sheets(self):
         """Authenticate with Google Sheets using Service Account"""
         try:
             # Use the correct service account file path from config
@@ -217,7 +174,7 @@ class SheetsToGitLab:
             print(f"💡 Make sure the service account file exists and contains valid credentials")
             raise
     
-    def get_sheet_values(self, range_name: str) -> List[List[str]]:
+    def get_sheet_values(self, range_name):
         """Get values from Google Sheet using Service Account"""
         try:
             print(f"🔍 Attempting to get values from range: {range_name}")
@@ -280,17 +237,17 @@ class SheetsToGitLab:
             
             # Get all values including headers
             print("📖 Attempting to read range A:Z...")
-            all_values = self.get_sheet_values(f"{self.worksheet_name}!{Constants.DEFAULT_SHEET_RANGE}")
+            all_values = self.get_sheet_values(f"{self.worksheet_name}!A:Z")  # Extended range to handle more columns
             
             # If no data found, try a smaller range
             if not all_values or len(all_values) < 2:
                 print("🔄 Trying smaller range A:J...")
-                all_values = self.get_sheet_values(f"{self.worksheet_name}!{Constants.FALLBACK_SHEET_RANGE}")
+                all_values = self.get_sheet_values(f"{self.worksheet_name}!A:J")
             
             # If still no data, try just the first few rows
             if not all_values or len(all_values) < 2:
                 print("🔄 Trying first 10 rows...")
-                all_values = self.get_sheet_values(f"{self.worksheet_name}!{Constants.SMALL_SHEET_RANGE}")
+                all_values = self.get_sheet_values(f"{self.worksheet_name}!A1:Z10")
             
             if len(all_values) < 2:  # No data rows
                 print("⚠️ No data rows found in sheet")
@@ -551,7 +508,7 @@ class SheetsToGitLab:
                         milestone_response = requests.get(
                             f"{gitlab_url}projects/{target_project_id}/milestones?title={milestone_value}",
                             headers={'PRIVATE-TOKEN': gitlab_token},
-                            timeout=Constants.SHORT_TIMEOUT
+                            timeout=10
                         )
                         
                         if milestone_response.status_code == 200:
@@ -584,7 +541,7 @@ class SheetsToGitLab:
                         user_response = requests.get(
                             f"{gitlab_url}users?username={assignee_value}",
                             headers={'PRIVATE-TOKEN': gitlab_token},
-                            timeout=Constants.SHORT_TIMEOUT
+                            timeout=10
                         )
                         
                         if user_response.status_code == 200:
@@ -610,12 +567,12 @@ class SheetsToGitLab:
                 f"{gitlab_url}projects/{target_project_id}/issues",
                 headers=headers,
                 json=issue_data,
-                timeout=Constants.DEFAULT_TIMEOUT
+                timeout=30
             )
             
             # Accept both 201 (Created) and 202 (Accepted) as success
-            if response.status_code in [Constants.HTTP_CREATED, Constants.HTTP_ACCEPTED]:
-                if response.status_code == Constants.HTTP_CREATED and response.json():
+            if response.status_code in [201, 202]:
+                if response.status_code == 201 and response.json():
                     issue = response.json()
                     issue_id = issue['iid']
                     print(f"│   ✅ Created issue #{issue_id}: {title}")
@@ -693,7 +650,7 @@ class SheetsToGitLab:
                 return
             
             # Convert column index to letter (A=0, B=1, C=2, etc.)
-            column_letter = chr(Constants.COLUMN_A_ASCII + git_id_column_index)
+            column_letter = chr(65 + git_id_column_index)  # 65 is ASCII for 'A'
             cell_range = f"{self.worksheet_name}!{column_letter}{row_number + 2}"  # +2 for header and 0-index
             
             print(f"🔍 Updating GIT ID in cell {cell_range} (column {column_letter}, row {row_number + 2})")
@@ -740,7 +697,7 @@ class SheetsToGitLab:
                         response = requests.get(
                             f"{GITLAB_URL}projects/{target_project_id}",
                             headers=headers,
-                            timeout=Constants.SHORT_TIMEOUT
+                            timeout=10
                         )
                         
                         if response.status_code == 200:
@@ -791,6 +748,10 @@ class SheetsToGitLab:
             import traceback
             traceback.print_exc()
     
+    def check_and_color_weekend_row(self, row_number):
+        """Check if tomorrow is weekend and color the row red"""
+        # This function is no longer used - removed for cleaner code
+        pass
     
     def _get_sheet_id(self):
         """Get the sheet ID for the current worksheet"""
@@ -813,9 +774,17 @@ class SheetsToGitLab:
             print(f"❌ Error getting sheet ID: {e}")
             return None
     
+    def color_row_red(self, row_number):
+        """Color entire row red using Google Sheets API"""
+        # This function is no longer used - removed for cleaner code
+        pass
     
+    def color_row_green(self, row_number):
+        """Color entire row green to highlight successful updates"""
+        # This function is no longer used - removed for cleaner code
+        pass
     
-    def color_cell_green(self, row_number: int, column_index: int) -> None:
+    def color_cell_green(self, row_number, column_index):
         """Color a specific cell green to highlight successful updates"""
         try:
             # Get the correct sheet ID first
@@ -864,7 +833,7 @@ class SheetsToGitLab:
         except Exception as e:
             print(f"❌ Error coloring cell green: {e}")
     
-    def get_gitlab_issue_details(self, issue_id: int, project_name: str = "") -> Optional[Dict[str, Any]]:
+    def get_gitlab_issue_details(self, issue_id, project_name=""):
         """Get GitLab issue details"""
         try:
             # Use module-level environment variables
@@ -898,7 +867,7 @@ class SheetsToGitLab:
             print(f"│   ❌ Error getting issue details: {e}")
             return None
     
-    def close_gitlab_issue(self, issue_id: int, project_name: str = "", actual_end_date: str = "") -> bool:
+    def close_gitlab_issue(self, issue_id, project_name="", actual_end_date=""):
         """Close a GitLab issue"""
         try:
             # Use module-level environment variables
@@ -1183,7 +1152,7 @@ class SheetsToGitLab:
                     try:
                         # Try different date formats
                         task_date = None
-                        for date_format in Constants.DATE_FORMATS:
+                        for date_format in ['%Y-%m-%d', '%d-%m-%Y', '%m/%d/%Y', '%d/%m/%Y']:
                             try:
                                 task_date = datetime.strptime(date_str, date_format).date()
                                 break
@@ -1373,7 +1342,7 @@ class SheetsToGitLab:
             response = requests.get(
                 f"{GITLAB_URL}projects/{project_id}/issues",
                 headers=headers,
-                params={'state': 'opened', 'per_page': Constants.MAX_ISSUES_PER_PAGE}
+                params={'state': 'opened', 'per_page': 100}
             )
             
             if response.status_code in [200, 202]:
