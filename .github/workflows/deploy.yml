@@ -79,8 +79,9 @@ jobs:
           cd /actions-runner-scripts/_work/scripts/scripts/
           # Start services one by one to better isolate issues
           sudo /usr/local/bin/docker-compose up -d
+      
 
       - name: Clean up
         run: |
-          sudo docker image prune -af --filter "until=16h"
+          sudo docker image prune -af --filter "until=1h"
 
