@@ -13,6 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Clean up
+        run: |
+            # 1 minute cleanup
+            echo "Cleaning up docker resources older than 1 minute..."
+            sudo docker system prune -af --filter "until=1m" || true
+
       - name: Install Docker Compose (if missing)
         run: |
           # Remove old docker-compose if it exists
@@ -94,5 +100,6 @@ jobs:
 
       - name: Clean up
         run: |
-          sudo docker system prune -af --filter "until=1h"
-
+            # 1 minute cleanup
+            echo "Cleaning up docker resources older than 1 minute..."
+            sudo docker system prune -af --filter "until=1m" || true
