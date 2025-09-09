@@ -18,7 +18,6 @@ COPY . .
 
 # Generate Prisma client (no-op if not configured) and build
 RUN pnpm run db:generate || true
-RUN pnpm run db:push || true
 RUN pnpm run build
 
 # --- Runtime stage --------------------------------------------------------
@@ -31,6 +30,7 @@ COPY --from=builder /app/.next/standalone .
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/prisma ./app/prisma
 
 ENV NODE_ENV=production
 ENV PORT=3000
