@@ -11,6 +11,7 @@ services:
       - web
 
   app:
+    container_name: scripts-app_container
     build:
       context: .
       dockerfile: Dockerfile

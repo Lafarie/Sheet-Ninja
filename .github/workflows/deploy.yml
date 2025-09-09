@@ -79,7 +79,10 @@ jobs:
           cd /actions-runner-scripts/_work/scripts/scripts/
           # Start services one by one to better isolate issues
           sudo /usr/local/bin/docker-compose up -d
-      
+
+      - name: Prisma migrate deploy
+        run: |
+          docker exec -it scripts-app_container sh -c "yes | npx prisma migrate deploy"
 
       - name: Clean up
         run: |
