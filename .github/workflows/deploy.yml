@@ -71,12 +71,12 @@ jobs:
 
       - name: Build Docker images
         run: |
-          cd /actions-runner-scripts/_work/scripts/scripts/docker/
+          cd /actions-runner-scripts/_work/scripts/scripts/
           sudo /usr/local/bin/docker-compose build --no-cache --pull
 
       - name: Deploy with Docker Compose
         run: |
-          cd /actions-runner-scripts/_work/scripts/scripts/docker/
+          cd /actions-runner-scripts/_work/scripts/scripts/
           # Start services one by one to better isolate issues
           sudo /usr/local/bin/docker-compose up -d
 
