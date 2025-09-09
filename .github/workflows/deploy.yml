@@ -82,7 +82,15 @@ jobs:
 
       - name: Prisma migrate deploy
         run: |
-          docker exec -it scripts-app_container sh -c "yes | npx prisma migrate deploy"
+          # create migration from empty to current state (run this only once to create baseline)
+          # replace 20250909_init with current date and a name
+          docker exec --user root scripts-app_container sh -c "
+          mkdir -p prisma/migrations/$(date +%Y%m%d)_init &&
+          npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/$(date +%Y%m%d)_init/migration.sql &&
+          npx prisma migrate resolve --applied $(date +%Y%m%d)_init
+          "
+          # then run the deploy command
+          docker exec scripts-app_container sh -c "npx prisma migrate deploy"
 
       - name: Clean up
         run: |
