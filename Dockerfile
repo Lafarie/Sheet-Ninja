@@ -18,6 +18,7 @@ COPY . .
 
 # Generate Prisma client (no-op if not configured) and build
 RUN pnpm run db:generate || true
+RUN pnpm run db:push || true
 RUN pnpm run build
 
 # --- Runtime stage --------------------------------------------------------
