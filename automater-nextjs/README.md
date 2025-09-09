@@ -85,17 +85,26 @@ pnpm run db:studio
 
 ## Useful npm scripts
 
-- pnpm dev — start dev server (Next.js)
-- pnpm build — build for production
-- pnpm start — start built app
-- pnpm run lint — run linter
-- pnpm run docker:dev — run docker-compose.dev.yml (detached)
-- pnpm run db:migrate — run Prisma migrations
 
 ## Troubleshooting
 
-- If NextAuth warns about missing secret, set `NEXTAUTH_SECRET` and restart the server.
-- If encryption/decryption fails for saved credentials, verify `ENCRYPTION_KEY` matches the key used when saving those credentials (mismatch will prevent decryption).
+
+
+Running with Nginx
+------------------
+
+This repository includes an `nginx` service in `docker-compose.yml` that proxies host port 80 to the Next.js `app` service (container port 3000).
+
+To start the stack:
+
+1. Ensure your `.env.production` is present and configured.
+2. Run `docker compose up --build` from the project root. On Windows Powershell you can run:
+
+```powershell
+docker compose up --build
+```
+
+Nginx will listen on port 80 of the host and proxy requests to the `app` service. If you need to expose the `app` port directly for debugging, uncomment the `ports` mapping for the `app` service in `docker-compose.yml`.
 
 ---
 
