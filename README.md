@@ -34,14 +34,47 @@
 - **Google Service Account** credentials
 
 ### 1. Clone and Setup
-```bash
-cd automater-nextjs
 
+## 🎯 Development
+
+### Local Development Setup
+```bash
 # Install dependencies
 pnpm install
 
 # Setup environment variables
 cp .env.example .env.local
+
+# Setup database
+pnpm db:migrate
+pnpm db:generate
+
+# Start development server with Turbopack
+pnpm dev
+```
+
+### Database Management
+```bash
+# Create new migration
+pnpm db:migrate
+
+# Reset database (development only)
+npx prisma migrate reset
+
+# View data in Prisma Studio
+pnpm db:studio
+```
+### Docker Development
+```bash
+# Full stack with hot reload
+pnpm docker:dev
+
+# View all service logs
+pnpm docker:logs
+
+# Rebuild after dependency changes
+pnpm docker:dev:down
+pnpm docker:dev
 ```
 
 ### 2. Configure Environment
@@ -56,6 +89,14 @@ NEXTAUTH_SECRET="your-secret-key"
 
 # Application
 ENCRYPTION_KEY="your-32-character-encryption-key"
+
+NEXT_PUBLIC_API_BASE_URL=""
+
+#db setup
+POSTGRES_DB=""
+POSTGRES_USER=""
+POSTGRES_PASSWORD=""
+
 ```
 
 ### 3. Database Setup
@@ -104,198 +145,6 @@ pnpm docker:up
 # Stop production containers
 pnpm docker:down
 ```
-
-## 🔧 Usage
-
-### 1. Initial Setup
-1. **Sign up/Sign in** - Create your account or log in
-2. **Configure GitLab** - Add your GitLab URL and access token
-3. **Setup Google Sheets** - Upload service account JSON and configure sheet access
-4. **Map Columns** - Define how your sheet columns map to GitLab fields
-5. **Test Connection** - Verify everything works correctly
-
-### 2. Running Syncs
-- **Manual Sync** - Click sync button for immediate synchronization
-- **Monitor Progress** - Watch real-time sync progress and logs
-- **View History** - Check previous sync results and errors
-
-### 3. Advanced Features
-- **Multiple Configurations** - Save different setups for different projects
-- **Custom Field Mapping** - Map custom GitLab fields to sheet columns
-- **Filter Rules** - Sync only specific issues based on criteria
-- **Batch Operations** - Handle large datasets efficiently
-
-## ✨ Command Line Features
-
-### 🎯 Dynamic Column Management
-- **Flexible column mapping** that adapts to sheet changes
-- **Auto-detection** of column positions and headers
-- **Interactive configuration** tool for custom setups
-- **Validation** to ensure everything works correctly
-
-### 🎯 Quick Setup Tool
-Run `python quick_setup.py` for guided setup and configuration management.
-
-## �🚀 Quick Setup
-
-### 1. One-Command Setup
-```bash
-# Install dependencies and run guided setup
-pip install -r requirements.txt
-python quick_setup.py
-```
-
-### 2. Manual Setup
-
-#### Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-#### Environment Variables Setup
-```bash
-# Copy the template
-cp env.example .env
-
-# Edit .env with your actual values
-notepad .env  # Windows
-nano .env     # Linux/Mac
-```
-
-Fill in your `.env` file with:
-```env
-# Required Values
-GITLAB_TOKEN=your-gitlab-token-here
-SPREADSHEET_ID=your-google-sheet-id-here
-
-# Optional Values (have defaults)
-GITLAB_URL=https://sourcecontrol.hsenidmobile.com/api/v4/
-PROJECT_ID=263
-WORKSHEET_NAME=Sheet1
-SERVICE_ACCOUNT_FILE=service_account.json
-DEFAULT_ASSIGNEE=@your.email@company.com
-```
-
-#### Column Configuration
-```bash
-# Configure your Google Sheet columns dynamically
-python column_manager.py
-
-# Choose option 1 for auto-detection
-# Choose option 2 for interactive setup
-```
-
-### 3. Set up Google Service Account
-
-**Step 3.1: Create Service Account**
-- Go to [Google Cloud Console](https://console.cloud.google.com/)
-- Create a new project or select an existing one
-- Enable the Google Sheets API:
-  - Go to APIs & Services → Library
-  - Search for "Google Sheets API" and enable it
-- Create Service Account credentials:
-  - Go to APIs & Services → Credentials
-  - Click "Create Credentials" → "Service Account"
-  - Fill in service account details and click "Create"
-  - Skip optional steps and click "Done"
-
-**Step 3.2: Download Credentials**
-- Click on the created service account
-- Go to "Keys" tab → "Add Key" → "Create new key"
-- Choose "JSON" format and download the file
-- Rename the file to `service_account.json`
-- Place it in the same directory as your scripts
-
-**Step 3.3: Share Google Sheet with Service Account**
-- Open your Google Sheet
-- Click "Share" button
-- Add the service account email (found in the JSON file as `client_email`)
-- Give it "Editor" permission
-- Click "Send"
-
-### 4. Get GitLab Personal Access Token
-- Go to your GitLab instance → User Settings → Access Tokens
-- Create a new personal access token with `api` scope
-- Copy the token and add it to your `.env` file
-
-### 5. Test the Setup
-```bash
-python gitlab_to_sheets.py
-```
-
-## 🔧 Usage
-
-### Quick Start (Recommended)
-```bash
-# Guided setup and management
-python quick_setup.py
-```
-
-### Column Management
-```bash
-# Auto-detect and configure columns
-python column_manager.py
-
-# Options available:
-# 1. Auto-detect columns from your sheet
-# 2. Interactive column setup
-# 3. Validate current configuration
-# 4. Export/import configurations
-```
-
-### Sync Operations
-```bash
-# Sync GitLab → Google Sheets
-python gitlab_to_sheets.py
-
-# Sync Google Sheets → GitLab
-python sheets_to_gitlab.py
-
-# Complete Bidirectional Sync
-python complete_sync.py
-```
-
-### Sheet Setup
-```bash
-# Setup dropdowns and formatting
-python setup/setup_sheet_dropdown.py
-```
-
-## 🔄 Dynamic Column System
-
-### Key Features
-- **Adaptive**: Automatically adapts to column position changes
-- **Auto-detection**: Finds columns by header names
-- **Validation**: Checks configuration against actual sheet
-- **Interactive**: Step-by-step configuration wizard
-
-### Column Configuration
-The system stores column mappings in `custom_columns.json`:
-```json
-{
-  "PROJECT_NAME": {
-    "index": 3,
-    "header": "Project Name",
-    "required": true,
-    "data_type": "dropdown"
-  }
-}
-```
-
-### When Columns Change
-1. Run `python column_manager.py`
-2. Choose "Auto-detect and map columns"
-3. Review and apply suggested mappings
-4. Validate the new configuration
-
-### Migration from Fixed Columns
-If upgrading from the old system:
-1. Backup your sheet
-2. Run `python column_manager.py`
-3. Use auto-detection
-4. Test with a small dataset first
-
-📚 **Detailed Guide**: See [DYNAMIC_COLUMNS.md](DYNAMIC_COLUMNS.md) for complete documentation.
 
 ## � Google Sheets Format
 
@@ -420,47 +269,6 @@ automater-nextjs/
 3. Verify all environment variables are properly set
 4. Test API connections independently using the built-in test features
 
-## 🎯 Development
-
-### Local Development Setup
-```bash
-# Install dependencies
-pnpm install
-
-# Setup database
-pnpm db:migrate
-pnpm db:generate
-
-# Start development server with Turbopack
-pnpm dev
-```
-
-### Database Management
-```bash
-# Create new migration
-pnpm db:migrate
-
-# Reset database (development only)
-npx prisma migrate reset
-
-# View data in Prisma Studio
-pnpm db:studio
-```
-
-### Docker Development
-```bash
-# Full stack with hot reload
-pnpm docker:dev
-
-# View all service logs
-pnpm docker:logs
-
-# Rebuild after dependency changes
-pnpm docker:dev:down
-pnpm docker:dev
-```
-
----
 
 **🎉 Modern GitLab ↔ Google Sheets synchronization with a powerful web interface!**
 
