@@ -58,7 +58,7 @@ jobs:
       - name: Set up environment variables for API service
         run: |
           echo "Setting up environment variables for API service..."
-          cd /actions-runner/_work/scripts/scripts/
+          cd /actions-runner-scripts/_work/scripts/scripts/
           touch .env.production
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env.production
           echo "NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}" >> .env.production
@@ -71,12 +71,12 @@ jobs:
 
       - name: Build Docker images
         run: |
-          cd /actions-runner/_work/scripts/scripts/docker/
+          cd /actions-runner-scripts/_work/scripts/scripts/docker/
           sudo /usr/local/bin/docker-compose build --no-cache --pull
 
       - name: Deploy with Docker Compose
         run: |
-          cd /actions-runner/_work/scripts/scripts/docker/
+          cd /actions-runner-scripts/_work/scripts/scripts/docker/
           # Start services one by one to better isolate issues
           sudo /usr/local/bin/docker-compose up -d
 
