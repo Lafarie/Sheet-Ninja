@@ -83,5 +83,5 @@ jobs:
 
       - name: Clean up
         run: |
-          sudo docker image prune -af --filter "until=1h"
+          sudo docker system prune -af --filter "until=1h"
 
