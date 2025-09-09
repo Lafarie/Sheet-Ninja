@@ -15,8 +15,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      volumes:
-      - /hms/apps:/app 
     # keep app running on container port 3000; nginx will proxy from host:80 -> app:3000
     # avoid publishing app port directly unless you need it for debugging
     # ports:
