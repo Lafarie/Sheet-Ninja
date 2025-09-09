@@ -3,10 +3,8 @@ services:
     image: postgres:15
     ports:
       - "5434:5432"
-    environment:
-      POSTGRES_DB: automater
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+    env_file:
+      - .env.production
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -18,12 +16,8 @@ services:
       - "3000:3000"
     depends_on:
       - postgres
-    environment:
-      DATABASE_URL: "postgresql://postgres:password@postgres:5432/automater"
-      NEXTAUTH_URL: "http://localhost:3000"
-      ENCRYPTION_KEY: "abcdef1234567890abcdef1234567890"
-      NEXT_PUBLIC_API_BASE_URL: "http://localhost:3000"
-      NEXTAUTH_SECRET: "your-secret-key-here-please-change-in-production-make-it-long-and-secure"
+    env_file:
+      - .env.production
 
 volumes:
   postgres_data:
