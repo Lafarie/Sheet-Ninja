@@ -72,7 +72,7 @@ jobs:
       - name: Build Docker images
         run: |
           cd /actions-runner-scripts/_work/scripts/scripts/
-          sudo /usr/local/bin/docker-compose build --no-cache --pull
+          sudo /usr/local/bin/docker-compose build
 
       - name: Deploy with Docker Compose
         run: |
