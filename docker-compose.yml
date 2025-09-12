@@ -15,8 +15,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      volumes:
-        - /uploads:/app/uploads
+    volumes:
+      - /uploads:/app/uploads
     # keep app running on container port 3000; nginx will proxy from host:80 -> app:3000
     # avoid publishing app port directly unless you need it for debugging
     # ports:
