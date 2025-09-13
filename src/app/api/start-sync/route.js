@@ -9,9 +9,83 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { decrypt } from '@/lib/encryption';
 
+// Helper: resolve column header from a mapping value provided in config
+// mapping may be:
+// - an object { index: <number>, header: <string> }
+// - a string header name
+// - a numeric string or number indicating 1-based column index
+function resolveColumnFromMapping(mapping, headers) {
+  if (!mapping) return null;
+  // object form
+  if (typeof mapping === 'object') {
+    if (mapping.header) {
+      return headers.find(h => h.toLowerCase().trim() === String(mapping.header).toLowerCase().trim()) || null;
+    }
+    if (typeof mapping.index === 'number') {
+      const idx = mapping.index - 1; // config may be 1-based
+      if (idx >= 0 && idx < headers.length) return headers[idx];
+    }
+  }
+
+  // numeric string or number -> treat as 1-based index
+  if (typeof mapping === 'string' && /^[0-9]+$/.test(mapping)) {
+    const idx = parseInt(mapping, 10) - 1;
+    if (idx >= 0 && idx < headers.length) return headers[idx];
+  }
+  if (typeof mapping === 'number') {
+    const idx = mapping - 1;
+    if (idx >= 0 && idx < headers.length) return headers[idx];
+  }
+
+  // otherwise treat as header name and match case-insensitively
+  if (typeof mapping === 'string') {
+    return headers.find(h => h.toLowerCase().trim() === mapping.toLowerCase().trim()) || null;
+  }
+
+  return null;
+}
+
+// Helper: parse flexible date formats (accepts DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY, and native ISO)
+function parseFlexibleDate(value) {
+  if (!value) return null;
+  // If already a Date
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+
+  const s = String(value).trim();
+  if (!s) return null;
+
+  // Try native parse first (ISO etc.)
+  const d1 = new Date(s);
+  if (!isNaN(d1.getTime())) return d1;
+
+  // Try DD-MM-YYYY or D-M-YYYY or DD/MM/YYYY
+  const dmY = s.match(/^(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})$/);
+  if (dmY) {
+    const day = parseInt(dmY[1], 10);
+    const month = parseInt(dmY[2], 10);
+    const year = parseInt(dmY[3], 10);
+    const maybe = new Date(year, month - 1, day);
+    if (!isNaN(maybe.getTime())) return maybe;
+  }
+
+  // Try YYYY/MM/DD or YYYY.MM.DD
+  const ymd = s.match(/^(\d{4})[\-\/\.](\d{1,2})[\-\/\.](\d{1,2})$/);
+  if (ymd) {
+    const year = parseInt(ymd[1], 10);
+    const month = parseInt(ymd[2], 10);
+    const day = parseInt(ymd[3], 10);
+    const maybe = new Date(year, month - 1, day);
+    if (!isNaN(maybe.getTime())) return maybe;
+  }
+
+  return null;
+}
+
 export async function POST(request) {
   try {
     const syncData = await request.json();
+
+    console.log(syncData)
     
     // Validate required fields
     const requiredFields = ['gitlabUrl', 'gitlabToken', 'spreadsheetId', 'worksheetName'];
@@ -123,6 +197,19 @@ export async function POST(request) {
 // Perform actual sync between Google Sheets and GitLab
 async function performActualSync(syncData) {
   try {
+    // Expose columnMappings to helper functions used later (extractTaskData uses this)
+    try {
+      if (syncData && syncData.columnMappings) {
+        // store on globalThis so helper functions inside this module can read it
+        globalThis._syncColumnMappings = syncData.columnMappings;
+      } else {
+        globalThis._syncColumnMappings = {};
+      }
+    } catch (e) {
+      // ignore if we cannot set global
+      globalThis._syncColumnMappings = globalThis._syncColumnMappings || {};
+    }
+
     // Step 1: Initialize
     syncStateManager.setCurrentStep('sync-start');
     syncStateManager.addOutput(`[${new Date().toISOString()}] Starting Sync...\n`);
@@ -209,31 +296,75 @@ async function performActualSync(syncData) {
     await sheet.loadHeaderRow();
     let rows = await sheet.getRows();
     
+    
+
+    // Helper: parse flexible date formats (accepts DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY, and native ISO)
+    function parseFlexibleDate(value) {
+      if (!value) return null;
+      // If already a Date
+      if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+
+      const s = String(value).trim();
+      if (!s) return null;
+
+      // Try native parse first (ISO etc.)
+      const d1 = new Date(s);
+      if (!isNaN(d1.getTime())) return d1;
+
+      // Try DD-MM-YYYY or D-M-YYYY or DD/MM/YYYY
+      const dmY = s.match(/^(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})$/);
+      if (dmY) {
+        const day = parseInt(dmY[1], 10);
+        const month = parseInt(dmY[2], 10);
+        const year = parseInt(dmY[3], 10);
+        // If looks like YYYY-MM-DD (e.g., 2025-09-16) this will have month > 31; but we've already tried native parse
+        const maybe = new Date(year, month - 1, day);
+        if (!isNaN(maybe.getTime())) return maybe;
+      }
+
+      // Try YYYY/MM/DD or YYYY.MM.DD
+      const ymd = s.match(/^(\d{4})[\-\/\.](\d{1,2})[\-\/\.](\d{1,2})$/);
+      if (ymd) {
+        const year = parseInt(ymd[1], 10);
+        const month = parseInt(ymd[2], 10);
+        const day = parseInt(ymd[3], 10);
+        const maybe = new Date(year, month - 1, day);
+        if (!isNaN(maybe.getTime())) return maybe;
+      }
+
+      return null;
+    }
+
     // Apply date filtering if enabled
     if (syncData.startDate || syncData.endDate) {
       syncStateManager.addOutput(`  - Applying date filter (${syncData.startDate || 'no start'} to ${syncData.endDate || 'no end'})\n`);
-      const dateColumn = findColumnName(sheet.headerValues, ['date', 'created date', 'task date', 'created_date']);
-      
+
+      // Allow explicit mapping for DATE column in config
+      const mappedDateColumn = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.DATE || syncData.columnMappings.date, sheet.headerValues) : null;
+      const dateColumn = mappedDateColumn || findColumnName(sheet.headerValues, ['date', 'created date', 'task date', 'created_date']);
+
       if (dateColumn) {
         const originalCount = rows.length;
         rows = rows.filter(row => {
           const dateValue = row.get(dateColumn);
           if (!dateValue) return false;
-          
-          const rowDate = new Date(dateValue);
-          if (isNaN(rowDate.getTime())) return false;
-          
+
+          const rowDate = parseFlexibleDate(dateValue);
+          if (!rowDate) return false;
+
           let inRange = true;
           if (syncData.startDate) {
-            const startDate = new Date(syncData.startDate);
+            const startDate = parseFlexibleDate(syncData.startDate) || new Date(syncData.startDate);
+            if (!startDate) return false; // invalid startDate -> skip
             inRange = inRange && rowDate >= startDate;
           }
           if (syncData.endDate) {
-            const endDate = new Date(syncData.endDate);
+            const endDate = parseFlexibleDate(syncData.endDate) || new Date(syncData.endDate);
+            if (!endDate) return false;
             endDate.setHours(23, 59, 59, 999); // Include full end date
             inRange = inRange && rowDate <= endDate;
           }
-          
+
           return inRange;
         });
         syncStateManager.addOutput(`  - Date filter applied: ${originalCount} -> ${rows.length} rows (using column: ${dateColumn})\n`);
@@ -280,24 +411,13 @@ async function performActualSync(syncData) {
       // that already have an issue even if the main task cell is empty.
       // Prefer an explicit mapping (from saved config) if provided in syncData.columnMappings
       let gitIdColumn = null;
-      if (syncData.columnMappings && syncData.columnMappings.GIT_ID) {
-        const mapping = syncData.columnMappings.GIT_ID;
-        // mapping may be an object like { index: 2, header: 'GIT ID' } or a header string
-        if (typeof mapping === 'object') {
-          if (mapping.header) {
-            // use header name directly
-            gitIdColumn = sheet.headerValues.find(h => h.toLowerCase().trim() === mapping.header.toLowerCase().trim());
-          } else if (typeof mapping.index === 'number') {
-            // convert index to header value if within range
-            const idx = mapping.index;
-            if (idx >= 0 && idx < sheet.headerValues.length) gitIdColumn = sheet.headerValues[idx];
-          }
-        } else if (typeof mapping === 'string') {
-          gitIdColumn = sheet.headerValues.find(h => h.toLowerCase().trim() === mapping.toLowerCase().trim());
-        }
+      if (syncData.columnMappings && (syncData.columnMappings.GIT_ID || syncData.columnMappings.git_id || syncData.columnMappings.gitId)) {
+        const mapping = syncData.columnMappings.GIT_ID || syncData.columnMappings.git_id || syncData.columnMappings.gitId;
+        // Use resolveColumnFromMapping helper which supports object, header string, and numeric (1-based) values
+        gitIdColumn = resolveColumnFromMapping(mapping, sheet.headerValues) || gitIdColumn;
       }
       if (!gitIdColumn) {
-        gitIdColumn = findColumnName(sheet.headerValues, ['git id', 'gitlab id', 'issue id', 'git_id']);
+        gitIdColumn = findColumnName(sheet.headerValues, ['git id', 'gitlab id', 'issue id', 'git_id','git']);
       }
       let existingGitIdValue = gitIdColumn ? row.get(gitIdColumn) : null;
 
@@ -340,8 +460,9 @@ async function performActualSync(syncData) {
           let shouldClose = true; // default behavior: close if present
 
           if (shouldCheckStatus) {
-            // Look for a status column and read its value
-            const statusCol = findColumnName(sheet.headerValues, ['status', 'state', 'issue status']);
+            // Look for a status column (prefer explicit mapping from columnMappings)
+            const mappedStatusCol = resolveColumnFromMapping(syncData.columnMappings ? (syncData.columnMappings.STATUS || syncData.columnMappings.status) : null, sheet.headerValues);
+            const statusCol = mappedStatusCol || findColumnName(sheet.headerValues, ['status', 'state', 'issue status']);
             const rawStatus = statusCol ? (row.get(statusCol) || '') : '';
             const statusVal = rawStatus.toString().trim();
             // Normalize: lowercase and remove non-alphanumeric to make matching tolerant to punctuation/casing/misspelling
@@ -493,25 +614,42 @@ function findProjectMapping(projectMappings, taskData) {
 function extractTaskData(row, headers) {
   const taskData = {};
   
+  // Allow callers to pass in syncData.columnMappings by using a closure-resolved helper
+  // If columnMappings isn't available here, fall back to header heuristics
   // Try to find main task column
-  const mainTaskColumn = findColumnName(headers, ['main task', 'task', 'title', 'main_task']);
-  taskData.mainTask = mainTaskColumn ? row.get(mainTaskColumn) : '';
-  
+  const mainTaskColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
+    ? resolveColumnFromMapping(globalThis._syncColumnMappings.MAIN_TASK || globalThis._syncColumnMappings.MAIN_task || globalThis._syncColumnMappings.MAIN, headers)
+    : null;
+  const mainCol = mainTaskColumn || findColumnName(headers, ['main task', 'task', 'title', 'main_task']);
+  taskData.mainTask = mainCol ? row.get(mainCol) : '';
+
   // Try to find sub task column
-  const subTaskColumn = findColumnName(headers, ['sub task', 'subtask', 'sub_task', 'description']);
-  taskData.subTask = subTaskColumn ? row.get(subTaskColumn) : '';
-  
+  const subTaskColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
+    ? resolveColumnFromMapping(globalThis._syncColumnMappings.SUB_TASK || globalThis._syncColumnMappings.SUB_task || globalThis._syncColumnMappings.SUB, headers)
+    : null;
+  const subCol = subTaskColumn || findColumnName(headers, ['sub task', 'subtask', 'sub_task', 'description']);
+  taskData.subTask = subCol ? row.get(subCol) : '';
+
   // Try to find project name
-  const projectColumn = findColumnName(headers, ['project name', 'project', 'project_name']);
-  taskData.projectName = projectColumn ? row.get(projectColumn) : '';
-  
+  const projectColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
+    ? resolveColumnFromMapping(globalThis._syncColumnMappings.PROJECT_NAME || globalThis._syncColumnMappings.PROJECT || globalThis._syncColumnMappings.projectName, headers)
+    : null;
+  const projCol = projectColumn || findColumnName(headers, ['project name', 'project', 'project_name']);
+  taskData.projectName = projCol ? row.get(projCol) : '';
+
   // Try to find specific project
-  const specificProjectColumn = findColumnName(headers, ['specific project', 'specific_project']);
-  taskData.specificProject = specificProjectColumn ? row.get(specificProjectColumn) : '';
-  
+  const specificProjectColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
+    ? resolveColumnFromMapping(globalThis._syncColumnMappings.SPECIFIC_PROJECT || globalThis._syncColumnMappings.SPECIFIC_project, headers)
+    : null;
+  const specCol = specificProjectColumn || findColumnName(headers, ['specific project', 'specific_project']);
+  taskData.specificProject = specCol ? row.get(specCol) : '';
+
   // Try to find date
-  const dateColumn = findColumnName(headers, ['date', 'created date', 'task date']);
-  taskData.date = dateColumn ? row.get(dateColumn) : '';
+  const dateColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
+    ? resolveColumnFromMapping(globalThis._syncColumnMappings.DATE || globalThis._syncColumnMappings.date, headers)
+    : null;
+  const dCol = dateColumn || findColumnName(headers, ['date', 'created date', 'task date']);
+  taskData.date = dCol ? row.get(dCol) : '';
   
   return taskData;
 }
