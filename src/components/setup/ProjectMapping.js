@@ -802,12 +802,12 @@ export function ProjectMapping({
           <CardContent className="space-y-4">
             {/* GitLab Project Selection */}
             <div>
-              <Label>GitLab Project</Label>
+              <Label className="py-1">GitLab Project</Label><i className='text-xs py-2'> {project.projectId && `If project name is not shown in the dropdown but its already picked Project ID:{${project.projectId}}`}</i>
               <Select
                 value={project.projectId || 'none'}
                 onValueChange={(value) => handleProjectIdChange(project.id, value === 'none' ? '' : value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="mb-2 py-2">
                   <SelectValue placeholder="Select GitLab project..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -829,7 +829,7 @@ export function ProjectMapping({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Assignee */}
               <div>
-                <Label>Assignee</Label>
+                <Label className="pb-2">Assignee</Label>
                 <AssigneeSelector
                   project={project}
                   currentAssignee={project.assignee}
@@ -840,7 +840,7 @@ export function ProjectMapping({
 
               {/* Milestone */}
               <div>
-                <Label>Milestone</Label>
+                <Label className="pb-2">Milestone</Label>
                 <MilestoneSelector
                   project={project}
                   currentMilestone={project.milestone}
@@ -852,7 +852,7 @@ export function ProjectMapping({
 
             {/* Labels */}
             <div>
-              <Label>Labels</Label>
+              <Label className="pb-2">Labels</Label>
               {loadingProjectData[project.id] ? (
                 <div className="text-sm text-gray-500 py-2">Loading labels...</div>
               ) : !project.projectId ? (
@@ -869,7 +869,7 @@ export function ProjectMapping({
             {/* Estimate */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Default Estimate</Label>
+                <Label className="pb-2">Default Estimate</Label>
                 <Input
                   placeholder="8h"
                   value={project.estimate}

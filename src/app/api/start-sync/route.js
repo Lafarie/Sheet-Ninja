@@ -3,6 +3,11 @@ import syncStateManager from '@/lib/syncStateManager';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import path from 'path';
+import fs from 'fs';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { decrypt } from '@/lib/encryption';
 
 export async function POST(request) {
   try {
@@ -74,14 +79,64 @@ async function performActualSync(syncData) {
     syncStateManager.addOutput(`  - Connecting to spreadsheet: ${syncData.spreadsheetId}\n`);
     syncStateManager.addOutput(`  - Reading worksheet: ${syncData.worksheetName}\n`);
     
-    const serviceAccountPath = path.join(process.cwd(), 'uploads', 'service_account.json');
-    const serviceAccountAuth = new JWT({
-      keyFile: serviceAccountPath,
-      scopes: [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive.file',
-      ],
-    });
+    // Resolve service account: prefer DB-saved, then inline body, then local uploaded file
+    let serviceAccountAuth = null;
+    let resolvedServiceAccount = null;
+
+    try {
+      const session = await getServerSession(authOptions);
+      if (session?.user?.id) {
+        const dbConfig = await prisma.savedConfig.findFirst({
+          where: {
+            userId: session.user.id,
+            OR: [{ spreadsheetId: syncData.spreadsheetId }, { isDefault: true }],
+          },
+          orderBy: { updatedAt: 'desc' },
+        });
+
+        if (dbConfig?.serviceAccount) {
+          const maybe = decrypt(dbConfig.serviceAccount);
+          if (typeof maybe === 'string') {
+            try { resolvedServiceAccount = JSON.parse(maybe); } catch { resolvedServiceAccount = maybe; }
+          } else {
+            resolvedServiceAccount = maybe;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read DB service account:', e);
+    }
+
+    // Inline body takes precedence after DB
+    if (!resolvedServiceAccount && syncData.serviceAccount && syncData.serviceAccount.client_email && syncData.serviceAccount.private_key) {
+      resolvedServiceAccount = syncData.serviceAccount;
+    }
+
+    if (resolvedServiceAccount && resolvedServiceAccount.client_email && resolvedServiceAccount.private_key) {
+      serviceAccountAuth = new JWT({
+        email: resolvedServiceAccount.client_email,
+        key: resolvedServiceAccount.private_key,
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive.file',
+        ],
+      });
+    } else {
+      // Fallback to server-side uploaded file
+      const serviceAccountPath = path.join(process.cwd(), 'uploads', 'service_account.json');
+      if (!fs.existsSync(serviceAccountPath)) {
+        // Cannot proceed without credentials; mark sync as errored and stop
+        syncStateManager.errorSync('No service account credentials available. Please upload one or save a config with a service account.');
+        return;
+      }
+      serviceAccountAuth = new JWT({
+        keyFile: serviceAccountPath,
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive.file',
+        ],
+      });
+    }
 
     const doc = new GoogleSpreadsheet(syncData.spreadsheetId, serviceAccountAuth);
     await doc.loadInfo();
