@@ -38,6 +38,10 @@ export default function SetupPage() {
   const { data: session, status } = useSession();
   const [showDashboard, setShowDashboard] = useState(true);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  // When true we avoid auto-loading the user's default saved config. Used
+  // to prevent the default loader from overwriting an explicit 'Create New'
+  // action.
+  const [skipAutoLoad, setSkipAutoLoad] = useState(false);
 
   // Configuration state
   const [config, setConfig] = useState({
@@ -80,6 +84,12 @@ export default function SetupPage() {
 
   const updateConfig = (updates) => {
     setConfig(prev => ({ ...prev, ...updates }));
+  };
+
+  // When user returns to the dashboard, allow auto-loading default config again
+  const returnToDashboard = () => {
+    setSkipAutoLoad(false);
+    setShowDashboard(true);
   };
 
   // Apply a saved configuration into local state
@@ -151,7 +161,7 @@ export default function SetupPage() {
     // Only auto-load the user's default saved config when entering setup without
     // an already-selected config. This prevents overriding a config the user
     // explicitly selected from the dashboard.
-    if (session?.user && showDashboard === false && !config?.id) {
+    if (session?.user && showDashboard === false && !config?.id && !skipAutoLoad) {
       loadDefaultConfig();
     }
   }, [session, showDashboard, loadDefaultConfig]);
@@ -162,6 +172,38 @@ export default function SetupPage() {
   };
 
   const handleCreateNew = () => {
+    // Reset to a clean, empty configuration so saved values don't persist
+    setConfig({
+      gitlabUrl: 'https://sourcecontrol.hsenidmobile.com/api/v4/',
+      gitlabToken: '',
+      projectId: '',
+      spreadsheetId: '',
+      worksheetName: 'Sheet1',
+      defaultAssignee: '',
+      defaultMilestone: '',
+      defaultLabel: '',
+      defaultEstimate: '8h',
+      columnMappings: {},
+      projectData: { labels: [], milestones: [], assignees: [] },
+      sheetNames: [],
+      serviceAccount: null,
+      serviceAccountFilename: '',
+      serviceAccountEmail: '',
+      id: undefined,
+      name: '',
+      isDefault: false,
+    });
+    // Clear any project mappings and mappings state
+    setProjectMappings([]);
+    setCurrentMappings(() => {
+      const mappings = {};
+      Object.keys(defaultConfig).forEach(key => {
+        mappings[key] = defaultConfig[key].index.toString();
+      });
+      return mappings;
+    });
+    setCurrentHeaders([]);
+    setSkipAutoLoad(true);
     setShowDashboard(false);
   };
 
@@ -256,7 +298,7 @@ export default function SetupPage() {
             <div className="flex items-center justify-between">
               <Button 
                 variant="ghost" 
-                onClick={() => setShowDashboard(true)}
+                onClick={returnToDashboard}
                 className="text-white hover:bg-white/10"
               >
                 ← Back to Dashboard
