@@ -88,8 +88,22 @@ export default function SetupPage() {
       ...prev,
       gitlabUrl: savedConfig.gitlabUrl,
       gitlabToken: savedConfig.gitlabToken,
+      // include basic identity fields
+      id: savedConfig.id,
+      name: savedConfig.name,
+      isDefault: savedConfig.isDefault,
+      createdAt: savedConfig.createdAt,
+      updatedAt: savedConfig.updatedAt,
+      projectId: savedConfig.projectId || prev.projectId || '',
       spreadsheetId: savedConfig.spreadsheetId,
       worksheetName: savedConfig.worksheetName,
+      // include service account info so downstream components can access it
+      serviceAccount: savedConfig.serviceAccount || null,
+      serviceAccountFilename: savedConfig.serviceAccountFilename || '',
+      serviceAccountEmail: savedConfig.serviceAccountEmail || (savedConfig.serviceAccount?.client_email ?? ''),
+  sheetNames: savedConfig.sheetNames || [],
+  // ensure columnMappings is present on the config object for downstream logic
+  columnMappings: savedConfig.columnMappings || {},
       defaultAssignee: savedConfig.defaultAssignee,
       defaultMilestone: savedConfig.defaultMilestone,
       defaultLabel: savedConfig.defaultLabel,
@@ -134,7 +148,10 @@ export default function SetupPage() {
   }, [loadConfigFromSaved]);
 
   useEffect(() => {
-    if (session?.user && showDashboard === false) {
+    // Only auto-load the user's default saved config when entering setup without
+    // an already-selected config. This prevents overriding a config the user
+    // explicitly selected from the dashboard.
+    if (session?.user && showDashboard === false && !config?.id) {
       loadDefaultConfig();
     }
   }, [session, showDashboard, loadDefaultConfig]);
