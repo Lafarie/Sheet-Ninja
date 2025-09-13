@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Columns, Wand2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Columns, Wand2, CheckCircle } from 'lucide-react';
+import { useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 
 export function ColumnMapping({ 
