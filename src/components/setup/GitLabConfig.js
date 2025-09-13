@@ -12,6 +12,7 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, setActiveTa
   const [loading, setLoading] = useState(false);
   const [availableProjects, setAvailableProjects] = useState([]);
 
+  console.log(config)
   const fetchAvailableProjects = async () => {
     if (!config.gitlabToken) {
       toast.error('Please enter your GitLab token first');
