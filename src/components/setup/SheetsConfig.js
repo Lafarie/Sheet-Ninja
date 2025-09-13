@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +45,18 @@ export function SheetsConfig({
 
       const data = await response.json();
       updateConfig({ sheetNames: data.sheetNames });
+
+      // Auto-scroll to the sheet selection area so the user can pick the worksheet
+      // Wrap in a small timeout to allow the DOM to render the selection card
+      setTimeout(() => {
+        try {
+          if (sheetSelectionRef.current && typeof sheetSelectionRef.current.scrollIntoView === 'function') {
+            sheetSelectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        } catch (e) {
+          // ignore scrolling errors
+        }
+      }, 120);
       toast.success('Sheet names fetched successfully!');
     } catch (error) {
       console.error('Fetch error:', error);
@@ -95,6 +107,8 @@ export function SheetsConfig({
   };
 
   const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700, setActiveTab, tabValue: 'columns' });
+
+  const sheetSelectionRef = useRef(null);
 
   return (
     <div className="space-y-6">
@@ -165,41 +179,44 @@ export function SheetsConfig({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="worksheetName">Worksheet Name</Label>
-              <Select
-                value={config.worksheetName}
-                onValueChange={(value) => updateConfig({ worksheetName: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select worksheet..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {config.sheetNames.map((sheetName) => (
-                    <SelectItem key={sheetName} value={sheetName}>
-                      {sheetName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center justify-between">
+            <div ref={sheetSelectionRef}>
               <div>
-                <p className="text-sm font-medium">Available Sheets</p>
-                <p className="text-xs text-gray-500">Found {config.sheetNames.length} sheets</p>
+                <Label htmlFor="worksheetName">Worksheet Name</Label>
+                <Select
+                  value={config.worksheetName}
+                  onValueChange={(value) => updateConfig({ worksheetName: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select worksheet..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {config.sheetNames.map((sheetName) => (
+                      <SelectItem key={sheetName} value={sheetName}>
+                        {sheetName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Badge variant="secondary">{config.sheetNames.length}</Badge>
-            </div>
 
-            <Button 
-              onClick={detectHeaders}
-              disabled={detectingHeaders || !config.worksheetName}
-              className="w-full"
-            >
-              {detectingHeaders && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Detect Column Headers
-            </Button>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Available Sheets</p>
+                  <p className="text-xs text-gray-500">Found {config.sheetNames.length} sheets</p>
+                </div>
+                <Badge variant="secondary">{config.sheetNames.length}</Badge>
+              </div>
+
+              <Button 
+                onClick={detectHeaders}
+                disabled={detectingHeaders || !config.worksheetName}
+                title={!config.worksheetName ? 'Please select a worksheet first' : 'Detect column headers from the selected worksheet'}
+                className="w-full"
+              >
+                {detectingHeaders && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Detect Column Headers
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
