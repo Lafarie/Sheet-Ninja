@@ -30,4 +30,5 @@ export async function POST(request) {
   }
 }
 
-export const runtime = 'edge';
+// Use Node runtime so filesystem writes succeed
+export const runtime = 'nodejs';

@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import path from 'path';
+import fs from 'fs';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { decrypt } from '@/lib/encryption';
 
 export async function POST(request) {
   try {
@@ -15,20 +20,52 @@ export async function POST(request) {
       );
     }
 
-    // Create JWT auth either from provided serviceAccount object or fallback to packaged file
-    let serviceAccountAuth;
-    if (serviceAccount && serviceAccount.client_email && serviceAccount.private_key) {
+    // Resolve service account: DB -> inline -> local file
+    let serviceAccountAuth = null;
+    let resolvedServiceAccount = null;
+
+    try {
+      const session = await getServerSession(authOptions);
+      if (session?.user?.id) {
+        const dbConfig = await prisma.savedConfig.findFirst({
+          where: {
+            userId: session.user.id,
+            OR: [{ spreadsheetId }, { isDefault: true }],
+          },
+          orderBy: { updatedAt: 'desc' },
+        });
+
+        if (dbConfig?.serviceAccount) {
+          const maybe = decrypt(dbConfig.serviceAccount);
+          if (typeof maybe === 'string') {
+            try { resolvedServiceAccount = JSON.parse(maybe); } catch { resolvedServiceAccount = maybe; }
+          } else {
+            resolvedServiceAccount = maybe;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read DB service account:', e);
+    }
+
+    if (!resolvedServiceAccount && serviceAccount && serviceAccount.client_email && serviceAccount.private_key) {
+      resolvedServiceAccount = serviceAccount;
+    }
+
+    if (resolvedServiceAccount && resolvedServiceAccount.client_email && resolvedServiceAccount.private_key) {
       serviceAccountAuth = new JWT({
-        email: serviceAccount.client_email,
-        key: serviceAccount.private_key,
+        email: resolvedServiceAccount.client_email,
+        key: resolvedServiceAccount.private_key,
         scopes: [
           'https://www.googleapis.com/auth/spreadsheets',
           'https://www.googleapis.com/auth/drive.file',
         ],
       });
     } else {
-      // Path to the service account file on disk
       const serviceAccountPath = path.join(process.cwd(), 'uploads', 'service_account.json');
+      if (!fs.existsSync(serviceAccountPath)) {
+        return NextResponse.json({ error: 'No service account credentials available. Please upload one or save a config with a service account.' }, { status: 400 });
+      }
       serviceAccountAuth = new JWT({
         keyFile: serviceAccountPath,
         scopes: [
