@@ -43,7 +43,7 @@ export async function POST(request) {
     const project = await projectResponse.json();
 
     // Fetch project members (assignees)
-    const membersResponse = await fetch(`${baseUrl}projects/${projectId}/members/all`, {
+    const membersResponse = await fetch(`${baseUrl}projects/${projectId}/members/all?id=${projectId}&page=1&per_page=100`, {
       headers,
     });
 
@@ -53,7 +53,7 @@ export async function POST(request) {
     }
 
     // Fetch project milestones
-    const milestonesResponse = await fetch(`${baseUrl}projects/${projectId}/milestones?state=active`, {
+    const milestonesResponse = await fetch(`${baseUrl}projects/${projectId}/milestones?state=active&id=${projectId}&page=1&per_page=100`, {
       headers,
     });
 
@@ -63,7 +63,7 @@ export async function POST(request) {
     }
 
     // Fetch project labels
-    const labelsResponse = await fetch(`${baseUrl}projects/${projectId}/labels`, {
+    const labelsResponse = await fetch(`${baseUrl}projects/${projectId}/labels?id=${projectId}&page=1&per_page=100`, {
       headers,
     });
 
