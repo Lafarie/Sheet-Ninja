@@ -113,6 +113,36 @@ export function SheetsConfig({
 
   const sheetSelectionRef = useRef(null);
 
+  // Drag & drop state for service account upload
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleServiceAccountFile(file);
+  };
+
   // Service account file upload handling
   const handleServiceAccountFile = (file) => {
     if (!file) return;
@@ -198,19 +228,42 @@ export function SheetsConfig({
             {/* Service Account upload */}
             <div className="mb-3">
               <Label htmlFor="serviceAccount">Service Account JSON (optional)</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="serviceAccount"
-                  type="file"
-                  accept="application/json"
-                  onChange={(e) => handleServiceAccountFile(e.target.files?.[0])}
-                />
-                {config.serviceAccountFilename && (
-                  <div className="text-sm text-gray-600">{config.serviceAccountFilename}</div>
-                )}
-                {config.serviceAccount && (
-                  <button type="button" className="text-sm text-red-600 ml-2" onClick={clearServiceAccount}>Remove</button>
-                )}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`w-full border rounded p-4 flex items-center justify-between cursor-pointer transition-colors ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-dashed border-gray-300 bg-white'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="text-sm">
+                    <div className="font-medium">Drag & drop your service_account.json here</div>
+                    <div className="text-xs text-gray-500">or click to browse</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    id="serviceAccount"
+                    type="file"
+                    accept="application/json"
+                    className="hidden"
+                    onChange={(e) => handleServiceAccountFile(e.target.files?.[0])}
+                  />
+                  {config.serviceAccountFilename ? (
+                    <div className="text-sm text-gray-600">{config.serviceAccountFilename}</div>
+                  ) : (
+                    <div className="text-xs text-gray-400">No file selected</div>
+                  )}
+                  {config.serviceAccount && (
+                    <button type="button" className="text-sm text-red-600 ml-2" onClick={clearServiceAccount}>Remove</button>
+                  )}
+                </div>
               </div>
             </div>
             
