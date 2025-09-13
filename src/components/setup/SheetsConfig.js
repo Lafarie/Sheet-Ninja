@@ -159,8 +159,28 @@ export function SheetsConfig({
                 <p className="text-sm">
                   To sync your Google Sheets, please add this service account email to your spreadsheet with <strong>Editor</strong> permissions:
                 </p>
-                <div className="bg-gray-100 p-2 rounded font-mono text-xs break-all">
-                  automate@bright-torus-466008-t9.iam.gserviceaccount.com
+                <div className="flex items-center gap-2">
+                  <div className="bg-gray-100 p-2 rounded font-mono text-xs break-all">
+                    {config.serviceAccount?.client_email || 'automate@bright-torus-466008-t9.iam.gserviceaccount.com'}
+                  </div>
+                  {/* Copy button for the service account email */}
+                  <button
+                    type="button"
+                    className="px-2 py-1 bg-gray-200 rounded text-sm"
+                    onClick={() => {
+                      const email = config.serviceAccount?.client_email || 'automate@bright-torus-466008-t9.iam.gserviceaccount.com';
+                      try {
+                        navigator.clipboard.writeText(email);
+                        toast.success('Service account email copied to clipboard');
+                      } catch (err) {
+                        console.error('Clipboard copy failed', err);
+                        toast('Copy failed');
+                      }
+                    }}
+                    aria-label="Copy service account email"
+                  >
+                    Copy
+                  </button>
                 </div>
                 <p className="text-xs text-gray-600">
                   1. Open your Google Sheets document<br/>
