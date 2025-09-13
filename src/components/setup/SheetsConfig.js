@@ -36,6 +36,7 @@ export function SheetsConfig({
         },
         body: JSON.stringify({
           spreadsheetId: config.spreadsheetId,
+          serviceAccount: config.serviceAccount || null,
         }),
       });
 
@@ -43,7 +44,7 @@ export function SheetsConfig({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+  const data = await response.json();
       updateConfig({ sheetNames: data.sheetNames });
 
       // Auto-scroll to the sheet selection area so the user can pick the worksheet
@@ -87,6 +88,7 @@ export function SheetsConfig({
         body: JSON.stringify({
           spreadsheetId: config.spreadsheetId,
           worksheetName: config.worksheetName,
+          serviceAccount: config.serviceAccount || null,
         }),
       });
 
@@ -109,6 +111,32 @@ export function SheetsConfig({
   const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700, setActiveTab, tabValue: 'columns' });
 
   const sheetSelectionRef = useRef(null);
+
+  // Service account file upload handling
+  const handleServiceAccountFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        updateConfig({ serviceAccount: parsed, serviceAccountFilename: file.name });
+        toast.success('Service account loaded');
+      } catch (err) {
+        console.error('Invalid service account file', err);
+        toast.error('Invalid JSON in service account file');
+      }
+    };
+    reader.onerror = (err) => {
+      console.error('File read error', err);
+      toast.error('Failed to read service account file');
+    };
+    reader.readAsText(file);
+  };
+
+  const clearServiceAccount = () => {
+    updateConfig({ serviceAccount: null, serviceAccountFilename: '' });
+    toast.success('Service account cleared');
+  };
 
   return (
     <div className="space-y-6">
@@ -146,6 +174,26 @@ export function SheetsConfig({
 
           {/* Spreadsheet ID */}
           <div>
+            {/* Service Account upload */}
+            <div className="mb-3">
+              <Label htmlFor="serviceAccount">Service Account JSON (optional)</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="serviceAccount"
+                  type="file"
+                  accept="application/json"
+                  onChange={(e) => handleServiceAccountFile(e.target.files?.[0])}
+                />
+                {config.serviceAccountFilename && (
+                  <div className="text-sm text-gray-600">{config.serviceAccountFilename}</div>
+                )}
+                {config.serviceAccount && (
+                  <button type="button" className="text-sm text-red-600 ml-2" onClick={clearServiceAccount}>Remove</button>
+                )}
+              </div>
+            </div>
+            
+            {/* Spreadsheet ID */}
             <Label htmlFor="spreadsheetId">Google Sheets Spreadsheet ID *</Label>
             <Input
               id="spreadsheetId"

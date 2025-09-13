@@ -63,7 +63,7 @@ model SavedConfig {
   gitlabToken      String
   spreadsheetId    String
   worksheetName    String
-  serviceAccount   Json?
+  serviceAccount   String?
   columnMappings   Json?
   defaultAssignee  String?
   defaultMilestone String?

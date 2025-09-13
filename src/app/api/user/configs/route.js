@@ -27,18 +27,34 @@ export async function GET(request) {
 
     // Decrypt sensitive data before sending to client
     const decryptedConfigs = configs.map(config => {
-      // gitlabToken stored encrypted
-      const gitlabToken = decrypt(config.gitlabToken);
+      // gitlabToken stored encrypted; decrypt may return original value if not encrypted
+      let gitlabToken = config.gitlabToken;
+      try {
+        const maybe = decrypt(config.gitlabToken);
+        if (typeof maybe === 'string') gitlabToken = maybe;
+      } catch (e) {
+        // leave original
+      }
 
-      // serviceAccount stored as encrypted JSON string; parse after decrypt
+      // serviceAccount stored as encrypted JSON string; decrypt may return plaintext JSON or the original
       let serviceAccount = null;
       if (config.serviceAccount) {
         try {
           const decrypted = decrypt(config.serviceAccount);
-          serviceAccount = typeof decrypted === 'string' ? JSON.parse(decrypted) : decrypted;
+          if (typeof decrypted === 'string') {
+            // If it's a JSON string, try parse
+            try {
+              serviceAccount = JSON.parse(decrypted);
+            } catch (e) {
+              // not JSON - return string as-is
+              serviceAccount = decrypted;
+            }
+          } else {
+            serviceAccount = decrypted;
+          }
         } catch (e) {
-          // fallback: if decrypt returned already-parsed object or parsing fails, return raw
-          serviceAccount = decrypt(config.serviceAccount);
+          // fallback: use original stored value
+          serviceAccount = config.serviceAccount;
         }
       }
 

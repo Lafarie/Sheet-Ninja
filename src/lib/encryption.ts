@@ -39,17 +39,34 @@ export function encrypt(text: string): string {
   return iv.toString('hex') + ':' + encrypted;
 }
 
-export function decrypt(text: string): string {
+export function decrypt(text: any): any {
+  // Be permissive: if input is falsy or not a string, return as-is
+  if (!text || typeof text !== 'string') return text;
+
+  // Expect format iv:encrypted. If it's not present, assume plaintext and return it.
+  if (!text.includes(':')) return text;
+
   try {
     const textParts = text.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
+    const ivHex = textParts.shift();
+    if (!ivHex) return text; // malformed, return original
+
+    const iv = Buffer.from(ivHex, 'hex');
+    // IV must be 16 bytes for AES-256-CBC
+    if (iv.length !== 16) {
+      console.warn('decrypt: invalid IV length', iv.length);
+      return text; // Not encrypted in expected format
+    }
+
     const encryptedText = textParts.join(':');
     const decipher = crypto.createDecipheriv(ALGORITHM, KEY_BUFFER, iv);
     let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (error) {
+    // Log and return original value to avoid crashing callers when encountering
+    // legacy/plaintext values or unexpected formats.
     console.error('Decryption failed:', error);
-    throw new Error('Failed to decrypt data');
+    return text;
   }
 }

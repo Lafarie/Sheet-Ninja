@@ -5,7 +5,8 @@ import path from 'path';
 
 export async function POST(request) {
   try {
-    const { spreadsheetId } = await request.json();
+    const body = await request.json();
+    const { spreadsheetId, serviceAccount } = body || {};
 
     if (!spreadsheetId) {
       return NextResponse.json(
@@ -14,17 +15,28 @@ export async function POST(request) {
       );
     }
 
-    // Path to the service account file
-    const serviceAccountPath = path.join(process.cwd(), 'uploads', 'service_account.json');
-    
-    // Create JWT auth
-    const serviceAccountAuth = new JWT({
-      keyFile: serviceAccountPath,
-      scopes: [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive.file',
-      ],
-    });
+    // Create JWT auth either from provided serviceAccount object or fallback to packaged file
+    let serviceAccountAuth;
+    if (serviceAccount && serviceAccount.client_email && serviceAccount.private_key) {
+      serviceAccountAuth = new JWT({
+        email: serviceAccount.client_email,
+        key: serviceAccount.private_key,
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive.file',
+        ],
+      });
+    } else {
+      // Path to the service account file on disk
+      const serviceAccountPath = path.join(process.cwd(), 'uploads', 'service_account.json');
+      serviceAccountAuth = new JWT({
+        keyFile: serviceAccountPath,
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive.file',
+        ],
+      });
+    }
 
     // Initialize the sheet
     const doc = new GoogleSpreadsheet(spreadsheetId, serviceAccountAuth);
