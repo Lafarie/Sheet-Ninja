@@ -153,20 +153,32 @@ export function SyncRunner({
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // Start polling for progress
-      startProgressPolling();
-      // Auto-scroll to progress area so user sees real-time output
-      try {
-        if (progressRef.current && typeof progressRef.current.scrollIntoView === 'function') {
-          progressRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // If server returns 409 it means a sync is already running. Treat that as success
+        // and connect to the running sync: set running state and begin polling.
+        if (response.status === 409) {
+          setSyncRunning(true);
+          setSyncProgress('running');
+          // start polling for progress from the existing run
+          startProgressPolling();
+          toast('Connected to an existing running sync');
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      } catch (e) {
-        // ignore scroll errors
+      } else {
+        // Normal successful start
+        // Start polling for progress
+        startProgressPolling();
+        // Auto-scroll to progress area so user sees real-time output
+        try {
+          if (progressRef.current && typeof progressRef.current.scrollIntoView === 'function') {
+            progressRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        } catch (e) {
+          // ignore scroll errors
+        }
+        toast.success('Sync started successfully!');
       }
-      toast.success('Sync started successfully!');
+      
       
     } catch (error) {
       console.error('Sync start error:', error);

@@ -455,75 +455,8 @@ async function performActualSync(syncData) {
 
   // gitIdColumn and existingGitIdValue were computed earlier (reused here)
         if (existingGitIdValue) {
-          // If we have an existing issue link, optionally check status column before attempting to close
-          const shouldCheckStatus = !!syncData.checkStatusBeforeClose;
-          let shouldClose = true; // default behavior: close if present
-
-          if (shouldCheckStatus) {
-            // Look for a status column (prefer explicit mapping from columnMappings)
-            const mappedStatusCol = resolveColumnFromMapping(syncData.columnMappings ? (syncData.columnMappings.STATUS || syncData.columnMappings.status) : null, sheet.headerValues);
-            const statusCol = mappedStatusCol || findColumnName(sheet.headerValues, ['status', 'state', 'issue status']);
-            const rawStatus = statusCol ? (row.get(statusCol) || '') : '';
-            const statusVal = rawStatus.toString().trim();
-            // Normalize: lowercase and remove non-alphanumeric to make matching tolerant to punctuation/casing/misspelling
-            const normalized = statusVal.toLowerCase().replace(/[^a-z0-9]/g, '');
-            // Expanded keywords to catch common variants/misspellings like 'compleated'
-            const completionKeywords = ['completed', 'complete', 'compleat', 'complet', 'done', 'closed', 'finish', 'finished', 'resolved'];
-            shouldClose = completionKeywords.some(k => normalized.includes(k));
-            syncStateManager.addOutput(`  - Row ${i + 2} status check: "${statusVal}" -> shouldClose=${shouldClose}\n`);
-          }
-
-          if (shouldClose) {
-            try {
-              // Extract IID from the stored issue link or id (e.g. #123 or url)
-              const iidMatch = String(existingGitIdValue).match(/#(\d+)|\/(\d+)(?:$|\D)/);
-              let iid = null;
-              if (iidMatch) {
-                iid = iidMatch[1] || iidMatch[2];
-              } else {
-                // Fallback: try to parse digits
-                const digits = String(existingGitIdValue).match(/(\d+)/);
-                iid = digits ? digits[1] : null;
-              }
-
-              if (iid) {
-                // Close the issue via GitLab API (uses resolved targetProjectId)
-                const closeResp = await fetch(`${gitlabUrl}projects/${encodeURIComponent(targetProjectId)}/issues/${iid}`, {
-                  method: 'PUT',
-                  headers,
-                  body: JSON.stringify({ state_event: 'close' }),
-                });
-
-                if (closeResp.ok) {
-                  syncStateManager.addOutput(`  - Closed existing issue #${iid} for row ${i + 2}\n`);
-                } else {
-                  // Try to parse JSON error, fallback to raw text for debugging
-                  let errMsg = '';
-                  try {
-                    const errData = await closeResp.json();
-                    errMsg = errData.message || JSON.stringify(errData);
-                  } catch (e) {
-                    try {
-                      errMsg = await closeResp.text();
-                    } catch (e2) {
-                      errMsg = closeResp.statusText || String(closeResp.status);
-                    }
-                  }
-                  syncStateManager.addOutput(`  - Failed to close issue #${iid} for row ${i + 2}: ${closeResp.status} ${closeResp.statusText} - ${errMsg}\n`);
-                  // For debugging, add a hint about possible reasons
-                  syncStateManager.addOutput(`  - Hint: this may be due to using GitLab Work Items (GraphQL) instead of Issues (REST), insufficient permissions, or an incorrect project id.\n`);
-                }
-              } else {
-                syncStateManager.addOutput(`  - Could not parse issue id from cell for row ${i + 2}, skipping close\n`);
-              }
-            } catch (err) {
-              syncStateManager.addOutput(`  - Error closing existing issue for row ${i + 2}: ${err.message}\n`);
-            }
-          } else {
-            syncStateManager.addOutput(`  - Not closing existing issue for row ${i + 2} due to status check\n`);
-          }
-
-          // Continue to next row (do not create a new issue)
+          // Do NOT close or modify pre-existing GitLab issue references. Skip rows that already have a Git ID.
+          syncStateManager.addOutput(`  - Skipping row ${i + 2}: existing GitLab ID present (not modifying old issues)\n`);
           continue;
         }
 
@@ -546,6 +479,46 @@ async function performActualSync(syncData) {
 
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 500));
+
+        // After creating a new issue, if the config requests status-check-before-close, close newly created issue
+        try {
+          const shouldCheckStatus = !!syncData.checkStatusBeforeClose;
+          if (shouldCheckStatus) {
+            const mappedStatusCol = resolveColumnFromMapping(syncData.columnMappings ? (syncData.columnMappings.STATUS || syncData.columnMappings.status) : null, sheet.headerValues);
+            const statusCol = mappedStatusCol || findColumnName(sheet.headerValues, ['status', 'state', 'issue status']);
+            const rawStatus = statusCol ? (row.get(statusCol) || '') : '';
+            const statusVal = rawStatus.toString().trim();
+            const normalized = statusVal.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const completionKeywords = ['completed', 'complete', 'compleat', 'complet', 'done', 'closed', 'finish', 'finished', 'resolved'];
+            const shouldClose = completionKeywords.some(k => normalized.includes(k));
+            syncStateManager.addOutput(`  - Row ${i + 2} post-create status check: "${statusVal}" -> shouldClose=${shouldClose}\n`);
+
+            if (shouldClose) {
+              try {
+                const iid = issue && issue.iid ? issue.iid : null;
+                if (iid) {
+                  const closeResp = await fetch(`${gitlabUrl}projects/${encodeURIComponent(targetProjectId)}/issues/${iid}`, {
+                    method: 'PUT',
+                    headers,
+                    body: JSON.stringify({ state_event: 'close' }),
+                  });
+
+                  if (closeResp.ok) {
+                    syncStateManager.addOutput(`  - Closed newly created issue #${iid} for row ${i + 2}\n`);
+                  } else {
+                    let errMsg = '';
+                    try { const errData = await closeResp.json(); errMsg = errData.message || JSON.stringify(errData); } catch (e) { try { errMsg = await closeResp.text(); } catch (e2) { errMsg = closeResp.statusText || String(closeResp.status); } }
+                    syncStateManager.addOutput(`  - Failed to close newly created issue #${iid} for row ${i + 2}: ${closeResp.status} ${closeResp.statusText} - ${errMsg}\n`);
+                  }
+                }
+              } catch (err) {
+                syncStateManager.addOutput(`  - Error closing newly created issue for row ${i + 2}: ${err.message}\n`);
+              }
+            }
+          }
+        } catch (err) {
+          syncStateManager.addOutput(`  - Error during post-create status check for row ${i + 2}: ${err.message}\n`);
+        }
 
       } catch (error) {
         syncStateManager.addOutput(`  - Error creating issue for row ${i + 2}: ${error.message}\n`);
