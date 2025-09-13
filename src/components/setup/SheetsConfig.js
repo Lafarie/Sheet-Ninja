@@ -15,6 +15,7 @@ export function SheetsConfig({
   updateConfig, 
   setCurrentHeaders, 
   setCurrentStep, 
+  setActiveTab,
   apiBaseUrl
 }) {
   const [loading, setLoading] = useState(false);
@@ -93,7 +94,7 @@ export function SheetsConfig({
     }
   };
 
-  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700 });
+  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700, setActiveTab, tabValue: 'columns' });
 
   return (
     <div className="space-y-6">

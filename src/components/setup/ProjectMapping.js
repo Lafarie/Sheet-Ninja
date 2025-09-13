@@ -502,10 +502,13 @@ export function ProjectMapping({
   setProjectMappings, 
   currentHeaders,
   apiBaseUrl,
-  setCurrentStep 
+  setCurrentStep,
+  setActiveTab
 }) {
   const [uniqueProjectNames, setUniqueProjectNames] = useState([]);
   const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700 });
+  // override to also switch the active tab to 'sync' when moving to step 5
+  const { animating: animating2, transitionTo: transitionToSync } = useStepTransition(setCurrentStep, { delay: 700, setActiveTab, tabValue: 'sync' });
   const [showAddProject, setShowAddProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -724,8 +727,8 @@ export function ProjectMapping({
       toast.error('Please add at least one project mapping');
       return;
     }
-    // Smoothly scroll and transition to sync step
-    transitionTo(5);
+  // Smoothly scroll and transition to sync step (also switches active tab)
+  transitionToSync(5);
     toast.success('Project mappings configured successfully!');
   };
 

@@ -18,7 +18,8 @@ export function ColumnMapping({
   autoMappings,
   setAutoMappings,
   defaultConfig,
-  setCurrentStep 
+  setCurrentStep,
+  setActiveTab
 }) {
   const [mappingComplete, setMappingComplete] = useState(false);
 
@@ -113,7 +114,7 @@ export function ColumnMapping({
     return true;
   };
 
-  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700 });
+  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700, setActiveTab, tabValue: 'projects' });
 
   const getColumnStatus = (key) => {
     const isRequired = defaultConfig[key].required;

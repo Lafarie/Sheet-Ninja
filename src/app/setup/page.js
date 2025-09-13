@@ -75,6 +75,8 @@ export default function SetupPage() {
 
   // Current step for progress tracking
   const [currentStep, setCurrentStep] = useState(1);
+  // Controlled active tab so we can programmatically switch tabs when steps change
+  const [activeTab, setActiveTab] = useState('gitlab');
 
   const updateConfig = (updates) => {
     setConfig(prev => ({ ...prev, ...updates }));
@@ -269,7 +271,7 @@ export default function SetupPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
           {/* Main Content */}
           <div className="lg:col-span-2">
-            <Tabs defaultValue="gitlab" className="w-full">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)} className="w-full">
               <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="gitlab">GitLab</TabsTrigger>
                 <TabsTrigger value="sheets">Sheets</TabsTrigger>
@@ -283,6 +285,7 @@ export default function SetupPage() {
                   config={config}
                   updateConfig={updateConfig}
                   setCurrentStep={setCurrentStep}
+                  setActiveTab={setActiveTab}
                   apiBaseUrl={API_BASE_URL}
                 />
               </TabsContent>
@@ -293,6 +296,7 @@ export default function SetupPage() {
                   updateConfig={updateConfig}
                   setCurrentHeaders={setCurrentHeaders}
                   setCurrentStep={setCurrentStep}
+                  setActiveTab={setActiveTab}
                   apiBaseUrl={API_BASE_URL}
                 />
               </TabsContent>
@@ -307,6 +311,7 @@ export default function SetupPage() {
                   setAutoMappings={setAutoMappings}
                   defaultConfig={defaultConfig}
                   setCurrentStep={setCurrentStep}
+                  setActiveTab={setActiveTab}
                 />
               </TabsContent>
 
@@ -318,6 +323,7 @@ export default function SetupPage() {
                   currentHeaders={currentHeaders}
                   apiBaseUrl={API_BASE_URL}
                   setCurrentStep={setCurrentStep}
+                  setActiveTab={setActiveTab}
                 />
               </TabsContent>
 

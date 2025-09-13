@@ -8,7 +8,7 @@ import { Loader2, GitBranch } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStepTransition } from './useStepTransition';
 
-export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl }) {
+export function GitLabConfig({ config, updateConfig, setCurrentStep, setActiveTab, apiBaseUrl }) {
   const [loading, setLoading] = useState(false);
   const [availableProjects, setAvailableProjects] = useState([]);
 
@@ -54,7 +54,7 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
     }
   };
 
-  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700 });
+  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700, setActiveTab, tabValue: 'sheets' });
 
   return (
     <div className="space-y-6">
