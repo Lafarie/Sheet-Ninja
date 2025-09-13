@@ -138,8 +138,19 @@ export function SyncRunner({
       }
 
       if (enableDateFilter) {
-        syncData.startDate = startDate;
-        syncData.endDate = endDate;
+        // Format dates as dd/mm/yyyy for the server
+        const formatToDMY = (isoDate) => {
+          if (!isoDate) return '';
+          // expect iso input from <input type="date"> as YYYY-MM-DD
+          const parts = isoDate.split('-');
+          if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+          }
+          return isoDate; // fallback: send as-is
+        };
+
+        syncData.startDate = formatToDMY(startDate);
+        syncData.endDate = formatToDMY(endDate);
       }
       // Include checkbox behavior flag
       syncData.checkStatusBeforeClose = !!checkStatusBeforeClose;
