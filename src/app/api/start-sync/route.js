@@ -182,8 +182,23 @@ async function performActualSync(syncData) {
       return;
     }
 
-    const doc = new GoogleSpreadsheet(syncData.spreadsheetId, serviceAccountAuth);
-    await doc.loadInfo();
+    let doc;
+    try {
+      doc = new GoogleSpreadsheet(syncData.spreadsheetId, serviceAccountAuth);
+      await doc.loadInfo();
+    } catch (err) {
+      console.error('Error initializing GoogleSpreadsheet:', err);
+      // Detect missing local service account file ENOENT and give a clearer sync output
+      if (err && err.code === 'ENOENT' && String(err.message).includes(path.join(process.cwd(), 'uploads', 'service_account.json'))) {
+        syncStateManager.addOutput(`  - ERROR: Local service account file not found: uploads/service_account.json\n`);
+        syncStateManager.addOutput(`  - Please upload a service account file or provide inline credentials in the UI.\n`);
+        syncStateManager.errorSync('Local service account file missing');
+        return;
+      }
+      // Fallback: report error and stop sync
+      syncStateManager.errorSync(err.message || 'Failed to initialize Google Sheets client');
+      return;
+    }
     const sheet = doc.sheetsByTitle[syncData.worksheetName];
     
     if (!sheet) {
