@@ -64,6 +64,7 @@ model SavedConfig {
   spreadsheetId    String
   worksheetName    String
   serviceAccount   String?
+  serviceAccountEmail String?
   columnMappings   Json?
   defaultAssignee  String?
   defaultMilestone String?

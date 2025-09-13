@@ -86,10 +86,14 @@ export async function GET(request) {
         };
       });
 
+      // Prefer the denormalized serviceAccountEmail stored in DB, otherwise try to extract from decrypted serviceAccount
+      const serviceAccountEmail = config.serviceAccountEmail || (serviceAccount && serviceAccount.client_email) || null;
+
       return {
         ...config,
         gitlabToken,
         serviceAccount,
+        serviceAccountEmail,
         columnMappings,
         projectMappings,
       };
@@ -151,6 +155,7 @@ export async function POST(request) {
         worksheetName,
   // store JSON fields directly (Prisma Json type) and encrypt serviceAccount as string
   serviceAccount: serviceAccount ? encrypt(JSON.stringify(serviceAccount)) : null,
+  serviceAccountEmail: serviceAccount?.client_email || null,
   columnMappings: columnMappings ? columnMappings : null,
         defaultAssignee,
         defaultMilestone,

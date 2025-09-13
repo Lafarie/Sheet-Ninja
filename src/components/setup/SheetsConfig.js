@@ -161,14 +161,14 @@ export function SheetsConfig({
                 </p>
                 <div className="flex items-center gap-2">
                   <div className="bg-gray-100 p-2 rounded font-mono text-xs break-all">
-                    {config.serviceAccount?.client_email || 'automate@bright-torus-466008-t9.iam.gserviceaccount.com'}
+                    {config.serviceAccountEmail || config.serviceAccount?.client_email || 'automate@bright-torus-466008-t9.iam.gserviceaccount.com'}
                   </div>
                   {/* Copy button for the service account email */}
                   <button
                     type="button"
                     className="px-2 py-1 bg-gray-200 rounded text-sm"
                     onClick={() => {
-                      const email = config.serviceAccount?.client_email || 'automate@bright-torus-466008-t9.iam.gserviceaccount.com';
+                      const email = config.serviceAccountEmail || config.serviceAccount?.client_email || 'automate@bright-torus-466008-t9.iam.gserviceaccount.com';
                       try {
                         navigator.clipboard.writeText(email);
                         toast.success('Service account email copied to clipboard');
