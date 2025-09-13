@@ -36,6 +36,7 @@ export function SyncRunner({
   // Refs to keep latest values inside the interval callback to avoid stale closures
   const syncProgressRef = useRef(syncProgress);
   const completionAnnouncedRef = useRef(completionAnnounced);
+  const progressRef = useRef(null);
 
   // Keep refs updated when state changes
   useEffect(() => {
@@ -115,6 +116,14 @@ export function SyncRunner({
 
       // Start polling for progress
       startProgressPolling();
+      // Auto-scroll to progress area so user sees real-time output
+      try {
+        if (progressRef.current && typeof progressRef.current.scrollIntoView === 'function') {
+          progressRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } catch (e) {
+        // ignore scroll errors
+      }
       toast.success('Sync started successfully!');
       
     } catch (error) {
@@ -438,7 +447,7 @@ export function SyncRunner({
 
       {/* Sync Progress */}
       {(syncRunning || syncProgress !== 'idle') && (
-        <Card>
+        <Card ref={progressRef}>
           <CardHeader>
             <CardTitle>Sync Progress</CardTitle>
             <CardDescription>
