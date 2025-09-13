@@ -496,7 +496,7 @@ export function SyncRunner({
                 Close issues based on status column
               </label>
             </div>
-            <i className='text-xs text-gray-500 pl-5'>e.g., close when status is 'Done' or 'Complete'</i>
+            <i className='text-xs text-gray-500 pl-5'>e.g., close when status is &apos;Done&apos; or &apos;Complete&apos;</i>
           </div>
 
           <Separator />
