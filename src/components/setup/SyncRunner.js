@@ -447,7 +447,7 @@ export function SyncRunner({
           <Separator />
 
           {/* Date Filter Option */}
-          <div className="space-y-3">
+          <div className="">
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -460,6 +460,7 @@ export function SyncRunner({
                 Enable date filter
               </label>
             </div>
+            <i className='text-xs text-gray-500 pl-5'>Make sure Date column need to be in this format DD/MM/YYYY</i>
             
             {enableDateFilter && (
               <div className="grid grid-cols-2 gap-4">
@@ -491,10 +492,11 @@ export function SyncRunner({
                 onChange={(e) => setCheckStatusBeforeClose(e.target.checked)}
                 className="rounded border-gray-300"
               />
-              <label htmlFor="checkStatusBeforeClose" className="text-sm">
-                Check status column create and close issues accordingly
+              <label htmlFor="checkStatusBeforeClose" className="text-sm font-medium">
+                Close issues based on status column
               </label>
             </div>
+            <i className='text-xs text-gray-500 pl-5'>e.g., close when status is 'Done' or 'Complete'</i>
           </div>
 
           <Separator />
