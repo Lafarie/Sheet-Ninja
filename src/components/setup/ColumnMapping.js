@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStepTransition } from './useStepTransition';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -84,6 +84,53 @@ export function ColumnMapping({
     toast.success(message);
   };
 
+  // Ref for the auto-map button so we can scroll to it and apply a glow effect
+  const autoMapBtnRef = useRef(null);
+  const [glowActive, setGlowActive] = useState(false);
+
+  // Inject CSS for gold glow animation once
+  const ensureGlowStyles = () => {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('gold-glow-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'gold-glow-styles';
+    style.innerHTML = `
+      @keyframes goldPulse {
+        0% { box-shadow: 0 0 0 0 rgba(255,215,0,0.85); }
+        50% { box-shadow: 0 0 20px 8px rgba(255,215,0,0.6); }
+        100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.85); }
+      }
+      .gold-glow {
+        animation: goldPulse 1.2s ease-in-out infinite;
+        border-color: #f6c200 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  };
+
+  const triggerGlow = (duration = 3000) => {
+    ensureGlowStyles();
+    setGlowActive(true);
+    window.setTimeout(() => setGlowActive(false), duration);
+  };
+
+  // On mount: scroll to the auto-map button and show the glow for a few seconds
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // wait a tick for layout
+    const t = setTimeout(() => {
+      try {
+        if (autoMapBtnRef.current && typeof autoMapBtnRef.current.scrollIntoView === 'function') {
+          autoMapBtnRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        triggerGlow(3600);
+      } catch (e) {
+        // ignore
+      }
+    }, 120);
+    return () => clearTimeout(t);
+  }, []);
+
   const updateMapping = (key, value) => {
     const actualValue = value === 'none' ? '' : value;
     setCurrentMappings(prev => ({ ...prev, [key]: actualValue }));
@@ -167,15 +214,7 @@ export function ColumnMapping({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Auto-mapping button */}
-          <Button 
-            onClick={autoMapColumns}
-            className="w-full"
-            variant="outline"
-          >
-            <Wand2 className="mr-2 h-4 w-4" />
-            Auto-Map Columns
-          </Button>
+          
 
           {/* Headers detected info */}
           <div className="bg-blue-50 p-3 rounded-lg">
@@ -258,6 +297,17 @@ export function ColumnMapping({
               </div>
             </div>
           </div>
+
+          {/* Auto-mapping button */}
+          <Button 
+            ref={autoMapBtnRef}
+            onClick={() => { autoMapColumns(); triggerGlow(1800); }}
+            className={`w-full ${glowActive ? 'gold-glow' : ''}`}
+            variant="outline"
+          >
+            <Wand2 className="mr-2 h-4 w-4" />
+            Auto-Map Columns
+          </Button>
 
           <Button onClick={validateMappings} className="w-full">
             <CheckCircle className="mr-2 h-4 w-4" />
