@@ -83,7 +83,7 @@ function LabelSelector({ project, onAddLabel, onRemoveLabel }) {
         <Input
           ref={setInputRef}
           placeholder="Type to search labels or create new..."
-          value={searchTerm}
+          value={searchTerm ?? ''}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
@@ -297,7 +297,7 @@ function AssigneeSelector({ project, currentAssignee, onAssigneeChange, disabled
       <Input
         ref={setInputRef}
         placeholder={disabled ? "Select GitLab project first" : "Type to search assignees..."}
-        value={showDropdown ? searchTerm : (currentAssignee ? getCurrentAssigneeDisplay() : '')}
+        value={showDropdown ? (searchTerm ?? '') : (currentAssignee ? getCurrentAssigneeDisplay() : '')}
         onChange={handleInputChange}
         onFocus={handleInputFocus}
         onBlur={handleInputBlur}
@@ -443,7 +443,7 @@ function MilestoneSelector({ project, currentMilestone, onMilestoneChange, disab
       <Input
         ref={setInputRef}
         placeholder={disabled ? "Select GitLab project first" : "Type to search milestones..."}
-        value={showDropdown ? searchTerm : (currentMilestone ? getCurrentMilestoneDisplay() : '')}
+        value={showDropdown ? (searchTerm ?? '') : (currentMilestone ? getCurrentMilestoneDisplay() : '')}
         onChange={handleInputChange}
         onFocus={handleInputFocus}
         onBlur={handleInputBlur}
@@ -899,7 +899,7 @@ export function ProjectMapping({
                 <Label className="pb-2">Default Estimate</Label>
                 <Input
                   placeholder="8h"
-                  value={project.estimate}
+                    value={project.estimate ?? '8h'}
                   onChange={(e) => updateProjectMapping(project.id, 'estimate', e.target.value)}
                 />
               </div>
@@ -926,7 +926,7 @@ export function ProjectMapping({
                 <Label>Project Name</Label>
                 <Input
                   placeholder="Enter project name"
-                  value={newProjectName}
+                    value={newProjectName ?? ''}
                   onChange={(e) => setNewProjectName(e.target.value)}
                 />
               </div>
