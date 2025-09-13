@@ -79,39 +79,45 @@ async function performActualSync(syncData) {
     syncStateManager.addOutput(`  - Connecting to spreadsheet: ${syncData.spreadsheetId}\n`);
     syncStateManager.addOutput(`  - Reading worksheet: ${syncData.worksheetName}\n`);
     
-    // Resolve service account: prefer DB-saved, then inline body, then local uploaded file
+    // Resolve service account: prefer inline body (highest) -> DB-saved -> local uploaded file
     let serviceAccountAuth = null;
     let resolvedServiceAccount = null;
 
-    try {
-      const session = await getServerSession(authOptions);
-      if (session?.user?.id) {
-        const dbConfig = await prisma.savedConfig.findFirst({
-          where: {
-            userId: session.user.id,
-            OR: [{ spreadsheetId: syncData.spreadsheetId }, { isDefault: true }],
-          },
-          orderBy: { updatedAt: 'desc' },
-        });
+    console.info('start-sync: syncData contains serviceAccount?', !!syncData.serviceAccount, 'serviceAccountFilename?', !!syncData.serviceAccountFilename, 'serviceAccountEmail?', !!syncData.serviceAccountEmail);
 
-        if (dbConfig?.serviceAccount) {
-          const maybe = decrypt(dbConfig.serviceAccount);
-          if (typeof maybe === 'string') {
-            try { resolvedServiceAccount = JSON.parse(maybe); } catch { resolvedServiceAccount = maybe; }
-          } else {
-            resolvedServiceAccount = maybe;
+    // 1) Inline serviceAccount provided in the sync request
+    if (syncData.serviceAccount && syncData.serviceAccount.client_email && syncData.serviceAccount.private_key) {
+      resolvedServiceAccount = syncData.serviceAccount;
+      console.info('start-sync: using inline serviceAccount from request body', { client_email: resolvedServiceAccount.client_email });
+    } else {
+      // 2) Try DB-saved config (if session exists)
+      try {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.id) {
+          const dbConfig = await prisma.savedConfig.findFirst({
+            where: {
+              userId: session.user.id,
+              OR: [{ spreadsheetId: syncData.spreadsheetId }, { isDefault: true }],
+            },
+            orderBy: { updatedAt: 'desc' },
+          });
+
+          if (dbConfig?.serviceAccount) {
+            const maybe = decrypt(dbConfig.serviceAccount);
+            if (typeof maybe === 'string') {
+              try { resolvedServiceAccount = JSON.parse(maybe); } catch { resolvedServiceAccount = maybe; }
+            } else {
+              resolvedServiceAccount = maybe;
+            }
+            console.info('start-sync: using serviceAccount from DB-saved config', { client_email: resolvedServiceAccount && resolvedServiceAccount.client_email });
           }
         }
+      } catch (e) {
+        console.warn('start-sync: Could not read DB service account:', e);
       }
-    } catch (e) {
-      console.warn('Could not read DB service account:', e);
     }
 
-    // Inline body takes precedence after DB
-    if (!resolvedServiceAccount && syncData.serviceAccount && syncData.serviceAccount.client_email && syncData.serviceAccount.private_key) {
-      resolvedServiceAccount = syncData.serviceAccount;
-    }
-
+    // Create auth object if we have a resolved service account
     if (resolvedServiceAccount && resolvedServiceAccount.client_email && resolvedServiceAccount.private_key) {
       serviceAccountAuth = new JWT({
         email: resolvedServiceAccount.client_email,
@@ -122,13 +128,15 @@ async function performActualSync(syncData) {
         ],
       });
     } else {
-      // Fallback to server-side uploaded file
+      // 3) Fallback to local file
       const serviceAccountPath = path.join(process.cwd(), 'uploads', 'service_account.json');
       if (!fs.existsSync(serviceAccountPath)) {
         // Cannot proceed without credentials; mark sync as errored and stop
+        console.warn('start-sync: no credentials found inline or in DB, and local file missing');
         syncStateManager.errorSync('No service account credentials available. Please upload one or save a config with a service account.');
         return;
       }
+      console.info('start-sync: using local uploads/service_account.json fallback');
       serviceAccountAuth = new JWT({
         keyFile: serviceAccountPath,
         scopes: [

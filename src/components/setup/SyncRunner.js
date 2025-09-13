@@ -97,6 +97,13 @@ export function SyncRunner({
         projectMappings: projectMappings || []
       };
 
+      // Include inline service account info so server can use uploaded creds immediately
+      if (config.serviceAccount) {
+        syncData.serviceAccount = config.serviceAccount;
+        syncData.serviceAccountFilename = config.serviceAccountFilename || null;
+        syncData.serviceAccountEmail = config.serviceAccountEmail || config.serviceAccount.client_email || null;
+      }
+
       if (enableDateFilter) {
         syncData.startDate = startDate;
         syncData.endDate = endDate;
