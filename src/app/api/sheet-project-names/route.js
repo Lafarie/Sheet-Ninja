@@ -2,11 +2,17 @@ import { NextResponse } from 'next/server';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import path from 'path';
+import fs from 'fs';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { decrypt } from '@/lib/encryption';
 
 export async function POST(request) {
   try {
-    const { spreadsheetId, worksheetName } = await request.json();
-    
+    const body = await request.json();
+    const { spreadsheetId, worksheetName, serviceAccount } = body || {};
+
     if (!spreadsheetId || !worksheetName) {
       return NextResponse.json(
         { error: 'Missing required fields: spreadsheetId and worksheetName' },
@@ -14,15 +20,62 @@ export async function POST(request) {
       );
     }
 
-    // Initialize Google Sheets connection
-    const serviceAccountPath = path.join(process.cwd(), 'uploads', 'service_account.json');
-    const serviceAccountAuth = new JWT({
-      keyFile: serviceAccountPath,
-      scopes: [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive.file',
-      ],
-    });
+    // Resolve service account: prefer DB-saved, then inline body, then local uploaded file
+    let serviceAccountAuth = null;
+    let resolvedServiceAccount = null;
+
+    try {
+      const session = await getServerSession(authOptions);
+      if (session?.user?.id) {
+        const dbConfig = await prisma.savedConfig.findFirst({
+          where: {
+            userId: session.user.id,
+            OR: [{ spreadsheetId }, { isDefault: true }],
+          },
+          orderBy: { updatedAt: 'desc' },
+        });
+
+        if (dbConfig?.serviceAccount) {
+          const maybe = decrypt(dbConfig.serviceAccount);
+          if (typeof maybe === 'string') {
+            try { resolvedServiceAccount = JSON.parse(maybe); } catch { resolvedServiceAccount = maybe; }
+          } else {
+            resolvedServiceAccount = maybe;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read DB service account:', e);
+    }
+
+    // Inline body takes precedence after DB
+    if (!resolvedServiceAccount && serviceAccount && serviceAccount.client_email && serviceAccount.private_key) {
+      resolvedServiceAccount = serviceAccount;
+    }
+
+    if (resolvedServiceAccount && resolvedServiceAccount.client_email && resolvedServiceAccount.private_key) {
+      serviceAccountAuth = new JWT({
+        email: resolvedServiceAccount.client_email,
+        key: resolvedServiceAccount.private_key,
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive.file',
+        ],
+      });
+    } else {
+      // Fallback to server-side uploaded file
+      const serviceAccountPath = path.join(process.cwd(), 'uploads', 'service_account.json');
+      if (!fs.existsSync(serviceAccountPath)) {
+        return NextResponse.json({ error: 'No service account credentials available. Please upload one or save a config with a service account.' }, { status: 400 });
+      }
+      serviceAccountAuth = new JWT({
+        keyFile: serviceAccountPath,
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive.file',
+        ],
+      });
+    }
 
     const doc = new GoogleSpreadsheet(spreadsheetId, serviceAccountAuth);
     await doc.loadInfo();
@@ -61,14 +114,6 @@ export async function POST(request) {
           projectNames.add(mainProject.trim());
         }
       }
-      
-      // // Get specific project name
-      // if (projectColumns.specific) {
-      //   const specificProject = row.get(projectColumns.specific);
-      //   if (specificProject && specificProject.trim()) {
-      //     projectNames.add(specificProject.trim());
-      //   }
-      // }
     }
 
     // Convert to array and remove empty values
