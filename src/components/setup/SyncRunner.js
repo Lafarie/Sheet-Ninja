@@ -31,6 +31,7 @@ export function SyncRunner({
   const intervalRef = useRef(null);
   const containerRef = useRef(null);
   const [enableDateFilter, setEnableDateFilter] = useState(false);
+  const [checkStatusBeforeClose, setCheckStatusBeforeClose] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [completionAnnounced, setCompletionAnnounced] = useState(false);
@@ -138,6 +139,8 @@ export function SyncRunner({
         syncData.startDate = startDate;
         syncData.endDate = endDate;
       }
+      // Include checkbox behavior flag
+      syncData.checkStatusBeforeClose = !!checkStatusBeforeClose;
 
       const response = await fetch(`${apiBaseUrl}/api/start-sync`, {
         method: 'POST',
@@ -455,6 +458,18 @@ export function SyncRunner({
                 </div>
               </div>
             )}
+            <div className="flex items-center space-x-2 mt-2">
+              <input
+                type="checkbox"
+                id="checkStatusBeforeClose"
+                checked={checkStatusBeforeClose}
+                onChange={(e) => setCheckStatusBeforeClose(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              <label htmlFor="checkStatusBeforeClose" className="text-sm">
+                Check status column before closing existing issues
+              </label>
+            </div>
           </div>
 
           <Separator />

@@ -239,10 +239,61 @@ async function performActualSync(syncData) {
       // Check if sync was stopped
       if (!syncStateManager.getStatus().running) return;
 
-      // Skip rows that already have a GitLab ID
+      // Determine GitLab ID column and existing value (if any)
       const gitIdColumn = findColumnName(sheet.headerValues, ['git id', 'gitlab id', 'issue id', 'git_id']);
-      if (gitIdColumn && row.get(gitIdColumn)) {
-        syncStateManager.addOutput(`  - Skipping row ${i + 2}: Already has GitLab ID\n`);
+      const existingGitIdValue = gitIdColumn ? row.get(gitIdColumn) : null;
+      if (existingGitIdValue) {
+        // If we have an existing issue link, optionally check status column before attempting to close
+        const shouldCheckStatus = !!syncData.checkStatusBeforeClose;
+        let shouldClose = true; // default behavior: close if present
+
+        if (shouldCheckStatus) {
+          // Look for a status column and read its value
+          const statusCol = findColumnName(sheet.headerValues, ['status', 'state', 'issue status']);
+          const statusVal = statusCol ? (row.get(statusCol) || '').toString().toLowerCase() : '';
+          // Only close if status indicates completion (completed, done, closed)
+          shouldClose = ['completed', 'done', 'closed', 'finished'].some(k => statusVal.includes(k));
+          syncStateManager.addOutput(`  - Row ${i + 2} status check: "${statusVal}" -> shouldClose=${shouldClose}\n`);
+        }
+
+        if (shouldClose) {
+          try {
+            // Extract IID from the stored issue link or id (e.g. #123 or url)
+            const iidMatch = String(existingGitIdValue).match(/#(\d+)|\/(\d+)(?:$|\D)/);
+            let iid = null;
+            if (iidMatch) {
+              iid = iidMatch[1] || iidMatch[2];
+            } else {
+              // Fallback: try to parse digits
+              const digits = String(existingGitIdValue).match(/(\d+)/);
+              iid = digits ? digits[1] : null;
+            }
+
+            if (iid) {
+              // Close the issue via GitLab API (assumes projectId determined earlier)
+              const closeResp = await fetch(`${gitlabUrl}projects/${encodeURIComponent(targetProjectId)}/issues/${iid}`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({ state_event: 'close' }),
+              });
+
+              if (closeResp.ok) {
+                syncStateManager.addOutput(`  - Closed existing issue #${iid} for row ${i + 2}\n`);
+              } else {
+                const errData = await closeResp.json().catch(() => ({}));
+                syncStateManager.addOutput(`  - Failed to close issue #${iid} for row ${i + 2}: ${closeResp.status} ${errData.message || ''}\n`);
+              }
+            } else {
+              syncStateManager.addOutput(`  - Could not parse issue id from cell for row ${i + 2}, skipping close\n`);
+            }
+          } catch (err) {
+            syncStateManager.addOutput(`  - Error closing existing issue for row ${i + 2}: ${err.message}\n`);
+          }
+        } else {
+          syncStateManager.addOutput(`  - Not closing existing issue for row ${i + 2} due to status check\n`);
+        }
+
+        // Continue to next row (do not create a new issue)
         continue;
       }
 
@@ -253,9 +304,8 @@ async function performActualSync(syncData) {
         syncStateManager.addOutput(`  - Skipping row ${i + 2}: No main task found\n`);
         continue;
       }
-
       try {
-        // Determine which project configuration to use
+        // Determine which project configuration to use early so we can reuse for closing existing issues
         let projectConfig;
         let targetProjectId;
 
