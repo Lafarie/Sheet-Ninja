@@ -125,7 +125,9 @@ export function SyncRunner({
         projectId: config.projectId,
         spreadsheetId: config.spreadsheetId,
         worksheetName: config.worksheetName,
-        projectMappings: projectMappings || []
+        projectMappings: projectMappings || [],
+        // send column mappings saved in the config so the server can use explicit GIT_ID column
+        columnMappings: config.columnMappings || {}
       };
 
       // Include inline service account info so server can use uploaded creds immediately
