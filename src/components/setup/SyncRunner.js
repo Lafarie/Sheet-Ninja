@@ -29,6 +29,7 @@ export function SyncRunner({
   const [syncOutput, setSyncOutput] = useState('');
   const [currentSyncStep, setCurrentSyncStep] = useState(0);
   const intervalRef = useRef(null);
+  const containerRef = useRef(null);
   const [enableDateFilter, setEnableDateFilter] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -46,6 +47,35 @@ export function SyncRunner({
   useEffect(() => {
     completionAnnouncedRef.current = completionAnnounced;
   }, [completionAnnounced]);
+
+  // Auto-scroll to the SyncRunner area on mount
+  useEffect(() => {
+    try {
+      if (containerRef.current && typeof containerRef.current.scrollIntoView === 'function') {
+        containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (e) {
+      // ignore scroll errors
+    }
+  }, []);
+
+  // When sync completes, scroll the progress/terminal Card (progressRef) into view
+  useEffect(() => {
+    if (syncProgress === 'completed') {
+      try {
+        if (progressRef.current && typeof progressRef.current.scrollIntoView === 'function') {
+          // small timeout to allow final output to render
+          setTimeout(() => {
+            try {
+              progressRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (e) {}
+          }, 200);
+        }
+      } catch (e) {
+        // ignore scroll errors
+      }
+    }
+  }, [syncProgress]);
 
   const validateSyncConfiguration = () => {
     const issues = [];

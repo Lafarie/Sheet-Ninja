@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useStepTransition } from './useStepTransition';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -506,6 +506,7 @@ export function ProjectMapping({
   setActiveTab
 }) {
   const [uniqueProjectNames, setUniqueProjectNames] = useState([]);
+  const projectMappingsRef = useRef(null);
   const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700 });
   // override to also switch the active tab to 'sync' when moving to step 5
   const { animating: animating2, transitionTo: transitionToSync } = useStepTransition(setCurrentStep, { delay: 700, setActiveTab, tabValue: 'sync' });
@@ -575,6 +576,28 @@ export function ProjectMapping({
     }
     // We intentionally only depend on currentHeaders and sheet identifiers + projectMappings.length
   }, [currentHeaders, config.spreadsheetId, config.worksheetName, projectMappings.length, fetchProjectNamesFromSheet]);
+
+  // Auto-scroll to Project Mappings when this component is mounted or when transition to sync completes
+  useEffect(() => {
+    const tryScroll = () => {
+      try {
+        if (projectMappingsRef.current && typeof projectMappingsRef.current.scrollIntoView === 'function') {
+          projectMappingsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } catch (e) {
+        // ignore scrolling errors
+      }
+    };
+
+    // Scroll on mount
+    tryScroll();
+
+    // Scroll again when the sync transition finishes (animating2 may indicate transition)
+    if (!animating2) {
+      // small timeout to let layout settle
+      setTimeout(tryScroll, 300);
+    }
+  }, [animating2]);
 
   // Update project mapping and fetch project-specific data when project ID changes
   const handleProjectIdChange = async (projectMappingId, gitlabProjectId) => {
