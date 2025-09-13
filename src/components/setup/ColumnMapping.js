@@ -87,6 +87,13 @@ export function ColumnMapping({
   // Ref for the auto-map button so we can scroll to it and apply a glow effect
   const autoMapBtnRef = useRef(null);
   const [glowActive, setGlowActive] = useState(false);
+  // Banner state for saved mappings from DB
+  const [showSavedBanner, setShowSavedBanner] = useState(true);
+
+  // Detect saved mappings provided in the config (from DB)
+  const savedMappings = config?.columnMappings || {};
+  const savedMappingsCount = Object.keys(savedMappings).filter(k => savedMappings[k] && savedMappings[k] !== '').length;
+  const hasSavedMappings = savedMappingsCount > 0;
 
   // Inject CSS for gold glow animation once
   const ensureGlowStyles = () => {
@@ -130,6 +137,26 @@ export function ColumnMapping({
     }, 120);
     return () => clearTimeout(t);
   }, []);
+
+  const applySavedMappings = () => {
+    if (!hasSavedMappings) return;
+    setCurrentMappings(savedMappings);
+    setAutoMappings({});
+    setShowSavedBanner(false);
+    toast.success(`Applied ${savedMappingsCount} saved mappings from database`);
+  };
+
+  // If saved mappings exist and the current mappings are empty, auto-load them
+  useEffect(() => {
+    const mappingsEmpty = Object.keys(defaultConfig).every(k => !currentMappings || !currentMappings[k] || currentMappings[k] === '');
+    if (hasSavedMappings && mappingsEmpty) {
+      // apply silently so the user sees the mapping preview without needing to click
+      setCurrentMappings(savedMappings);
+      setAutoMappings({});
+      // keep the banner visible so user can dismiss if desired
+    }
+    // only run when savedMappings or currentMappings change
+  }, [savedMappings, currentMappings]);
 
   const updateMapping = (key, value) => {
     const actualValue = value === 'none' ? '' : value;
@@ -192,10 +219,52 @@ export function ColumnMapping({
   if (currentHeaders.length === 0) {
     return (
       <Card>
-        <CardContent className="text-center py-8">
-          <Columns className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600">No column headers detected.</p>
-          <p className="text-sm text-gray-500">Please complete the Google Sheets configuration first.</p>
+        <CardContent className="py-6">
+          {/* Saved mappings banner (from DB) - show even when headers missing */}
+          {hasSavedMappings && showSavedBanner && (
+            <div className="p-3 rounded-lg border border-gray-200 bg-yellow-50 flex items-center justify-between mb-4">
+              <div>
+                <div className="text-sm font-medium text-yellow-800">Saved column mappings found</div>
+                <div className="text-xs text-yellow-700">{savedMappingsCount} mappings were saved with this configuration.</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={applySavedMappings} className="bg-yellow-600 text-white hover:bg-yellow-700">Apply</Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowSavedBanner(false)}>Dismiss</Button>
+              </div>
+            </div>
+          )}
+
+          <div className="text-center py-8">
+            <Columns className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-600">No column headers detected.</p>
+            <p className="text-sm text-gray-500">Please complete the Google Sheets configuration first.</p>
+          </div>
+          {/* If saved mappings exist, show a preview list and summary so user can inspect before fetching headers */}
+          {hasSavedMappings && (
+            <div className="mt-4">
+              <div className="text-sm font-medium text-gray-800 mb-2">Saved mapping preview</div>
+              <div className="bg-white rounded-md border p-3 space-y-3">
+                {Object.keys(defaultConfig).map((key) => {
+                  const mapped = savedMappings[key];
+                  if (!mapped) return null;
+                  const fieldConfig = defaultConfig[key];
+                  return (
+                    <div key={key} className="pb-2 border-b last:border-b-0">
+                      <div className="text-sm font-medium">Column {mapped}: {fieldConfig.header}</div>
+                      <div className="text-xs text-gray-500">{fieldConfig.description}</div>
+                    </div>
+                  );
+                })}
+
+                <div className="mt-3 pt-2 border-t">
+                  <div className="text-xs text-gray-600">
+                    <div>Required Fields: {Object.keys(defaultConfig).filter(k => defaultConfig[k].required && savedMappings[k]).length} / {Object.keys(defaultConfig).filter(k => defaultConfig[k].required).length}</div>
+                    <div>Optional Fields: {Object.keys(defaultConfig).filter(k => !defaultConfig[k].required && savedMappings[k]).length} / {Object.keys(defaultConfig).filter(k => !defaultConfig[k].required).length}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -214,6 +283,20 @@ export function ColumnMapping({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+
+          {/* Saved mappings banner (from DB) */}
+          {hasSavedMappings && showSavedBanner && (
+            <div className="p-3 rounded-lg border border-gray-200 bg-yellow-50 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-yellow-800">Saved column mappings found</div>
+                <div className="text-xs text-yellow-700">{savedMappingsCount} mappings were saved with this configuration.</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={applySavedMappings} className="bg-yellow-600 text-white hover:bg-yellow-700">Apply</Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowSavedBanner(false)}>Dismiss</Button>
+              </div>
+            </div>
+          )}
           
 
           {/* Headers detected info */}
