@@ -469,7 +469,7 @@ export function SyncRunner({
                 className="rounded border-gray-300"
               />
               <label htmlFor="checkStatusBeforeClose" className="text-sm">
-                Check status column before closing existing issues
+                Check status column create and close issues accordingly
               </label>
             </div>
           </div>
