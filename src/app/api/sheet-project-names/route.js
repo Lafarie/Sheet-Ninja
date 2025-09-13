@@ -20,37 +20,43 @@ export async function POST(request) {
       );
     }
 
-    // Resolve service account: prefer DB-saved, then inline body, then local uploaded file
+    // Resolve service account: prefer inline body (uploaded file) -> DB-saved -> local uploaded file
     let serviceAccountAuth = null;
     let resolvedServiceAccount = null;
 
-    try {
-      const session = await getServerSession(authOptions);
-      if (session?.user?.id) {
-        const dbConfig = await prisma.savedConfig.findFirst({
-          where: {
-            userId: session.user.id,
-            OR: [{ spreadsheetId }, { isDefault: true }],
-          },
-          orderBy: { updatedAt: 'desc' },
-        });
+    // Log whether the request contained a serviceAccount for debugging
+    console.info('sheet-project-names: request has serviceAccount in body?', !!serviceAccount, 'serviceAccountFilename?', !!body.serviceAccountFilename, 'serviceAccountEmail?', !!body.serviceAccountEmail);
 
-        if (dbConfig?.serviceAccount) {
-          const maybe = decrypt(dbConfig.serviceAccount);
-          if (typeof maybe === 'string') {
-            try { resolvedServiceAccount = JSON.parse(maybe); } catch { resolvedServiceAccount = maybe; }
-          } else {
-            resolvedServiceAccount = maybe;
+    // Inline body takes highest precedence so UI-uploaded credentials are used immediately
+    if (serviceAccount && serviceAccount.client_email && serviceAccount.private_key) {
+      resolvedServiceAccount = serviceAccount;
+      console.info('sheet-project-names: using inline serviceAccount from request body');
+    } else {
+      // Try DB-saved config next
+      try {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.id) {
+          const dbConfig = await prisma.savedConfig.findFirst({
+            where: {
+              userId: session.user.id,
+              OR: [{ spreadsheetId }, { isDefault: true }],
+            },
+            orderBy: { updatedAt: 'desc' },
+          });
+
+          if (dbConfig?.serviceAccount) {
+            const maybe = decrypt(dbConfig.serviceAccount);
+            if (typeof maybe === 'string') {
+              try { resolvedServiceAccount = JSON.parse(maybe); } catch { resolvedServiceAccount = maybe; }
+            } else {
+              resolvedServiceAccount = maybe;
+            }
+            console.info('sheet-project-names: using serviceAccount from DB-saved config');
           }
         }
+      } catch (e) {
+        console.warn('Could not read DB service account:', e);
       }
-    } catch (e) {
-      console.warn('Could not read DB service account:', e);
-    }
-
-    // Inline body takes precedence after DB
-    if (!resolvedServiceAccount && serviceAccount && serviceAccount.client_email && serviceAccount.private_key) {
-      resolvedServiceAccount = serviceAccount;
     }
 
     if (resolvedServiceAccount && resolvedServiceAccount.client_email && resolvedServiceAccount.private_key) {
@@ -66,8 +72,10 @@ export async function POST(request) {
       // Fallback to server-side uploaded file
       const serviceAccountPath = path.join(process.cwd(), 'uploads', 'service_account.json');
       if (!fs.existsSync(serviceAccountPath)) {
+        console.warn('sheet-project-names: no credentials found inline or in DB, and local file missing');
         return NextResponse.json({ error: 'No service account credentials available. Please upload one or save a config with a service account.' }, { status: 400 });
       }
+      console.info('sheet-project-names: using local uploads/service_account.json fallback');
       serviceAccountAuth = new JWT({
         keyFile: serviceAccountPath,
         scopes: [

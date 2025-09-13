@@ -530,6 +530,10 @@ export function ProjectMapping({
         body: JSON.stringify({
           spreadsheetId: config.spreadsheetId,
           worksheetName: config.worksheetName,
+          // Include inline service account creds so server can use them immediately
+          serviceAccount: config.serviceAccount || null,
+          serviceAccountFilename: config.serviceAccountFilename || null,
+          serviceAccountEmail: config.serviceAccountEmail || (config.serviceAccount && config.serviceAccount.client_email) || null,
         }),
       });
 
