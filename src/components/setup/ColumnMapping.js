@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useStepTransition } from './useStepTransition';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -106,10 +107,13 @@ export function ColumnMapping({
     }
     
     setMappingComplete(true);
-    setCurrentStep(4);
     toast.success('Column mapping complete!');
+    // Wait a moment and smoothly transition to Project Mapping
+    transitionTo(4);
     return true;
   };
+
+  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700 });
 
   const getColumnStatus = (key) => {
     const isRequired = defaultConfig[key].required;

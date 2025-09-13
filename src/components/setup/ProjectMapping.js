@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useStepTransition } from './useStepTransition';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -504,6 +505,7 @@ export function ProjectMapping({
   setCurrentStep 
 }) {
   const [uniqueProjectNames, setUniqueProjectNames] = useState([]);
+  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700 });
   const [showAddProject, setShowAddProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -722,7 +724,8 @@ export function ProjectMapping({
       toast.error('Please add at least one project mapping');
       return;
     }
-    setCurrentStep(5);
+    // Smoothly scroll and transition to sync step
+    transitionTo(5);
     toast.success('Project mappings configured successfully!');
   };
 

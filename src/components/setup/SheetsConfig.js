@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Sheet } from 'lucide-react';
 import { toast } from 'sonner';
+import { useStepTransition } from './useStepTransition';
 
 export function SheetsConfig({ 
   config, 
@@ -81,9 +82,9 @@ export function SheetsConfig({
       }
 
       const data = await response.json();
-      setCurrentHeaders(data.headers);
-      toast.success(`Detected ${data.headers.length} columns from sheet!`);
-      setCurrentStep(3);
+  setCurrentHeaders(data.headers);
+  toast.success(`Detected ${data.headers.length} columns from sheet!`);
+  transitionTo(3);
     } catch (error) {
       console.error('Detection error:', error);
       toast.error('Failed to detect headers: ' + error.message);
@@ -91,6 +92,8 @@ export function SheetsConfig({
       setDetectingHeaders(false);
     }
   };
+
+  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700 });
 
   return (
     <div className="space-y-6">

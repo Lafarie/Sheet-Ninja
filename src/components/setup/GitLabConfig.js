@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, GitBranch } from 'lucide-react';
 import { toast } from 'sonner';
+import { useStepTransition } from './useStepTransition';
 
 export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl }) {
   const [loading, setLoading] = useState(false);
@@ -43,7 +44,8 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
       });
       
       toast.success(`Found ${data.total} projects`);
-      setCurrentStep(2); // Move to next step automatically
+      // Smooth transition to next step
+      transitionTo(2);
     } catch (error) {
       console.error('Fetch error:', error);
       toast.error('Failed to fetch projects: ' + error.message);
@@ -51,6 +53,8 @@ export function GitLabConfig({ config, updateConfig, setCurrentStep, apiBaseUrl 
       setLoading(false);
     }
   };
+
+  const { animating, transitionTo } = useStepTransition(setCurrentStep, { delay: 700 });
 
   return (
     <div className="space-y-6">
