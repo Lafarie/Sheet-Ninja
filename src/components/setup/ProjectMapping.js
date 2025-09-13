@@ -722,7 +722,7 @@ export function ProjectMapping({
       toast.error('Please add at least one project mapping');
       return;
     }
-    setCurrentStep(4);
+    setCurrentStep(5);
     toast.success('Project mappings configured successfully!');
   };
 

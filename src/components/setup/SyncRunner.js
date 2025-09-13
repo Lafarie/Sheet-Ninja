@@ -224,7 +224,7 @@ export function SyncRunner({
 
   toast.success('Sync completed successfully!');
   try { console.debug('sync state after complete', { syncRunning: false, syncProgress: 'completed' }); } catch (e) {}
-        setCurrentStep(5);
+        setCurrentStep(6);
         return;
       }
 
