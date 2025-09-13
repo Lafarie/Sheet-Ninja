@@ -196,7 +196,7 @@ function AssigneeSelector({ project, currentAssignee, onAssigneeChange, disabled
   const [inputRef, setInputRef] = useState(null);
 
   // Get assignees from project data
-  const getAssignees = () => {
+  const getAssignees = useCallback(() => {
     if (!project.projectData?.assignees) return [];
     return project.projectData.assignees.reduce((acc, assignee) => {
       if (!acc.find(a => a.username === assignee.username)) {
@@ -204,7 +204,7 @@ function AssigneeSelector({ project, currentAssignee, onAssigneeChange, disabled
       }
       return acc;
     }, []);
-  };
+  }, [project.projectData]);
 
   // Filter available assignees based on search term
   const getFilteredAssignees = () => {
@@ -221,11 +221,11 @@ function AssigneeSelector({ project, currentAssignee, onAssigneeChange, disabled
   };
 
   // Get current assignee display name
-  const getCurrentAssigneeDisplay = () => {
+  const getCurrentAssigneeDisplay = useCallback(() => {
     if (!currentAssignee) return '';
     const assignee = getAssignees().find(a => a.username === currentAssignee);
     return assignee ? `@${assignee.username} (${assignee.name || assignee.username})` : currentAssignee;
-  };
+  }, [currentAssignee, getAssignees]);
 
   const handleInputChange = (e) => {
     const value = e.target.value;
@@ -288,7 +288,7 @@ function AssigneeSelector({ project, currentAssignee, onAssigneeChange, disabled
     } else if (!currentAssignee && !showDropdown) {
       setSearchTerm('');
     }
-  }, [currentAssignee, showDropdown]);
+  }, [currentAssignee, showDropdown, getCurrentAssigneeDisplay]);
 
   const filteredAssignees = getFilteredAssignees();
 
@@ -367,11 +367,11 @@ function MilestoneSelector({ project, currentMilestone, onMilestoneChange, disab
   };
 
   // Get current milestone display name
-  const getCurrentMilestoneDisplay = () => {
+  const getCurrentMilestoneDisplay = useCallback(() => {
     if (!currentMilestone) return '';
     const milestone = project.projectData?.milestones?.find(m => m.id.toString() === currentMilestone);
     return milestone ? milestone.title : currentMilestone;
-  };
+  }, [currentMilestone, project.projectData]);
 
   const handleInputChange = (e) => {
     const value = e.target.value;
@@ -434,7 +434,7 @@ function MilestoneSelector({ project, currentMilestone, onMilestoneChange, disab
     } else if (!currentMilestone && !showDropdown) {
       setSearchTerm('');
     }
-  }, [currentMilestone, showDropdown]);
+  }, [currentMilestone, showDropdown, getCurrentMilestoneDisplay]);
 
   const filteredMilestones = getFilteredMilestones();
 
@@ -564,7 +564,7 @@ export function ProjectMapping({
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl, config.spreadsheetId, config.worksheetName, projectMappings.length, setProjectMappings]);
+  }, [apiBaseUrl, config.spreadsheetId, config.worksheetName, projectMappings.length, setProjectMappings, config.serviceAccount, config.serviceAccountEmail, config.serviceAccountFilename]);
 
   // Extract unique project names from sheet data when headers or sheet config change
   useEffect(() => {

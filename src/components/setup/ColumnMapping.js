@@ -91,12 +91,12 @@ export function ColumnMapping({
   const [showSavedBanner, setShowSavedBanner] = useState(true);
 
   // Detect saved mappings provided in the config (from DB)
-  const savedMappings = config?.columnMappings || {};
+  const savedMappings = useMemo(() => config?.columnMappings || {}, [config?.columnMappings]);
   const savedMappingsCount = Object.keys(savedMappings).filter(k => savedMappings[k] && savedMappings[k] !== '').length;
   const hasSavedMappings = savedMappingsCount > 0;
 
   // Inject CSS for gold glow animation once
-  const ensureGlowStyles = () => {
+  const ensureGlowStyles = useCallback(() => {
     if (typeof document === 'undefined') return;
     if (document.getElementById('gold-glow-styles')) return;
     const style = document.createElement('style');
@@ -113,13 +113,13 @@ export function ColumnMapping({
       }
     `;
     document.head.appendChild(style);
-  };
+  }, []);
 
-  const triggerGlow = (duration = 3000) => {
+  const triggerGlow = useCallback((duration = 3000) => {
     ensureGlowStyles();
     setGlowActive(true);
     window.setTimeout(() => setGlowActive(false), duration);
-  };
+  }, [ensureGlowStyles]);
 
   // On mount: scroll to the auto-map button and show the glow for a few seconds
   useEffect(() => {
@@ -136,7 +136,7 @@ export function ColumnMapping({
       }
     }, 120);
     return () => clearTimeout(t);
-  }, []);
+  }, [triggerGlow]);
 
   const applySavedMappings = () => {
     if (!hasSavedMappings) return;
@@ -156,7 +156,7 @@ export function ColumnMapping({
       // keep the banner visible so user can dismiss if desired
     }
     // only run when savedMappings or currentMappings change
-  }, [savedMappings, currentMappings]);
+  }, [savedMappings, currentMappings, defaultConfig, hasSavedMappings, setAutoMappings, setCurrentMappings]);
 
   const updateMapping = (key, value) => {
     const actualValue = value === 'none' ? '' : value;

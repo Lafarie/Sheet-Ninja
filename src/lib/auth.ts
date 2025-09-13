@@ -27,7 +27,6 @@ export const authOptions = {
 
       // Warn early in server logs if NEXTAUTH_SECRET is not set.
       if (!process.env.NEXTAUTH_SECRET) {
-        // eslint-disable-next-line no-console
         console.warn('⚠️ NEXTAUTH_SECRET is not set. NextAuth requires a secret for JWT/session signing. Set NEXTAUTH_SECRET in your environment (.env, docker-compose, etc).');
       }
           let user = await prisma.user.findUnique({

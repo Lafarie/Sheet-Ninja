@@ -164,7 +164,7 @@ export default function SetupPage() {
     if (session?.user && showDashboard === false && !config?.id && !skipAutoLoad) {
       loadDefaultConfig();
     }
-  }, [session, showDashboard, loadDefaultConfig]);
+  }, [session, showDashboard, loadDefaultConfig, config?.id, skipAutoLoad]);
 
   const handleSelectConfig = (savedConfig) => {
     loadConfigFromSaved(savedConfig);
