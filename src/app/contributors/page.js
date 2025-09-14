@@ -16,8 +16,8 @@ function ContributorCard({ c }) {
         <div className="flip-card-inner">
           <div className="flip-card-front">
             <div className="student">
-              <Image src={c.head} alt={`${c.name} head`} className="head-image" width={240} height={240} />
-              <Image src={c.img} alt={`${c.name} person`} className="person-image" width={240} height={240} />
+              <Image src={c.head} alt={`${c.name}`} className="head-image" width={240} height={240} />
+              <Image src={c.img} alt={`${c.name}`} className="person-image" width={240} height={240} />
               <Image src="/contributors/bgcover.png" alt="circle Image" className="circle-image" width={240} height={240} />
               <Image src="/contributors/bgcover.png" alt="bg Image" className="bg-image" width={240} height={240} />
             </div>
