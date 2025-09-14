@@ -5,7 +5,7 @@ import Link from "next/link";
 import "./contributors.css";
 
 const contributors = [
-  { name: "Farhad Lafarie", role: "Developer", uow: "", iit: "", img: "/contributors/farhad.png", head: "/contributors/farhadhead.png", href: "https://www.linkedin.com/in/farhad-lafarie/" },
+  { name: "Farhad Lafarie", role: "Developer", uow: "", iit: "", img: "/contributors/farhad.png", head: "/contributors/farhadupper.png", href: "https://www.linkedin.com/in/farhad-lafarie/" },
   { name: "Nisla Razik", role: "Developer", uow: "", iit: "", img: "/contributors/nisla.png", head: "/contributors/nislahead.png", href: "https://www.linkedin.com/in/nisla-razik-084a8615b?originalSubdomain=lk" },
 ];
 
