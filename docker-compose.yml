@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:15
+    ports:
+      - "5434:5432"
+    env_file:
+      - .env.production
+    volumes:
+      - /hms/data:/var/lib/postgresql/data
+    networks:
+      - web
+
+  app:
+    container_name: scripts-app_container
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - /uploads:/app/uploads
+    # keep app running on container port 3000; nginx will proxy from host:80 -> app:3000
+    # avoid publishing app port directly unless you need it for debugging
+    # ports:
+    #   - "3000:3000"
+    depends_on:
+      - postgres
+    env_file:
+      - .env.production
+    networks:
+      - web
+
+  nginx:
+    image: nginx:stable-alpine
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Optionally mount the Next.js public folder if you want nginx to serve static assets directly
+      # - ./public:/usr/share/nginx/html:ro
+    networks:
+      - web
+
+volumes:
+  postgres_data:
+
+networks:
+  web:
+    driver: bridge

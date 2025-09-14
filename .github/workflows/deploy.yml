@@ -1,0 +1,98 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: main
+  pull_request:
+    branches: main
+
+jobs:
+  build:
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Clean up
+        run: |
+            # 1 minute cleanup
+            echo "Cleaning up docker resources older than 1 minute..."
+            sudo docker system prune -af --filter "until=1m" || true
+
+      - name: Install Docker Compose (if missing)
+        run: |
+          # Remove old docker-compose if it exists
+          sudo rm -f /usr/local/bin/docker-compose
+          # Install latest docker-compose v2
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          # Verify installation
+          /usr/local/bin/docker-compose version
+
+      - name: Create required directories and set permissions
+        run: |
+          echo "db setup"
+          
+          sudo mkdir -p /hms/data
+          sudo mkdir -p /hms/backup
+
+          echo "Setting permissions..."
+          
+          sudo chown -R 999:999 /hms/data
+          sudo chmod -R 700 /hms/data
+          
+          sudo chown -R $USER:$USER /hms/backup
+          sudo chmod -R 775 /hms/backup
+
+      - name: Ensure Docker is running
+        run: |
+          sudo systemctl start docker
+          sudo systemctl enable docker
+
+      - name: check directory
+        run: |
+          pwd
+          ls -la
+
+  docker-build:
+    needs: build
+    environment: production
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up environment variables for API service
+        run: |
+          echo "Setting up environment variables for API service..."
+          cd /actions-runner-scripts/_work/scripts/scripts/
+          touch .env.production
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env.production
+          echo "NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}" >> .env.production
+          echo "ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}" >> .env.production
+          echo "NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}" >> .env.production
+          echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env.production
+          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env.production
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env.production
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env.production
+
+      - name: Build Docker images
+        run: |
+          cd /actions-runner-scripts/_work/scripts/scripts/
+          sudo /usr/local/bin/docker-compose build
+
+      - name: Deploy with Docker Compose
+        run: |
+          cd /actions-runner-scripts/_work/scripts/scripts/
+          # Start services one by one to better isolate issues
+          sudo /usr/local/bin/docker-compose up -d
+
+      - name: Prisma migrate deploy
+        run: |
+          # Run migrations (production-safe deploy command)
+          docker exec scripts-app_container sh -c "npx prisma migrate deploy"
+
+      - name: Clean up
+        run: |
+            # 1 minute cleanup
+            echo "Cleaning up docker resources older than 1 minute..."
+            sudo docker system prune -af --filter "until=1m" || true
