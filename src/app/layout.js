@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
+import Link from "next/link";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,10 +39,10 @@ export default function RootLayout({ children }) {
                 <p className="text-sm text-gray-400 max-w-xl mt-1">An admin UI to configure synchronization between GitLab issues and Google Sheets. Use the setup page to connect services and the contributors page to meet the team.</p>
               </div>
               <nav className="flex flex-wrap items-center gap-4">
-                <a href="/" className="text-sm hover:text-white">Home</a>
-                <a href="/setup" className="text-sm hover:text-white">Setup</a>
-                <a href="/contributors" className="text-sm hover:text-white">Contributors</a>
-                <a href="https://github.com/" target="_blank" rel="noreferrer" className="text-sm hover:text-white">GitHub</a>
+                <Link href="/" className="text-sm hover:text-white">Home</Link>
+                <Link href="/setup" className="text-sm hover:text-white">Setup</Link>
+                <Link href="/contributors" className="text-sm hover:text-white">Contributors</Link>
+                <Link href="https://github.com/" target="_blank" rel="noreferrer" className="text-sm hover:text-white">GitHub</Link>
               </nav>
             </div>
             <div className="mt-6 text-xs text-gray-500">© {new Date().getFullYear()} Sheet Ninja. All rights reserved.</div>
