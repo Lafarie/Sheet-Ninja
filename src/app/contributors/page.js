@@ -1,12 +1,12 @@
 "use client";
 
-import Image from 'next/image';
-import Link from 'next/link';
-import './contributors.css';
+import Image from "next/image";
+import Link from "next/link";
+import "./contributors.css";
 
 const contributors = [
-  { name: 'Farhad Lafarie', role: 'Developer', uow: '', iit: '', img: '/contributors/farhad.png', head: '/contributors/farhadhead.png', href: 'https://www.linkedin.com/in/farhad-lafarie/' },
-  { name: 'Nisla Razik', role: 'Developer', uow: '', iit: '', img: '/contributors/nisla.png', head: '/contributors/nislahead.png', href: 'https://www.linkedin.com/in/nisla-razik-084a8615b?originalSubdomain=lk' },
+  { name: "Farhad Lafarie", role: "Developer", uow: "", iit: "", img: "/contributors/farhad.png", head: "/contributors/farhadhead.png", href: "https://www.linkedin.com/in/farhad-lafarie/" },
+  { name: "Nisla Razik", role: "Developer", uow: "", iit: "", img: "/contributors/nisla.png", head: "/contributors/nislahead.png", href: "https://www.linkedin.com/in/nisla-razik-084a8615b?originalSubdomain=lk" },
 ];
 
 function ContributorCard({ c }) {
@@ -39,21 +39,27 @@ function ContributorCard({ c }) {
 
 export default function ContributorsPage() {
   return (
-    <div className="min-h-screen bg-[#2C2D31] text-white">
-      <section id="details">
-        <div className="title">
-          <div>
-            meet our <strong style={{ color: '#D3AF42' }}>team!</strong>
+    <div className="min-h-screen bg-[#2C2D31] text-white pt-20">
+      <div className="w-full px-4 mt-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center justify-center md:justify-start mb-4">
+            <Link href="/setup" className="inline-flex items-center gap-2 px-3 py-1.5 bg-transparent border border-gray-600 text-gray-200 rounded hover:bg-gray-700 transition">
+              ← Back to setup
+            </Link>
           </div>
-          <div className="subtitle">hover to see the details</div>
+          <div className="text-center">
+            <div className="text-4xl md:text-6xl font-semibold uppercase text-white drop-shadow-md">
+              meet our <strong className="text-[#D3AF42]">team!</strong>
+            </div>
+            <div className="mt-4 text-sm md:text-lg tracking-wide text-gray-200">hover to see the details</div>
+          </div>
         </div>
-
-        <div className="student-details">
-          {contributors.map((c) => (
-            <ContributorCard key={c.name} c={c} />
-          ))}
-        </div>
-      </section>
+      </div>
+      <div className="flex flex-wrap justify-center items-start gap-10 pt-10 px-4">
+        {contributors.map((c) => (
+          <ContributorCard key={c.name} c={c} />
+        ))}
+      </div>
     </div>
   );
 }

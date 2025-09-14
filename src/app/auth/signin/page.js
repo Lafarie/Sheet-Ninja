@@ -189,7 +189,7 @@ export default function SignIn() {
 
         <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader className="text-center pb-2">
-            <CardTitle className="text-xl">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl">Welcome Back</CardTitle>
             <CardDescription>
               Sign in to your account or create a new one
             </CardDescription>
