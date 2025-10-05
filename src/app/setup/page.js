@@ -184,7 +184,7 @@ export default function SetupPage() {
       defaultLabel: '',
       defaultEstimate: '8h',
       columnMappings: {},
-      projectData: { labels: [], milestones: [], assignees: [] },
+      projectData: { labels: [], milestones: [], assignees: [] }, 
       sheetNames: [],
       serviceAccount: null,
       serviceAccountFilename: '',

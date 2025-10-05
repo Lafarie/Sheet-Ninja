@@ -1,0 +1,232 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useSetupStore } from '@/stores/useSetupStore';
+import { useUIStore } from '@/stores/useUIStore';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Users, Filter, CheckCircle } from 'lucide-react';
+
+interface UserFilterProps {
+  onComplete?: () => void;
+}
+
+export function UserFilter({ onComplete }: UserFilterProps) {
+  const { sheets, columnMappings, updateColumnMapping } = useSetupStore();
+  const { addNotification } = useUIStore();
+  const [availableUsers, setAvailableUsers] = useState<string[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+
+  // Extract unique users from the USER column if it exists
+  const extractUsers = async () => {
+    if (!sheets.spreadsheetId || !sheets.worksheetName || !columnMappings.USER) {
+      addNotification({
+        type: 'error',
+        title: 'Configuration Required',
+        message: 'Please configure Google Sheets and map the USER column first',
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/sheet-user-names', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spreadsheetId: sheets.spreadsheetId,
+          worksheetName: sheets.worksheetName,
+          userColumn: columnMappings.USER,
+          serviceAccount: sheets.serviceAccount,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableUsers(data.users || []);
+        
+        addNotification({
+          type: 'success',
+          title: 'Users Extracted',
+          message: `Found ${data.users?.length || 0} unique users`,
+        });
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('User extraction error:', error);
+      addNotification({
+        type: 'error',
+        title: 'Extraction Failed',
+        message: `Failed to extract users: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUserSelect = (user: string) => {
+    setSelectedUser(user);
+    addNotification({
+      type: 'info',
+      title: 'User Selected',
+      message: `Filtering for user: ${user}`,
+    });
+  };
+
+  const handleApplyFilter = () => {
+    if (!selectedUser) {
+      addNotification({
+        type: 'error',
+        title: 'No User Selected',
+        message: 'Please select a user to filter by',
+      });
+      return;
+    }
+
+    // Store the selected user in the store for use during sync
+    updateColumnMapping('SELECTED_USER', selectedUser);
+    
+    addNotification({
+      type: 'success',
+      title: 'Filter Applied',
+      message: `Synchronization will be filtered for user: ${selectedUser}`,
+    });
+
+    if (onComplete) {
+      onComplete();
+    }
+  };
+
+  const handleClearFilter = () => {
+    setSelectedUser('');
+    updateColumnMapping('SELECTED_USER', '');
+    addNotification({
+      type: 'info',
+      title: 'Filter Cleared',
+      message: 'User filter has been removed',
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            User Filter
+          </CardTitle>
+          <CardDescription>
+            Filter synchronization by specific users from your Google Sheets
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertDescription>
+              This feature allows you to filter the synchronization process to only include rows 
+              for specific users. Make sure you have mapped the USER column in the column mapping step.
+            </AlertDescription>
+          </Alert>
+
+          {!columnMappings.USER ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                <strong>USER column not mapped!</strong> Please go back to the Column Mapping step 
+                and map a column that contains user information.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">USER Column Mapped</p>
+                  <p className="text-xs text-muted-foreground">
+                    Column {columnMappings.USER}: {sheets.headers[parseInt(columnMappings.USER) - 1]}
+                  </p>
+                </div>
+                <Badge variant="default">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Mapped
+                </Badge>
+              </div>
+
+              <Button 
+                onClick={extractUsers}
+                disabled={loading}
+                className="w-full"
+              >
+                {loading ? 'Extracting Users...' : 'Extract Users from Sheet'}
+              </Button>
+
+              {availableUsers.length > 0 && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Select User to Filter By</Label>
+                    <Select value={selectedUser} onValueChange={handleUserSelect}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a user..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">No filter (all users)</SelectItem>
+                        {availableUsers.map((user) => (
+                          <SelectItem key={user} value={user}>
+                            {user}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {availableUsers.map((user) => (
+                      <Badge 
+                        key={user} 
+                        variant={selectedUser === user ? 'default' : 'outline'}
+                        className="cursor-pointer"
+                        onClick={() => handleUserSelect(user)}
+                      >
+                        {user}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleApplyFilter}
+                      disabled={!selectedUser}
+                      className="flex-1"
+                    >
+                      <Filter className="h-4 w-4 mr-2" />
+                      Apply User Filter
+                    </Button>
+                    <Button 
+                      onClick={handleClearFilter}
+                      variant="outline"
+                      disabled={!selectedUser}
+                    >
+                      Clear Filter
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {selectedUser && (
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Filter Active:</strong> Synchronization will only include rows for user: <strong>{selectedUser}</strong>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
