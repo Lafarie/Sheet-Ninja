@@ -7,12 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { GitLabConfig } from '@/components/v2/GitLabConfig';
-import { SheetsConfig } from '@/components/v2/SheetsConfig';
-import { ColumnMapping } from '@/components/v2/ColumnMapping';
-import { ProjectMapping } from '@/components/v2/ProjectMapping';
-import { UserFilter } from '@/components/v2/UserFilter';
-import { SyncRunner } from '@/components/v2/SyncRunner';
+// Import components with error handling
+import dynamic from 'next/dynamic';
+
+const GitLabConfig = dynamic(() => import('@/components/v2/GitLabConfig').then(mod => ({ default: mod.GitLabConfig })), { ssr: false });
+const SheetsConfig = dynamic(() => import('@/components/v2/SheetsConfig').then(mod => ({ default: mod.SheetsConfig })), { ssr: false });
+const ColumnMapping = dynamic(() => import('@/components/v2/ColumnMapping').then(mod => ({ default: mod.ColumnMapping })), { ssr: false });
+const ProjectMapping = dynamic(() => import('@/components/v2/ProjectMapping').then(mod => ({ default: mod.ProjectMapping })), { ssr: false });
+const UserFilter = dynamic(() => import('@/components/v2/UserFilter').then(mod => ({ default: mod.UserFilter })), { ssr: false });
+const SyncRunner = dynamic(() => import('@/components/v2/SyncRunner').then(mod => ({ default: mod.SyncRunner })), { ssr: false });
 import { NotificationToast } from '@/components/ui/notification';
 import { 
   GitBranch, 
@@ -23,7 +26,9 @@ import {
   Play,
   CheckCircle,
   ArrowLeft,
-  Save
+  Save,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 
 const steps = [
@@ -62,6 +67,16 @@ export default function SetupPage() {
     openModal('saveConfig');
   };
 
+  const handleResetConfig = () => {
+    // Reset all configuration to defaults
+    useSetupStore.getState().resetSetup();
+    addNotification({
+      type: 'info',
+      title: 'Configuration Reset',
+      message: 'All configuration has been reset to defaults',
+    });
+  };
+
   const getStepStatus = (step: number) => {
     if (step < currentStep) return 'completed';
     if (step === currentStep) return 'active';
@@ -76,14 +91,29 @@ export default function SetupPage() {
       return <CheckCircle className="h-4 w-4 text-green-600" />;
     }
     if (status === 'active') {
-      return <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />;
+      return <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />;
     }
     return Icon ? <Icon className="h-4 w-4 text-gray-400" /> : null;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative">
       <NotificationToast />
+      
+      {/* Loading Overlay */}
+      {(loading.gitlab || loading.sheets || loading.headers || loading.projects || loading.sync) && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="p-6">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <div>
+                <h3 className="font-semibold">Processing...</h3>
+                <p className="text-sm text-muted-foreground">Please wait while we process your request</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
       
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
@@ -92,6 +122,7 @@ export default function SetupPage() {
             <div className="flex items-center justify-between">
               <Button 
                 variant="ghost" 
+                size="sm"
                 onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
                 className="text-white hover:bg-white/10"
                 disabled={currentStep === 1}
@@ -110,6 +141,7 @@ export default function SetupPage() {
               </div>
               <Button 
                 variant="ghost" 
+                size="sm"
                 onClick={handleSaveConfig}
                 className="text-white hover:bg-white/10"
               >
@@ -126,7 +158,7 @@ export default function SetupPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Setup Progress</h3>
-                <Badge variant="secondary">Step {currentStep} of 6</Badge>
+                <Badge variant="secondary" className="text-xs">Step {currentStep} of 6</Badge>
               </div>
               
               <Progress value={(currentStep / 6) * 100} className="h-2" />
@@ -210,9 +242,9 @@ export default function SetupPage() {
 
           {/* Status Sidebar */}
           <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card className="h-fit">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <CheckCircle className="h-5 w-5" />
                   Configuration Status
                 </CardTitle>
@@ -221,29 +253,36 @@ export default function SetupPage() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm">GitLab Connection</span>
-                    <Badge variant={gitlab.token ? 'default' : 'secondary'}>
+                    <Badge variant={gitlab.token ? 'default' : 'secondary'} className="text-xs">
                       {gitlab.token ? 'Connected' : 'Not Connected'}
                     </Badge>
                   </div>
                   
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Google Sheets</span>
-                    <Badge variant={sheets.spreadsheetId ? 'default' : 'secondary'}>
+                    <Badge variant={sheets.spreadsheetId ? 'default' : 'secondary'} className="text-xs">
                       {sheets.spreadsheetId ? 'Configured' : 'Not Configured'}
                     </Badge>
                   </div>
                   
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Column Mapping</span>
-                    <Badge variant={Object.keys(columnMappings).length > 0 ? 'default' : 'secondary'}>
+                    <Badge variant={Object.keys(columnMappings).length > 0 ? 'default' : 'secondary'} className="text-xs">
                       {Object.keys(columnMappings).length} mapped
                     </Badge>
                   </div>
                   
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Project Mappings</span>
-                    <Badge variant={projectMappings.length > 0 ? 'default' : 'secondary'}>
+                    <Badge variant={projectMappings.length > 0 ? 'default' : 'secondary'} className="text-xs">
                       {projectMappings.length} projects
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">User Filter</span>
+                    <Badge variant={columnMappings.SELECTED_USER ? 'default' : 'secondary'} className="text-xs">
+                      {columnMappings.SELECTED_USER ? 'Active' : 'None'}
                     </Badge>
                   </div>
                 </div>
@@ -254,6 +293,7 @@ export default function SetupPage() {
                     <Button 
                       onClick={handleSaveConfig}
                       variant="outline" 
+                      size="sm"
                       className="w-full"
                     >
                       <Save className="w-4 h-4 mr-2" />
@@ -263,11 +303,21 @@ export default function SetupPage() {
                       onClick={() => {
                         addNotification({
                           type: 'info',
-                          title: 'Reset Configuration',
-                          message: 'Configuration has been reset to defaults',
+                          title: 'Refreshing',
+                          message: 'Refreshing configuration status...',
                         });
                       }}
                       variant="outline" 
+                      size="sm"
+                      className="w-full"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Refresh Status
+                    </Button>
+                    <Button 
+                      onClick={handleResetConfig}
+                      variant="outline" 
+                      size="sm"
                       className="w-full"
                     >
                       Reset Configuration

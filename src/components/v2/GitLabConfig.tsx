@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useSetupStore } from '@/stores/useSetupStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,36 +72,38 @@ export function GitLabConfig({ onComplete }: GitLabConfigProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <Card className="border">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <GitBranch className="h-5 w-5" />
             GitLab Configuration
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm">
             Connect to your GitLab instance and fetch available projects
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0">
           <div className="space-y-2">
-            <Label htmlFor="gitlabUrl">GitLab URL</Label>
+            <Label htmlFor="gitlabUrl" className="text-sm font-medium">GitLab URL</Label>
             <Input
               id="gitlabUrl"
               type="url"
+              className="w-full"
               placeholder="https://gitlab.example.com/api/v4/"
               value={gitlab.url}
-              onChange={(e) => updateGitLab({ url: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateGitLab({ url: e.target.value })}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gitlabToken">GitLab Personal Access Token *</Label>
+            <Label htmlFor="gitlabToken" className="text-sm font-medium">GitLab Personal Access Token *</Label>
             <Input
               id="gitlabToken"
               type="password"
+              className="w-full"
               placeholder="Enter your GitLab personal access token"
               value={gitlab.token}
-              onChange={(e) => updateGitLab({ token: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateGitLab({ token: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
               Create a personal access token in GitLab with API scope
@@ -111,6 +113,8 @@ export function GitLabConfig({ onComplete }: GitLabConfigProps) {
           <Button 
             onClick={handleConnect}
             disabled={isConnecting || !gitlab.token}
+            variant="default"
+            size="sm"
             className="w-full"
           >
             {isConnecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -118,14 +122,14 @@ export function GitLabConfig({ onComplete }: GitLabConfigProps) {
           </Button>
 
           {gitlab.projects.length > 0 && (
-            <Alert>
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
+            <Alert variant="default" className="border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
                 <div className="space-y-2">
                   <p>✅ Successfully connected to GitLab!</p>
                   <div className="flex items-center gap-2">
                     <span>Found {gitlab.projects.length} projects:</span>
-                    <Badge variant="secondary">{gitlab.projects.length}</Badge>
+                    <Badge variant="secondary" className="text-xs">{gitlab.projects.length}</Badge>
                   </div>
                 </div>
               </AlertDescription>
@@ -135,24 +139,24 @@ export function GitLabConfig({ onComplete }: GitLabConfigProps) {
       </Card>
 
       {gitlab.projects.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Projects</CardTitle>
-            <CardDescription>
+        <Card className="mt-6">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Available Projects</CardTitle>
+            <CardDescription className="text-sm">
               Projects found in your GitLab instance
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {gitlab.projects.map((project) => (
-                <div key={project.id} className="flex items-center justify-between p-2 border rounded">
-                  <div>
-                    <p className="font-medium">{project.name}</p>
-                    <p className="text-sm text-muted-foreground">
+                <div key={project.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{project.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {project.name_with_namespace}
                     </p>
                   </div>
-                  <Badge variant="outline">ID: {project.id}</Badge>
+                  <Badge variant="outline" className="text-xs">ID: {project.id}</Badge>
                 </div>
               ))}
             </div>
