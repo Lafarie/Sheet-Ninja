@@ -84,7 +84,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         ...syncConfig
       };
 
-      const response = await fetch('/api/v2/sync/start', {
+      const response = await fetch('/api/start-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(syncData),
@@ -126,7 +126,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
 
   const stopSync = async () => {
     try {
-      await fetch('/api/v2/sync/stop', { method: 'POST' });
+      await fetch('/api/stop-sync', { method: 'POST' });
       
       setSyncRunning(false);
       setSyncProgress('stopped');
@@ -173,7 +173,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     }
 
     try {
-      const response = await fetch('/api/v2/sync/status');
+      const response = await fetch('/api/sync-status');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

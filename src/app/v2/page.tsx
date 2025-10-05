@@ -66,7 +66,7 @@ export default function SetupPage() {
 
   const handleSaveConfig = async () => {
     try {
-      const response = await fetch('/api/v2/config/save', {
+      const response = await fetch('/api/user/configs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

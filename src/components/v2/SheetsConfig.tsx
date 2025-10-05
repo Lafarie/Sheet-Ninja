@@ -60,7 +60,7 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
     setSheetsLoading(true);
 
     try {
-      const response = await fetch('/api/v2/sheets/connect', {
+      const response = await fetch('/api/sheet-names', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,12 +74,13 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
       }
 
       const data = await response.json();
-      setSheetNames(data.worksheets?.map((w: any) => w.title) || []);
+      console.log('Sheets API response:', data);
+      setSheetNames(data.sheetNames || []);
       
       addNotification({
         type: 'success',
         title: 'Sheets Fetched',
-        message: `Found ${data.worksheets?.length || 0} worksheets`,
+        message: `Found ${data.sheetNames?.length || 0} worksheets`,
       });
     } catch (error) {
       console.error('Sheets fetch error:', error);
@@ -107,7 +108,7 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
     setHeadersLoading(true);
 
     try {
-      const response = await fetch('/api/v2/sheets/detect-headers', {
+      const response = await fetch('/api/detect-headers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
