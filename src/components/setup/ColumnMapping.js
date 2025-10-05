@@ -91,8 +91,25 @@ export function ColumnMapping({
   // Banner state for saved mappings from DB
   const [showSavedBanner, setShowSavedBanner] = useState(true);
 
-  // Detect saved mappings provided in the config (from DB)
-  const savedMappings = useMemo(() => config?.columnMappings || {}, [config?.columnMappings]);
+  // Detect saved mappings provided in the config (from DB).
+  // Normalize several possible field names and coerce values to strings so
+  // downstream code can rely on string indices like "1", "2", etc.
+  const savedMappings = useMemo(() => {
+    const raw = config?.columnMappings || config?.column_mappings || config?.column_mapping || {};
+    try {
+      return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, v == null ? '' : String(v)]));
+    } catch (e) {
+      return {};
+    }
+  }, [config?.columnMappings, config?.column_mappings, config?.column_mapping]);
+
+  // Debug: help surface why saved mappings may be empty
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.debug('ColumnMapping: savedMappings read from config:', savedMappings);
+    }
+  }, [savedMappings]);
   const savedMappingsCount = Object.keys(savedMappings).filter(k => savedMappings[k] && savedMappings[k] !== '').length;
   const hasSavedMappings = savedMappingsCount > 0;
 

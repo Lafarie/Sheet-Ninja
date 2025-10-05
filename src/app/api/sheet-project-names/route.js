@@ -11,7 +11,8 @@ import { decrypt } from '@/lib/encryption';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { spreadsheetId, worksheetName, serviceAccount } = body || {};
+    const { spreadsheetId, worksheetName, projectColumnName, serviceAccount } = body || {};
+    console.log('sheet-project-names: received request for spreadsheetId:', spreadsheetId, 'worksheetName:', worksheetName, 'projectColumnName:', projectColumnName);
 
     if (!spreadsheetId || !worksheetName) {
       return NextResponse.json(

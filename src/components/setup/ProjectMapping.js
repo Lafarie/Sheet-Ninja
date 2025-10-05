@@ -514,13 +514,13 @@ export function ProjectMapping({
   const [newProjectName, setNewProjectName] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingProjectData, setLoadingProjectData] = useState({});
+    console.log("data", config);
 
   // Fetch unique project names from Google Sheet
   const fetchProjectNamesFromSheet = useCallback(async () => {
     if (!config.spreadsheetId || !config.worksheetName) {
       return;
     }
-
     setLoading(true);
     try {
       const response = await fetch(`${apiBaseUrl}/api/sheet-project-names`, {
@@ -531,7 +531,7 @@ export function ProjectMapping({
         body: JSON.stringify({
           spreadsheetId: config.spreadsheetId,
           worksheetName: config.worksheetName,
-          // Include inline service account creds so server can use them immediately
+          projectColumnName: config.projectNameColumn || 'Project Name',
           serviceAccount: config.serviceAccount || null,
           serviceAccountFilename: config.serviceAccountFilename || null,
           serviceAccountEmail: config.serviceAccountEmail || (config.serviceAccount && config.serviceAccount.client_email) || null,
