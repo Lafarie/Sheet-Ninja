@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSetupStore } from '@/stores/useSetupStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,27 +115,27 @@ export function UserFilter({ onComplete }: UserFilterProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <Card className="border">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Users className="h-5 w-5" />
             User Filter
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm">
             Filter synchronization by specific users from your Google Sheets
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Alert>
-            <AlertDescription>
+        <CardContent className="space-y-4 pt-0">
+          <Alert variant="default" className="border-blue-200 bg-blue-50">
+            <AlertDescription className="text-blue-800">
               This feature allows you to filter the synchronization process to only include rows 
               for specific users. Make sure you have mapped the USER column in the column mapping step.
             </AlertDescription>
           </Alert>
 
           {!columnMappings.USER ? (
-            <Alert variant="destructive">
-              <AlertDescription>
+            <Alert variant="destructive" className="border-red-200 bg-red-50">
+              <AlertDescription className="text-red-800">
                 <strong>USER column not mapped!</strong> Please go back to the Column Mapping step 
                 and map a column that contains user information.
               </AlertDescription>
@@ -149,7 +149,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                     Column {columnMappings.USER}: {sheets.headers[parseInt(columnMappings.USER) - 1]}
                   </p>
                 </div>
-                <Badge variant="default">
+                <Badge variant="default" className="text-xs">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Mapped
                 </Badge>
@@ -158,6 +158,8 @@ export function UserFilter({ onComplete }: UserFilterProps) {
               <Button 
                 onClick={extractUsers}
                 disabled={loading}
+                variant="default"
+                size="sm"
                 className="w-full"
               >
                 {loading ? 'Extracting Users...' : 'Extract Users from Sheet'}
@@ -166,15 +168,15 @@ export function UserFilter({ onComplete }: UserFilterProps) {
               {availableUsers.length > 0 && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Select User to Filter By</Label>
+                    <Label className="text-sm font-medium">Select User to Filter By</Label>
                     <Select value={selectedUser} onValueChange={handleUserSelect}>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a user..." />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">No filter (all users)</SelectItem>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="" className="text-sm">No filter (all users)</SelectItem>
                         {availableUsers.map((user) => (
-                          <SelectItem key={user} value={user}>
+                          <SelectItem key={user} value={user} className="text-sm">
                             {user}
                           </SelectItem>
                         ))}
@@ -199,6 +201,8 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                     <Button 
                       onClick={handleApplyFilter}
                       disabled={!selectedUser}
+                      variant="default"
+                      size="sm"
                       className="flex-1"
                     >
                       <Filter className="h-4 w-4 mr-2" />
@@ -207,6 +211,8 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                     <Button 
                       onClick={handleClearFilter}
                       variant="outline"
+                      size="sm"
+                      className="text-sm"
                       disabled={!selectedUser}
                     >
                       Clear Filter
@@ -216,9 +222,9 @@ export function UserFilter({ onComplete }: UserFilterProps) {
               )}
 
               {selectedUser && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription>
+                <Alert variant="default" className="border-green-200 bg-green-50">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
                     <strong>Filter Active:</strong> Synchronization will only include rows for user: <strong>{selectedUser}</strong>
                   </AlertDescription>
                 </Alert>

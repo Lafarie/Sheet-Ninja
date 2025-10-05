@@ -17,6 +17,7 @@ const ProjectMapping = dynamic(() => import('@/components/v2/ProjectMapping').th
 const UserFilter = dynamic(() => import('@/components/v2/UserFilter').then(mod => ({ default: mod.UserFilter })), { ssr: false });
 const SyncRunner = dynamic(() => import('@/components/v2/SyncRunner').then(mod => ({ default: mod.SyncRunner })), { ssr: false });
 import { NotificationToast } from '@/components/ui/notification';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { 
   GitBranch, 
   Sheet, 
@@ -63,8 +64,44 @@ export default function SetupPage() {
     }
   };
 
-  const handleSaveConfig = () => {
-    openModal('saveConfig');
+  const handleSaveConfig = async () => {
+    try {
+      const response = await fetch('/api/v2/config/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Current Setup',
+          description: 'Auto-saved configuration',
+          gitlabUrl: gitlab.url,
+          gitlabToken: gitlab.token,
+          spreadsheetId: sheets.spreadsheetId,
+          worksheetName: sheets.worksheetName,
+          columnMappings,
+          projectMappings,
+          userFilter: columnMappings.SELECTED_USER ? { user: columnMappings.SELECTED_USER } : null,
+          serviceAccount: sheets.serviceAccount,
+          isDefault: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      addNotification({
+        type: 'success',
+        title: 'Configuration Saved',
+        message: 'Your setup has been saved successfully',
+      });
+    } catch (error) {
+      console.error('Save config error:', error);
+      addNotification({
+        type: 'error',
+        title: 'Save Failed',
+        message: `Failed to save configuration: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
   };
 
   const handleResetConfig = () => {
@@ -97,18 +134,18 @@ export default function SetupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 relative">
       <NotificationToast />
       
       {/* Loading Overlay */}
       {(loading.gitlab || loading.sheets || loading.headers || loading.projects || loading.sync) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <Card className="p-6 border dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="flex items-center gap-3">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
               <div>
-                <h3 className="font-semibold">Processing...</h3>
-                <p className="text-sm text-muted-foreground">Please wait while we process your request</p>
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">Processing...</h3>
+                <p className="text-sm text-muted-foreground dark:text-gray-400">Please wait while we process your request</p>
               </div>
             </div>
           </Card>
@@ -139,25 +176,28 @@ export default function SetupPage() {
                   Advanced GitLab and Google Sheets synchronization
                 </CardDescription>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={handleSaveConfig}
-                className="text-white hover:bg-white/10"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save Config
-              </Button>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={handleSaveConfig}
+                  className="text-white hover:bg-white/10"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Config
+                </Button>
+              </div>
             </div>
           </CardHeader>
         </Card>
 
         {/* Progress Steps */}
-        <Card className="mb-8">
+        <Card className="mb-8 border dark:border-gray-700">
           <CardContent className="p-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Setup Progress</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Setup Progress</h3>
                 <Badge variant="secondary" className="text-xs">Step {currentStep} of 6</Badge>
               </div>
               
@@ -173,20 +213,20 @@ export default function SetupPage() {
                     <div
                       key={step.id}
                       className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
-                        status === 'active' ? 'bg-blue-50 border-blue-200' :
-                        status === 'completed' ? 'bg-green-50 border-green-200' :
-                        'bg-gray-50 border-gray-200'
+                        status === 'active' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' :
+                        status === 'completed' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' :
+                        'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                       } border`}
                     >
                       {getStepIcon(stepNumber)}
                       <span className={`text-sm font-medium mt-2 ${
-                        status === 'active' ? 'text-blue-900' :
-                        status === 'completed' ? 'text-green-900' :
-                        'text-gray-500'
+                        status === 'active' ? 'text-blue-900 dark:text-blue-100' :
+                        status === 'completed' ? 'text-green-900 dark:text-green-100' :
+                        'text-gray-500 dark:text-gray-400'
                       }`}>
                         {step.title}
                       </span>
-                      <span className="text-xs text-gray-500 mt-1">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {step.description}
                       </span>
                     </div>
@@ -242,9 +282,9 @@ export default function SetupPage() {
 
           {/* Status Sidebar */}
           <div className="lg:col-span-1">
-            <Card className="h-fit">
+            <Card className="h-fit border dark:border-gray-700">
               <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
+                <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
                   <CheckCircle className="h-5 w-5" />
                   Configuration Status
                 </CardTitle>
@@ -252,43 +292,43 @@ export default function SetupPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">GitLab Connection</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">GitLab Connection</span>
                     <Badge variant={gitlab.token ? 'default' : 'secondary'} className="text-xs">
                       {gitlab.token ? 'Connected' : 'Not Connected'}
                     </Badge>
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Google Sheets</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Google Sheets</span>
                     <Badge variant={sheets.spreadsheetId ? 'default' : 'secondary'} className="text-xs">
                       {sheets.spreadsheetId ? 'Configured' : 'Not Configured'}
                     </Badge>
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Column Mapping</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Column Mapping</span>
                     <Badge variant={Object.keys(columnMappings).length > 0 ? 'default' : 'secondary'} className="text-xs">
                       {Object.keys(columnMappings).length} mapped
                     </Badge>
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Project Mappings</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Project Mappings</span>
                     <Badge variant={projectMappings.length > 0 ? 'default' : 'secondary'} className="text-xs">
                       {projectMappings.length} projects
                     </Badge>
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">User Filter</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">User Filter</span>
                     <Badge variant={columnMappings.SELECTED_USER ? 'default' : 'secondary'} className="text-xs">
                       {columnMappings.SELECTED_USER ? 'Active' : 'None'}
                     </Badge>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t">
-                  <h4 className="font-medium mb-2">Quick Actions</h4>
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <h4 className="font-medium mb-2 text-gray-900 dark:text-gray-100">Quick Actions</h4>
                   <div className="space-y-2">
                     <Button 
                       onClick={handleSaveConfig}

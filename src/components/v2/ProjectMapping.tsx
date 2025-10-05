@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSetupStore } from '@/stores/useSetupStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -200,8 +200,8 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Alert>
-            <AlertDescription>
+          <Alert variant="default" className="bg-gray-50 border border-gray-200">
+            <AlertDescription className="text-gray-700">
               Each project in your sheet can have its own assignee, milestone, and labels. 
               Configure the settings below for each project that will be synced to GitLab.
             </AlertDescription>
@@ -235,18 +235,18 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
           <CardContent className="space-y-4">
             {/* GitLab Project Selection */}
             <div className="space-y-2">
-              <Label>GitLab Project</Label>
+              <Label className="text-sm font-medium">GitLab Project</Label>
               <Select
                 value={project.projectId || 'none'}
-                onValueChange={(value) => handleProjectIdChange(project.id, value === 'none' ? '' : value)}
+                onValueChange={(value : any) => handleProjectIdChange(project.id, value === 'none' ? '' : value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select GitLab project..." />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No project selected (won't sync)</SelectItem>
+                <SelectContent className="w-full">
+                  <SelectItem value="none" className="w-full">No project selected (won't sync)</SelectItem>
                   {gitlab.projects.map((gitlabProject) => (
-                    <SelectItem key={gitlabProject.id} value={gitlabProject.id}>
+                    <SelectItem key={gitlabProject.id} value={gitlabProject.id} className="w-full">
                       {gitlabProject.name_with_namespace || gitlabProject.name}
                     </SelectItem>
                   ))}
@@ -262,19 +262,19 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Assignee */}
               <div className="space-y-2">
-                <Label>Assignee</Label>
+                <Label className="text-sm font-medium">Assignee</Label>
                 <Select
                   value={project.assignee || 'none'}
-                  onValueChange={(value) => updateProjectMapping(project.id, { assignee: value === 'none' ? '' : value })}
+                  onValueChange={(value : any) => updateProjectMapping(project.id, { assignee: value === 'none' ? '' : value })}
                   disabled={!project.projectId}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select assignee..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No assignee</SelectItem>
+                  <SelectContent className="w-full">
+                    <SelectItem value="none" className="w-full">No assignee</SelectItem>
                     {project.projectData.assignees.map((assignee) => (
-                      <SelectItem key={assignee.username} value={assignee.username}>
+                      <SelectItem key={assignee.username} value={assignee.username} className="w-full">
                         @{assignee.username} ({assignee.name || assignee.username})
                       </SelectItem>
                     ))}
@@ -284,19 +284,19 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
 
               {/* Milestone */}
               <div className="space-y-2">
-                <Label>Milestone</Label>
+                <Label className="text-sm font-medium">Milestone</Label>
                 <Select
                   value={project.milestone || 'none'}
-                  onValueChange={(value) => updateProjectMapping(project.id, { milestone: value === 'none' ? '' : value })}
+                  onValueChange={(value : any) => updateProjectMapping(project.id, { milestone: value === 'none' ? '' : value })}
                   disabled={!project.projectId}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select milestone..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No milestone</SelectItem>
+                  <SelectContent className="w-full">
+                    <SelectItem value="none" className="w-full">No milestone</SelectItem>
                     {project.projectData.milestones.map((milestone) => (
-                      <SelectItem key={milestone.id} value={milestone.id}>
+                      <SelectItem key={milestone.id} value={milestone.id} className="w-full">
                         {milestone.title}
                       </SelectItem>
                     ))}
@@ -307,7 +307,7 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
 
             {/* Labels */}
             <div className="space-y-2">
-              <Label>Labels</Label>
+              <Label className="text-sm font-medium">Labels</Label>
               <div className="flex flex-wrap gap-2">
                 {project.labels.map((label) => (
                   <Badge key={label} variant="secondary" className="flex items-center gap-1">
@@ -324,7 +324,7 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
                 ))}
                 <Select
                   value=""
-                  onValueChange={(value) => {
+                  onValueChange={(value : any) => {
                     if (value && !project.labels.includes(value)) {
                       updateProjectMapping(project.id, { 
                         labels: [...project.labels, value] 
@@ -336,11 +336,11 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="Add label..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="w-full">
                     {project.projectData.labels
                       .filter(label => !project.labels.includes(label.name))
                       .map((label) => (
-                        <SelectItem key={label.id} value={label.name}>
+                        <SelectItem key={label.id} value={label.name} className="w-full">
                           {label.name}
                         </SelectItem>
                       ))}
@@ -351,11 +351,12 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
 
             {/* Estimate */}
             <div className="space-y-2">
-              <Label>Default Estimate</Label>
+              <Label className="text-sm font-medium">Default Estimate</Label>
               <Input
+                type="text"
                 placeholder="8h"
                 value={project.estimate}
-                onChange={(e) => updateProjectMapping(project.id, { estimate: e.target.value })}
+                onChange={(e : any) => updateProjectMapping(project.id, { estimate: e.target.value })}
                 className="w-32"
               />
             </div>
@@ -367,7 +368,8 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
       <Card>
         <CardContent className="p-4">
           {!showAddForm ? (
-            <Button 
+            <Button
+              size="sm"
               variant="outline" 
               className="w-full"
               onClick={() => setShowAddForm(true)}
@@ -378,17 +380,21 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
           ) : (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Project Name</Label>
+                <Label className="text-sm font-medium">Project Name</Label>
                 <Input
+                  className="w-full"
+                  type="text"
                   placeholder="Enter project name"
                   value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
+                  onChange={(e : any) => setNewProjectName(e.target.value)}
                 />
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleAddProject}>Add Project</Button>
-                <Button 
-                  variant="outline" 
+                <Button size="sm" variant="default" onClick={handleAddProject} className="w-full">Add Project</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
                   onClick={() => {
                     setShowAddForm(false);
                     setNewProjectName('');
@@ -412,29 +418,29 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex justify-between">
                 <span>Total Projects:</span>
-                <Badge variant="secondary">{projectMappings.length}</Badge>
+                <Badge variant="secondary" className="text-xs">{projectMappings.length}</Badge>
               </div>
               <div className="flex justify-between">
                 <span>Projects with Assignees:</span>
-                <Badge variant="secondary">
+                <Badge variant="secondary" className="text-xs">
                   {projectMappings.filter(p => p.assignee).length}
                 </Badge>
               </div>
               <div className="flex justify-between">
                 <span>Projects with Milestones:</span>
-                <Badge variant="secondary">
+                <Badge variant="secondary" className="text-xs">
                   {projectMappings.filter(p => p.milestone).length}
                 </Badge>
               </div>
               <div className="flex justify-between">
                 <span>Projects with Labels:</span>
-                <Badge variant="secondary">
+                <Badge variant="secondary" className="text-xs">
                   {projectMappings.filter(p => p.labels.length > 0).length}
                 </Badge>
               </div>
             </div>
             
-            <Button onClick={handleProceed} className="w-full">
+            <Button size="sm" variant="default" onClick={handleProceed} className="w-full">
               Proceed to Sync
             </Button>
           </CardContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSetupStore } from '@/stores/useSetupStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,7 +84,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         ...syncConfig
       };
 
-      const response = await fetch('/api/start-sync', {
+      const response = await fetch('/api/v2/sync/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(syncData),
@@ -126,7 +126,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
 
   const stopSync = async () => {
     try {
-      await fetch('/api/stop-sync', { method: 'POST' });
+      await fetch('/api/v2/sync/stop', { method: 'POST' });
       
       setSyncRunning(false);
       setSyncProgress('stopped');
@@ -173,7 +173,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     }
 
     try {
-      const response = await fetch('/api/sync-status');
+      const response = await fetch('/api/v2/sync/status');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -344,21 +344,23 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
             {syncConfig.enableDateFilter && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="startDate">Start Date</Label>
+                  <Label htmlFor="startDate" className="text-sm font-medium">Start Date</Label>
                   <Input
+                    className="w-full"
                     id="startDate"
                     type="date"
                     value={syncConfig.startDate || ''}
-                    onChange={(e) => updateSyncConfig({ startDate: e.target.value })}
+                    onChange={(e : any) => updateSyncConfig({ startDate: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="endDate">End Date</Label>
+                  <Label htmlFor="endDate" className="text-sm font-medium">End Date</Label>
                   <Input
+                    className="w-full"
                     id="endDate"
                     type="date"
                     value={syncConfig.endDate || ''}
-                    onChange={(e) => updateSyncConfig({ endDate: e.target.value })}
+                    onChange={(e : any) => updateSyncConfig({ endDate: e.target.value })}
                   />
                 </div>
               </div>
@@ -382,17 +384,17 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
           <div className="flex gap-2">
             {!syncRunning ? (
               <>
-                <Button onClick={startSync} className="flex-1">
+                <Button size="sm" variant="default" onClick={startSync} className="flex-1">
                   <Play className="h-4 w-4 mr-2" />
                   Start Sync
                 </Button>
-                <Button onClick={resetSync} variant="outline">
+                <Button size="sm" variant="outline" onClick={resetSync} className="flex-1">
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Reset
                 </Button>
               </>
             ) : (
-              <Button onClick={stopSync} variant="destructive" className="flex-1">
+              <Button size="sm" variant="destructive" onClick={stopSync} className="flex-1">
                 <Square className="h-4 w-4 mr-2" />
                 Stop Sync
               </Button>
@@ -469,27 +471,27 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
 
       {/* Status Alerts */}
       {syncProgress === 'completed' && (
-        <Alert>
+        <Alert variant="default" className="border-green-200 bg-green-50">
           <CheckCircle className="h-4 w-4" />
-          <AlertDescription>
+          <AlertDescription className="text-green-800">
             ✅ Synchronization completed successfully! Check the output above for details.
           </AlertDescription>
         </Alert>
       )}
 
       {syncProgress === 'error' && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="border-red-200 bg-red-50">
           <XCircle className="h-4 w-4" />
-          <AlertDescription>
+          <AlertDescription className="text-red-800">
             ❌ Synchronization failed. Check the output above for error details.
           </AlertDescription>
         </Alert>
       )}
 
       {syncProgress === 'stopped' && (
-        <Alert>
+        <Alert variant="default" className="border-yellow-200 bg-yellow-50">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
+          <AlertDescription className="text-yellow-800">
             ⏹️ Synchronization was stopped by user.
           </AlertDescription>
         </Alert>

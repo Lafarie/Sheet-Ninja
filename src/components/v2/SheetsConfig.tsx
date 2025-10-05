@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useSetupStore } from '@/stores/useSetupStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,7 +60,7 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
     setSheetsLoading(true);
 
     try {
-      const response = await fetch('/api/sheet-names', {
+      const response = await fetch('/api/v2/sheets/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,12 +74,12 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
       }
 
       const data = await response.json();
-      setSheetNames(data.sheetNames || []);
+      setSheetNames(data.worksheets?.map((w: any) => w.title) || []);
       
       addNotification({
         type: 'success',
         title: 'Sheets Fetched',
-        message: `Found ${data.sheetNames?.length || 0} worksheets`,
+        message: `Found ${data.worksheets?.length || 0} worksheets`,
       });
     } catch (error) {
       console.error('Sheets fetch error:', error);
@@ -107,7 +107,7 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
     setHeadersLoading(true);
 
     try {
-      const response = await fetch('/api/detect-headers', {
+      const response = await fetch('/api/v2/sheets/detect-headers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -159,7 +159,7 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
         <CardContent className="space-y-4">
           {/* Service Account Upload */}
           <div className="space-y-2">
-            <Label>Service Account JSON (Optional)</Label>
+            <Label className="text-sm font-medium">Service Account JSON (Optional)</Label>
             <div
               className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 transition-colors"
               onClick={() => fileInputRef.current?.click()}
@@ -188,19 +188,23 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
 
           {/* Spreadsheet ID */}
           <div className="space-y-2">
-            <Label htmlFor="spreadsheetId">Spreadsheet ID *</Label>
+            <Label htmlFor="spreadsheetId" className="text-sm font-medium">Spreadsheet ID *</Label>
             <Input
               id="spreadsheetId"
+              className="w-full"
+              type="text"
               placeholder="Enter the spreadsheet ID from the URL"
               value={sheets.spreadsheetId}
-              onChange={(e) => updateSheets({ spreadsheetId: e.target.value })}
+              onChange={(e : any) => updateSheets({ spreadsheetId: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
               Find this in your Google Sheets URL: https://docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit
             </p>
           </div>
 
-          <Button 
+          <Button
+            variant="default"
+            size="sm"
             onClick={handleFetchSheets}
             disabled={!sheets.spreadsheetId}
             className="w-full"
@@ -221,17 +225,18 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="worksheetName">Worksheet Name</Label>
+              <Label htmlFor="worksheetName" className="text-sm font-medium">Worksheet Name</Label>
               <Select
                 value={sheets.worksheetName}
-                onValueChange={(value) => updateSheets({ worksheetName: value })}
+                onValueChange={(value : any) => updateSheets({ worksheetName: value })}
+                className="w-full"
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select worksheet..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="w-full">
                   {sheets.sheetNames.map((sheetName) => (
-                    <SelectItem key={sheetName} value={sheetName}>
+                    <SelectItem key={sheetName} value={sheetName} className="w-full">
                       {sheetName}
                     </SelectItem>
                   ))}
@@ -246,10 +251,12 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
                   Found {sheets.sheetNames.length} sheets
                 </p>
               </div>
-              <Badge variant="secondary">{sheets.sheetNames.length}</Badge>
+              <Badge variant="secondary" className="text-xs">{sheets.sheetNames.length}</Badge>
             </div>
 
-            <Button 
+            <Button
+              variant="default"
+              size="sm"
               onClick={handleDetectHeaders}
               disabled={isDetecting || !sheets.worksheetName}
               className="w-full"

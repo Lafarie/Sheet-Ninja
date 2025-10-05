@@ -34,7 +34,7 @@ export function GitLabConfig({ onComplete }: GitLabConfigProps) {
     setGitLabLoading(true);
 
     try {
-      const response = await fetch('/api/gitlab-project-data', {
+      const response = await fetch('/api/v2/gitlab/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

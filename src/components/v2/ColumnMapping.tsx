@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSetupStore } from '@/stores/useSetupStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -147,13 +147,13 @@ export function ColumnMapping({ onComplete }: ColumnMappingProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'auto-mapped':
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Auto</Badge>;
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">Auto</Badge>;
       case 'manual':
-        return <Badge variant="default">Manual</Badge>;
+        return <Badge variant="default" className="text-xs">Manual</Badge>;
       case 'required-missing':
-        return <Badge variant="destructive">Required</Badge>;
+        return <Badge variant="destructive" className="text-xs">Required</Badge>;
       case 'optional-missing':
-        return <Badge variant="outline">Optional</Badge>;
+        return <Badge variant="outline" className="text-xs">Optional</Badge>;
       default:
         return null;
     }
@@ -161,12 +161,12 @@ export function ColumnMapping({ onComplete }: ColumnMappingProps) {
 
   if (sheets.headers.length === 0) {
     return (
-      <Card>
+      <Card className="border">
         <CardContent className="py-6">
           <div className="text-center py-8">
-            <Columns className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600">No column headers detected.</p>
-            <p className="text-sm text-gray-500">Please complete the Google Sheets configuration first.</p>
+            <Columns className="h-12 w-12 mx-auto text-gray-400 dark:text-gray-600 mb-4" />
+            <p className="text-gray-600 dark:text-gray-400">No column headers detected.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-500">Please complete the Google Sheets configuration first.</p>
           </div>
         </CardContent>
       </Card>
@@ -175,25 +175,25 @@ export function ColumnMapping({ onComplete }: ColumnMappingProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <Card className="border">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Columns className="h-5 w-5" />
             Column Mapping
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm">
             Map your spreadsheet columns to the required data fields
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0">
           {/* Headers Info */}
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <p className="text-sm font-medium text-blue-900">
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
               Detected {sheets.headers.length} columns:
             </p>
             <div className="flex flex-wrap gap-1 mt-2">
               {sheets.headers.map((header, index) => (
-                <Badge key={index} variant="outline" className="text-xs">
+                <Badge key={index} variant="outline" className="text-xs bg-white dark:bg-gray-800">
                   {index + 1}: {header}
                 </Badge>
               ))}
@@ -218,15 +218,15 @@ export function ColumnMapping({ onComplete }: ColumnMappingProps) {
                   
                   <Select
                     value={columnMappings[key] === '' || !columnMappings[key] ? 'none' : columnMappings[key]}
-                    onValueChange={(value) => handleMappingChange(key, value)}
+                    onValueChange={(value: string) => handleMappingChange(key, value)}
                   >
-                    <SelectTrigger className={status === 'required-missing' ? 'border-red-300' : ''}>
+                    <SelectTrigger className={`w-full ${status === 'required-missing' ? 'border-red-300' : ''}`}>
                       <SelectValue placeholder="Select column..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No mapping</SelectItem>
+                    <SelectContent className="max-h-60">
+                      <SelectItem value="none" className="text-sm">No mapping</SelectItem>
                       {sheets.headers.map((header, index) => (
-                        <SelectItem key={index} value={(index + 1).toString()}>
+                        <SelectItem key={index} value={(index + 1).toString()} className="text-sm">
                           Column {index + 1}: {header}
                         </SelectItem>
                       ))}
@@ -242,20 +242,20 @@ export function ColumnMapping({ onComplete }: ColumnMappingProps) {
           </div>
 
           {/* Mapping Summary */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium mb-2">Mapping Summary</h4>
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h4 className="font-medium mb-2 text-gray-900 dark:text-gray-100">Mapping Summary</h4>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-600">Required Fields:</span>
-                <span className="ml-2 font-medium">
+                <span className="text-gray-600 dark:text-gray-400">Required Fields:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">
                   {Object.keys(defaultColumns).filter(key => 
                     defaultColumns[key as keyof typeof defaultColumns].required && columnMappings[key]
                   ).length} / {Object.keys(defaultColumns).filter(key => defaultColumns[key as keyof typeof defaultColumns].required).length}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Optional Fields:</span>
-                <span className="ml-2 font-medium">
+                <span className="text-gray-600 dark:text-gray-400">Optional Fields:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">
                   {Object.keys(defaultColumns).filter(key => 
                     !defaultColumns[key as keyof typeof defaultColumns].required && columnMappings[key]
                   ).length} / {Object.keys(defaultColumns).filter(key => !defaultColumns[key as keyof typeof defaultColumns].required).length}
@@ -269,12 +269,18 @@ export function ColumnMapping({ onComplete }: ColumnMappingProps) {
             <Button 
               onClick={handleAutoMap}
               variant="outline"
+              size="sm"
               className="flex-1"
             >
               <Wand2 className="mr-2 h-4 w-4" />
               Auto-Map Columns
             </Button>
-            <Button onClick={handleValidate} className="flex-1">
+            <Button 
+              onClick={handleValidate} 
+              variant="default"
+              size="sm"
+              className="flex-1"
+            >
               <CheckCircle className="mr-2 h-4 w-4" />
               Validate Mapping
             </Button>

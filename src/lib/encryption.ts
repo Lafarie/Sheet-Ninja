@@ -1,24 +1,15 @@
 import crypto from 'crypto';
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
-if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
+if (!ENCRYPTION_KEY) {
   throw new Error('ENCRYPTION_KEY must be a 64-character hex string');
 }
 const ALGORITHM = 'aes-256-cbc';
 
 // Create a proper 32-byte key from the environment variable
 function getEncryptionKey(): Buffer {
-  if (ENCRYPTION_KEY.length === 64) {
-    // If it's a 64-character hex string, parse it as hex
-    try {
-      return Buffer.from(ENCRYPTION_KEY, 'hex');
-    } catch {
-      // If parsing as hex fails, fall through to string method
-    }
-  }
-  
   // Use the string directly, but ensure it's exactly 32 bytes
-  const keyBuffer = Buffer.from(ENCRYPTION_KEY, 'utf8');
+  const keyBuffer = Buffer.from(ENCRYPTION_KEY!, 'utf8');
   if (keyBuffer.length === 32) {
     return keyBuffer;
   } else if (keyBuffer.length < 32) {
