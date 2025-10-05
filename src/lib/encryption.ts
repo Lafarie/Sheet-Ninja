@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'your-32-character-encryption-key-here';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
+  throw new Error('ENCRYPTION_KEY must be a 64-character hex string');
+}
 const ALGORITHM = 'aes-256-cbc';
 
 // Create a proper 32-byte key from the environment variable

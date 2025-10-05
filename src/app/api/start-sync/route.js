@@ -83,9 +83,13 @@ function parseFlexibleDate(value) {
 
 export async function POST(request) {
   try {
-    const syncData = await request.json();
+    // Input validation
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > 1024 * 1024) { // 1MB limit
+      return NextResponse.json({ error: 'Request too large' }, { status: 413 });
+    }
 
-    console.log(syncData)
+    const syncData = await request.json();
     
     // Validate required fields
     const requiredFields = ['gitlabUrl', 'gitlabToken', 'spreadsheetId', 'worksheetName'];

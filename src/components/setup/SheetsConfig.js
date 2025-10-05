@@ -21,7 +21,6 @@ export function SheetsConfig({
   const [loading, setLoading] = useState(false);
   const [detectingHeaders, setDetectingHeaders] = useState(false);
 
-  console.log(config)
   const fetchSheetNames = async () => {
     if (!config.spreadsheetId) {
       toast.error('Please enter a spreadsheet ID');
