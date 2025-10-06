@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Columns, Wand2, CheckCircle } from 'lucide-react';
 
 interface ColumnMappingProps {
@@ -24,7 +23,7 @@ const defaultColumns = {
   MAIN_TASK: { header: 'Main Task', required: true, description: 'Main task description' },
   SUB_TASK: { header: 'Sub Task', required: false, description: 'Sub task description' },
   STATUS: { header: 'Status', required: true, description: 'Task status' },
-  START_DATE: { header: 'Start Date', required: false, description: 'When task started' },
+  START_DATE: { header: 'Start Date', required: false, description: 'When task started (prefers "Actual Start Date")' },
   PLANNED_ESTIMATION: { header: 'Planned Estimation', required: false, description: 'Planned hours' },
   ACTUAL_ESTIMATION: { header: 'Actual Spent Time', required: false, description: 'Actual hours spent' },
   END_DATE: { header: 'End Date', required: false, description: 'When task was completed' },
@@ -46,17 +45,72 @@ export function ColumnMapping({ onComplete }: ColumnMappingProps) {
       }
     }
     
-    // Partial matches for common variations
+    // Smart partial matches with priority scoring
+    const matches: { index: number; score: number; header: string }[] = [];
+    
     for (let i = 0; i < headers.length; i++) {
       const headerLower = headers[i].toLowerCase().trim();
+      let score = 0;
       
-      if (targetLower.includes('date') && headerLower.includes('date')) return i + 1;
-      if (targetLower.includes('project') && headerLower.includes('project')) return i + 1;
-      if (targetLower.includes('task') && headerLower.includes('task')) return i + 1;
-      if (targetLower.includes('status') && headerLower.includes('status')) return i + 1;
-      if (targetLower.includes('estimation') && (headerLower.includes('estimation') || headerLower.includes('hours'))) return i + 1;
-      if (targetLower.includes('git') && (headerLower.includes('git') || headerLower.includes('id'))) return i + 1;
-      if (targetLower.includes('user') && headerLower.includes('user')) return i + 1;
+      // Date-related matches with priority
+      if (targetLower.includes('date')) {
+        if (headerLower.includes('actual') && headerLower.includes('start') && headerLower.includes('date')) {
+          score = 100; // Highest priority for "Actual Start Date"
+        } else if (headerLower.includes('start') && headerLower.includes('date')) {
+          score = 90; // High priority for "Start Date"
+        } else if (headerLower.includes('end') && headerLower.includes('date')) {
+          score = 80; // High priority for "End Date"
+        } else if (headerLower.includes('date')) {
+          score = 50; // Lower priority for generic "Date"
+        }
+      }
+      
+      // Project-related matches
+      if (targetLower.includes('project')) {
+        if (headerLower.includes('specific') && headerLower.includes('project')) {
+          score = 95; // High priority for "Specific Project"
+        } else if (headerLower.includes('project')) {
+          score = 70; // Lower priority for generic "Project"
+        }
+      }
+      
+      // Task-related matches
+      if (targetLower.includes('task')) {
+        if (headerLower.includes('main') && headerLower.includes('task')) {
+          score = 90; // High priority for "Main Task"
+        } else if (headerLower.includes('sub') && headerLower.includes('task')) {
+          score = 85; // High priority for "Sub Task"
+        } else if (headerLower.includes('task')) {
+          score = 60; // Lower priority for generic "Task"
+        }
+      }
+      
+      // Estimation-related matches
+      if (targetLower.includes('estimation')) {
+        if (headerLower.includes('planned') && headerLower.includes('estimation')) {
+          score = 95; // High priority for "Planned Estimation"
+        } else if (headerLower.includes('actual') && headerLower.includes('estimation')) {
+          score = 90; // High priority for "Actual Estimation"
+        } else if (headerLower.includes('estimation') || headerLower.includes('hours')) {
+          score = 70; // Lower priority for generic estimation
+        }
+      }
+      
+      // Other matches
+      if (targetLower.includes('status') && headerLower.includes('status')) score = 80;
+      if (targetLower.includes('git') && (headerLower.includes('git') || headerLower.includes('id'))) score = 80;
+      if (targetLower.includes('user') && (headerLower.includes('user') || headerLower.includes('resource'))) score = 80;
+      if (targetLower.includes('spent') && headerLower.includes('spent')) score = 85;
+      
+      if (score > 0) {
+        matches.push({ index: i, score, header: headers[i] });
+      }
+    }
+    
+    // Sort by score (highest first) and return the best match
+    if (matches.length > 0) {
+      matches.sort((a, b) => b.score - a.score);
+      return matches[0].index + 1;
     }
     
     return null;

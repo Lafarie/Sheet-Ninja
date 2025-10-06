@@ -138,7 +138,7 @@ export default function SetupPage() {
       <NotificationToast />
       
       {/* Loading Overlay */}
-      {(loading.gitlab || loading.sheets || loading.headers || loading.projects || loading.sync) && (
+      {(loading.gitlab || loading.sheets || loading.headers || loading.projects) && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
           <Card className="p-6 border dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="flex items-center gap-3">
