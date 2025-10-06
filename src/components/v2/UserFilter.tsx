@@ -137,7 +137,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
           <Alert variant="default" className="border-blue-200 bg-blue-50">
             <AlertDescription className="text-blue-800">
               This optional feature allows you to filter the synchronization process to only include rows 
-              for specific users. If you don't need user filtering, you can skip this step entirely.
+              for specific users. If you don&apos;t need user filtering, you can skip this step entirely.
             </AlertDescription>
           </Alert>
 

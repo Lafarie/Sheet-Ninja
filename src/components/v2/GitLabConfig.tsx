@@ -219,7 +219,7 @@ export function GitLabConfig({ onComplete }: GitLabConfigProps) {
               
               {searchTerm && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span>Filtered by: "{searchTerm}"</span>
+                  <span>Filtered by: &quot;{searchTerm}&quot;</span>
                   <Button
                     size="sm"
                     variant="outline"
@@ -344,7 +344,7 @@ export function GitLabConfig({ onComplete }: GitLabConfigProps) {
               
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-800">
-                  <strong>Already on VPN?</strong> Contact your IT administrator if you're still experiencing issues.
+                  <strong>Already on VPN?</strong> Contact your IT administrator if you&apos;re still experiencing issues.
                 </p>
               </div>
               

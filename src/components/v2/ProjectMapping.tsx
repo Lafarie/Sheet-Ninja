@@ -182,7 +182,7 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
     if (sheets.headers.length > 0 && projectMappings.length === 0) {
       fetchProjectNames();
     }
-  }, [sheets.headers, projectMappings.length]);
+  }, [sheets.headers, projectMappings.length, fetchProjectNames]);
 
   return (
     <div className="space-y-6">
@@ -241,7 +241,7 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
                   <SelectValue placeholder="Select GitLab project..." />
                 </SelectTrigger>
                 <SelectContent className="w-full">
-                  <SelectItem value="none" className="w-full">No project selected (won't sync)</SelectItem>
+                  <SelectItem value="none" className="w-full">No project selected (won&apos;t sync)</SelectItem>
                   {gitlab.projects.map((gitlabProject) => (
                     <SelectItem key={gitlabProject.id} value={gitlabProject.id} className="w-full">
                       {gitlabProject.name_with_namespace || gitlabProject.name}

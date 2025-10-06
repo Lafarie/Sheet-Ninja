@@ -2,6 +2,7 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useSetupStore } from "@/stores/useSetupStore";
 import { useUIStore } from "@/stores/useUIStore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -283,7 +284,7 @@ export default function SetupPage() {
     if (session?.user) {
       loadSavedConfigs();
     }
-  }, [session]);
+  }, [session, loadSavedConfigs]);
 
   const getStepStatus = (step: number) => {
     if (step < currentStep) return "completed";
@@ -369,7 +370,7 @@ export default function SetupPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">{session.user.image ? <img src={session.user.image} alt="Profile" className="w-10 h-10 rounded-full" /> : <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />}</div>
+                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">{session.user.image ? <Image src={session.user.image} alt="Profile" width={40} height={40} className="w-10 h-10 rounded-full" /> : <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />}</div>
                   <div>
                     <CardTitle className="text-xl text-gray-900 dark:text-gray-100">{session.user.name || session.user.email}</CardTitle>
                     <CardDescription className="text-gray-600 dark:text-gray-400">{session.user.email}</CardDescription>
