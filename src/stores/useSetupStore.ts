@@ -112,6 +112,9 @@ export interface SetupState {
   // Reset actions
   resetSetup: () => void;
   resetStep: (step: number) => void;
+  
+  // Load from saved configuration
+  loadFromSavedConfig: (savedConfig: any) => void;
 }
 
 const defaultGitLab: GitLabConfig = {
@@ -255,6 +258,32 @@ export const useSetupStore = create<SetupState>()(
             set({ syncConfig: defaultSyncConfig });
             break;
         }
+      },
+      
+      loadFromSavedConfig: (savedConfig) => {
+        set({
+          gitlab: {
+            url: savedConfig.gitlabUrl || defaultGitLab.url,
+            token: savedConfig.gitlabToken || '',
+            projects: savedConfig.projects || [],
+          },
+          sheets: {
+            spreadsheetId: savedConfig.spreadsheetId || '',
+            worksheetName: savedConfig.worksheetName || 'Sheet1',
+            serviceAccount: savedConfig.serviceAccount || null,
+            serviceAccountEmail: savedConfig.serviceAccountEmail || '',
+            sheetNames: savedConfig.sheetNames || [],
+            headers: savedConfig.headers || [],
+          },
+          columnMappings: savedConfig.columnMappings || {},
+          projectMappings: savedConfig.projectMappings || [],
+          syncConfig: {
+            startDate: savedConfig.startDate,
+            endDate: savedConfig.endDate,
+            checkStatusBeforeClose: savedConfig.checkStatusBeforeClose || false,
+            enableDateFilter: savedConfig.enableDateFilter || false,
+          },
+        });
       },
     }),
     {

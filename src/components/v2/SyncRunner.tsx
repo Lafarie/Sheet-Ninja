@@ -58,6 +58,8 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
       issues.push('Please set both start and end dates for date filtering');
     }
     
+    // Note: User mapping and user filter are optional - no validation needed
+    
     if (issues.length > 0) {
       addNotification({
         type: 'error',
@@ -89,7 +91,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         columnMappings: columnMappings,
         serviceAccount: sheets.serviceAccount,
         serviceAccountEmail: sheets.serviceAccountEmail,
-        userFilter: columnMappings.SELECTED_USER || null,
+        userFilter: columnMappings.SELECTED_USER || null, // Optional user filter
         dateFilter: syncConfig.enableDateFilter ? {
           startDate: syncConfig.startDate,
           endDate: syncConfig.endDate
@@ -102,8 +104,10 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
       // Debug: Log sync data
       console.log('Sync data being sent:', {
         userFilter: syncData.userFilter,
+        hasUserFilter: !!syncData.userFilter,
         columnMappings: columnMappings,
-        hasUserMapping: !!columnMappings.USER
+        hasUserMapping: !!columnMappings.USER,
+        userMappingOptional: true
       });
 
       const response = await fetch('/api/start-sync', {
@@ -518,7 +522,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
           )}
 
           {/* User Filter Status */}
-          {columnMappings.SELECTED_USER && (
+          {columnMappings.SELECTED_USER ? (
             <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -535,6 +539,16 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                   <strong>Filter Active:</strong> Synchronization will only include rows for user: <strong>{columnMappings.SELECTED_USER}</strong>
                 </AlertDescription>
               </Alert>
+            </div>
+          ) : (
+            <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center space-x-2">
+                <Users className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">No User Filter</span>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Synchronization will include all rows (no user filtering applied)
+              </p>
             </div>
           )}
 

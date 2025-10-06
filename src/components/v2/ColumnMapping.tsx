@@ -27,7 +27,7 @@ const defaultColumns = {
   PLANNED_ESTIMATION: { header: 'Planned Estimation', required: false, description: 'Planned hours' },
   ACTUAL_ESTIMATION: { header: 'Actual Spent Time', required: false, description: 'Actual hours spent' },
   END_DATE: { header: 'End Date', required: false, description: 'When task was completed' },
-  USER: { header: 'User', required: false, description: 'User filter column' },
+  USER: { header: 'User', required: false, description: 'User filter column (optional)' },
 };
 
 export function ColumnMapping({ onComplete }: ColumnMappingProps) {

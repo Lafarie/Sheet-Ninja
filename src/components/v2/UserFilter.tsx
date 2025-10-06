@@ -130,24 +130,42 @@ export function UserFilter({ onComplete }: UserFilterProps) {
             User Filter
           </CardTitle>
           <CardDescription className="text-sm">
-            Filter synchronization by specific users from your Google Sheets
+            Optionally filter synchronization by specific users from your Google Sheets
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
           <Alert variant="default" className="border-blue-200 bg-blue-50">
             <AlertDescription className="text-blue-800">
-              This feature allows you to filter the synchronization process to only include rows 
-              for specific users. Make sure you have mapped the USER column in the column mapping step.
+              This optional feature allows you to filter the synchronization process to only include rows 
+              for specific users. If you don't need user filtering, you can skip this step entirely.
             </AlertDescription>
           </Alert>
 
           {!columnMappings.USER ? (
-            <Alert variant="destructive" className="border-red-200 bg-red-50">
-              <AlertDescription className="text-red-800">
-                <strong>USER column not mapped!</strong> Please go back to the Column Mapping step 
-                and map a column that contains user information.
-              </AlertDescription>
-            </Alert>
+            <div className="space-y-4">
+              <Alert variant="default" className="border-yellow-200 bg-yellow-50">
+                <AlertDescription className="text-yellow-800">
+                  <strong>USER column not mapped.</strong> If you want to use user filtering, go back to the Column Mapping step 
+                  and map a column that contains user information. Otherwise, you can skip this step.
+                </AlertDescription>
+              </Alert>
+              
+              <Button 
+                onClick={() => {
+                  if (onComplete) onComplete();
+                  addNotification({
+                    type: 'info',
+                    title: 'User Filter Skipped',
+                    message: 'Proceeding without user filtering',
+                  });
+                }}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                Skip User Filter
+              </Button>
+            </div>
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -224,6 +242,24 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                       disabled={!selectedUser || selectedUser === 'all'}
                     >
                       Clear Filter
+                    </Button>
+                  </div>
+                  
+                  <div className="pt-2 border-t border-gray-200">
+                    <Button 
+                      onClick={() => {
+                        if (onComplete) onComplete();
+                        addNotification({
+                          type: 'info',
+                          title: 'User Filter Skipped',
+                          message: 'Proceeding without user filtering',
+                        });
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      Skip User Filter
                     </Button>
                   </div>
                 </div>
