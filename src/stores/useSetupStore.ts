@@ -8,6 +8,10 @@ export interface GitLabConfig {
     id: string;
     name: string;
     name_with_namespace: string;
+    description?: string;
+    visibility?: string;
+    last_activity_at?: string;
+    web_url?: string;
   }>;
 }
 

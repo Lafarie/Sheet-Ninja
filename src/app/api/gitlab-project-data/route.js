@@ -41,6 +41,23 @@ export async function POST(request) {
             { status: 401 }
           );
         }
+        
+        // Check for WAF challenge or blocked requests
+        if (projectsResponse.status === 202 || projectsResponse.status === 403) {
+          const responseHeaders = Object.fromEntries(projectsResponse.headers.entries());
+          if (responseHeaders['x-amzn-waf-action'] === 'challenge' || 
+              responseHeaders['x-amzn-waf-action'] === 'block') {
+            return NextResponse.json(
+              { 
+                error: 'VPN_REQUIRED',
+                message: 'GitLab server is blocking the request. Please connect to VPN and try again.',
+                details: 'The server returned a WAF challenge response, indicating network restrictions.'
+              },
+              { status: 403 }
+            );
+          }
+        }
+        
         throw new Error(`HTTP error! status: ${projectsResponse.status}`);
       }
 

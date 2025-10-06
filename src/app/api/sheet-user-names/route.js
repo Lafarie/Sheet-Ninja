@@ -108,12 +108,94 @@ export async function POST(request) {
     const userColumnIndex = parseInt(userColumn) - 1; // Convert to 0-based index
     const users = new Set();
     
-    rows.forEach(row => {
-      const userValue = row.values[userColumnIndex];
-      if (userValue && typeof userValue === 'string' && userValue.trim()) {
-        users.add(userValue.trim());
+    console.log(`Extracting users from column index: ${userColumnIndex} (column ${userColumn})`);
+    console.log(`Total rows: ${rows.length}`);
+    
+    // Validate column index
+    if (isNaN(userColumnIndex) || userColumnIndex < 0) {
+      return NextResponse.json(
+        { error: `Invalid column index: ${userColumn}. Please provide a valid column number.` },
+        { status: 400 }
+      );
+    }
+    
+    // If no rows or rows don't have expected structure, try alternative method
+    if (rows.length === 0 || (!rows[0].values && !rows[0]._rawData)) {
+      console.log('No rows found or unexpected row structure, trying alternative method...');
+      
+      // Try to get data using the Google Sheets API directly
+      try {
+        const range = `${worksheetName}!${String.fromCharCode(65 + userColumnIndex)}:${String.fromCharCode(65 + userColumnIndex)}`;
+        console.log(`Trying to get data from range: ${range}`);
+        
+        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`, {
+          headers: {
+            'Authorization': `Bearer ${serviceAccountAuth.credentials.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.values && Array.isArray(data.values)) {
+            data.values.forEach((row, index) => {
+              if (row && row[0] && typeof row[0] === 'string' && row[0].trim()) {
+                users.add(row[0].trim());
+              }
+            });
+            console.log(`Found ${users.size} users using direct API method`);
+          }
+        }
+      } catch (apiError) {
+        console.error('Alternative API method failed:', apiError);
       }
-    });
+    }
+    
+    // Only process rows if we haven't already found users with the alternative method
+    if (users.size === 0) {
+      rows.forEach((row, index) => {
+        try {
+          // Try different ways to access the row data
+          let userValue = null;
+          
+          // Method 1: row.values array
+          if (row.values && Array.isArray(row.values) && row.values[userColumnIndex] !== undefined) {
+            userValue = row.values[userColumnIndex];
+          }
+          // Method 2: row._rawData array
+          else if (row._rawData && Array.isArray(row._rawData) && row._rawData[userColumnIndex] !== undefined) {
+            userValue = row._rawData[userColumnIndex];
+          }
+          // Method 3: row properties (if column is mapped to a property)
+          else if (row[`col${userColumnIndex + 1}`] !== undefined) {
+            userValue = row[`col${userColumnIndex + 1}`];
+          }
+          // Method 4: Try to get by column letter
+          else {
+            const columnLetter = String.fromCharCode(65 + userColumnIndex); // A, B, C, etc.
+            if (row[columnLetter] !== undefined) {
+              userValue = row[columnLetter];
+            }
+          }
+          
+          if (userValue && typeof userValue === 'string' && userValue.trim()) {
+            users.add(userValue.trim());
+          }
+          
+          // Debug first few rows
+          if (index < 3) {
+            console.log(`Row ${index}:`, {
+              values: row.values,
+              _rawData: row._rawData,
+              userValue: userValue,
+              allProps: Object.keys(row)
+            });
+          }
+        } catch (rowError) {
+          console.error(`Error processing row ${index}:`, rowError);
+        }
+      });
+    }
 
     const uniqueUsers = Array.from(users).sort();
 

@@ -52,6 +52,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [pollingTimeout, setPollingTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Auto-detect users from USER column
   const detectUsers = async () => {
@@ -123,7 +124,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
           columnMappings,
           projectMappings,
           serviceAccount: sheets.serviceAccount,
-          userFilter: enableUserFilter ? selectedUser : null,
+          userFilter: enableUserFilter && selectedUser && selectedUser !== 'all' ? selectedUser : null,
           dateFilter: syncConfig.enableDateFilter ? {
             startDate: syncConfig.startDate,
             endDate: syncConfig.endDate
@@ -163,7 +164,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     if (!sheets.spreadsheetId) issues.push('Spreadsheet ID is required');
     if (!sheets.worksheetName) issues.push('Worksheet Name is required');
     if (projectMappings.length === 0) issues.push('At least one project mapping is required');
-    if (enableUserFilter && !selectedUser) issues.push('Please select a user for filtering');
+    if (enableUserFilter && (!selectedUser || selectedUser === 'all')) issues.push('Please select a user for filtering');
     if (syncConfig.enableDateFilter && (!syncConfig.startDate || !syncConfig.endDate)) {
       issues.push('Please set both start and end dates for date filtering');
     }
@@ -199,13 +200,24 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         columnMappings: columnMappings,
         serviceAccount: sheets.serviceAccount,
         serviceAccountEmail: sheets.serviceAccountEmail,
-        userFilter: enableUserFilter ? selectedUser : null,
+        userFilter: enableUserFilter && selectedUser && selectedUser !== 'all' ? selectedUser : null,
         dateFilter: syncConfig.enableDateFilter ? {
           startDate: syncConfig.startDate,
           endDate: syncConfig.endDate
         } : null,
-        ...syncConfig
+        checkStatusBeforeClose: syncConfig.checkStatusBeforeClose,
+        startDate: syncConfig.startDate,
+        endDate: syncConfig.endDate
       };
+
+      // Debug: Log sync data
+      console.log('Sync data being sent:', {
+        enableUserFilter,
+        selectedUser,
+        userFilter: syncData.userFilter,
+        columnMappings: columnMappings,
+        hasUserMapping: !!columnMappings.USER
+      });
 
       const response = await fetch('/api/start-sync', {
         method: 'POST',
@@ -281,9 +293,36 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
+    if (pollingTimeout) {
+      clearTimeout(pollingTimeout);
+    }
 
+    // Set sync start time for timeout calculations
+    (window as any).syncStartTime = Date.now();
+    (window as any).lastStep = null;
+    (window as any).lastStepTime = Date.now();
+    
     updateSyncProgress();
     intervalRef.current = setInterval(updateSyncProgress, 2000);
+    
+    // Set a timeout to stop polling after 10 minutes
+    const timeout = setTimeout(() => {
+      console.log('Sync polling timeout reached, stopping polling');
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setSyncLoading(false);
+      setSyncRunning(false);
+      setSyncProgress('error');
+      addNotification({
+        type: 'error',
+        title: 'Sync Timeout',
+        message: 'Sync process timed out after 10 minutes',
+      });
+    }, 10 * 60 * 1000); // 10 minutes
+    
+    setPollingTimeout(timeout);
   };
 
   const updateSyncProgress = async () => {
@@ -304,6 +343,15 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
 
       const data = await response.json();
       
+      // Debug: Log sync status data
+      console.log('Sync status data:', {
+        currentStep: data.currentStep,
+        running: data.running,
+        endTime: data.endTime,
+        error: data.error,
+        isCompleted: data.currentStep === 'completed' || (!data.running && data.endTime)
+      });
+      
       if (data.currentStep) {
         const stepIndex = syncSteps.findIndex(step => step.id === data.currentStep);
         if (stepIndex !== -1) {
@@ -316,7 +364,28 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
       }
 
       const isCompleted = data.currentStep === 'completed' || (!data.running && data.endTime);
-      if (isCompleted) {
+      
+      // Additional check: if we've been polling for a while and no progress, assume completion
+      const hasBeenPolling = Date.now() - (window as any).syncStartTime > 30000; // 30 seconds
+      const shouldForceComplete = hasBeenPolling && !data.running && !data.error && data.currentStep !== 'error';
+      
+      // More aggressive completion detection
+      const isStuck = data.currentStep && ['updating-sheet', 'completed'].includes(data.currentStep);
+      const hasOutput = data.output && (
+        data.output.includes('Sync process completed successfully') ||
+        data.output.includes('Synchronization completed successfully') ||
+        data.output.includes('Finalizing updates') ||
+        data.output.includes('Created') && data.output.includes('GitLab issues')
+      );
+      
+      // Check if we've been in the same step for too long
+      const stepTimeout = Date.now() - (window as any).lastStepTime > 15000; // 15 seconds
+      if (data.currentStep && data.currentStep !== (window as any).lastStep) {
+        (window as any).lastStep = data.currentStep;
+        (window as any).lastStepTime = Date.now();
+      }
+      
+      if (isCompleted || shouldForceComplete || isStuck || hasOutput || stepTimeout) {
         setSyncRunning(false);
         setSyncProgress('completed');
         setCurrentStep(syncSteps.length - 1);
@@ -325,6 +394,11 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
+        }
+        
+        if (pollingTimeout) {
+          clearTimeout(pollingTimeout);
+          setPollingTimeout(null);
         }
 
         addNotification({
@@ -346,6 +420,11 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
+        
+        if (pollingTimeout) {
+          clearTimeout(pollingTimeout);
+          setPollingTimeout(null);
+        }
 
         addNotification({
           type: 'error',
@@ -364,6 +443,11 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
+        
+        if (pollingTimeout) {
+          clearTimeout(pollingTimeout);
+          setPollingTimeout(null);
+        }
         return;
       }
     } catch (error) {
@@ -381,6 +465,11 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    
+    if (pollingTimeout) {
+      clearTimeout(pollingTimeout);
+      setPollingTimeout(null);
+    }
   };
 
   useEffect(() => {
@@ -388,8 +477,11 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      if (pollingTimeout) {
+        clearTimeout(pollingTimeout);
+      }
     };
-  }, []);
+  }, [pollingTimeout]);
 
   const getStepStatus = (index: number) => {
     if (syncProgress === 'completed') return 'completed';
@@ -450,18 +542,25 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
 
           {/* User Filter Options */}
           <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="enableUserFilter"
-                checked={enableUserFilter}
-                onChange={(e) => setEnableUserFilter(e.target.checked)}
-                className="rounded border-gray-300"
-              />
-              <label htmlFor="enableUserFilter" className="text-sm font-medium flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Enable user filter
-              </label>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="enableUserFilter"
+                  checked={enableUserFilter}
+                  onChange={(e) => setEnableUserFilter(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="enableUserFilter" className="text-sm font-medium flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Enable user filter
+                </label>
+              </div>
+              {enableUserFilter && selectedUser && selectedUser !== 'all' && (
+                <Badge variant="default" className="bg-green-100 text-green-800">
+                  Filtering for: {selectedUser}
+                </Badge>
+              )}
             </div>
             
             {enableUserFilter && (
@@ -518,7 +617,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                             <SelectValue placeholder="Select a user..." />
                           </SelectTrigger>
                           <SelectContent className="max-h-60">
-                            <SelectItem value="" className="text-sm">No filter (all users)</SelectItem>
+                            <SelectItem value="all" className="text-sm">No filter (all users)</SelectItem>
                             {availableUsers.map((user) => (
                               <SelectItem key={user} value={user} className="text-sm">
                                 {user}
@@ -529,7 +628,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                       </div>
                     )}
 
-                    {selectedUser && (
+                    {selectedUser && selectedUser !== 'all' && (
                       <Alert variant="default" className="border-green-200 bg-green-50">
                         <CheckCircle className="h-4 w-4 text-green-600" />
                         <AlertDescription className="text-green-800">
@@ -611,10 +710,38 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                 </Button>
               </>
             ) : (
-              <Button size="sm" variant="destructive" onClick={stopSync} className="flex-1">
-                <Square className="h-4 w-4 mr-2" />
-                Stop Sync
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="destructive" onClick={stopSync} className="flex-1">
+                  <Square className="h-4 w-4 mr-2" />
+                  Stop Sync
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => {
+                    setSyncRunning(false);
+                    setSyncProgress('completed');
+                    setSyncLoading(false);
+                    if (intervalRef.current) {
+                      clearInterval(intervalRef.current);
+                      intervalRef.current = null;
+                    }
+                    if (pollingTimeout) {
+                      clearTimeout(pollingTimeout);
+                      setPollingTimeout(null);
+                    }
+                    addNotification({
+                      type: 'warning',
+                      title: 'Sync Manually Completed',
+                      message: 'Sync was manually marked as completed',
+                    });
+                  }}
+                  className="flex-1"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Force Complete
+                </Button>
+              </div>
             )}
           </div>
         </CardContent>

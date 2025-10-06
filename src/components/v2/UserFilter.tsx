@@ -72,15 +72,23 @@ export function UserFilter({ onComplete }: UserFilterProps) {
 
   const handleUserSelect = (user: string) => {
     setSelectedUser(user);
-    addNotification({
-      type: 'info',
-      title: 'User Selected',
-      message: `Filtering for user: ${user}`,
-    });
+    if (user === 'all') {
+      addNotification({
+        type: 'info',
+        title: 'Filter Cleared',
+        message: 'No user filter applied - showing all users',
+      });
+    } else {
+      addNotification({
+        type: 'info',
+        title: 'User Selected',
+        message: `Filtering for user: ${user}`,
+      });
+    }
   };
 
   const handleApplyFilter = () => {
-    if (!selectedUser) {
+    if (!selectedUser || selectedUser === 'all') {
       addNotification({
         type: 'error',
         title: 'No User Selected',
@@ -104,7 +112,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
   };
 
   const handleClearFilter = () => {
-    setSelectedUser('');
+    setSelectedUser('all');
     updateColumnMapping('SELECTED_USER', '');
     addNotification({
       type: 'info',
@@ -174,7 +182,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                         <SelectValue placeholder="Select a user..." />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
-                        <SelectItem value="" className="text-sm">No filter (all users)</SelectItem>
+                        <SelectItem value="all" className="text-sm">No filter (all users)</SelectItem>
                         {availableUsers.map((user) => (
                           <SelectItem key={user} value={user} className="text-sm">
                             {user}
@@ -200,7 +208,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                   <div className="flex gap-2">
                     <Button 
                       onClick={handleApplyFilter}
-                      disabled={!selectedUser}
+                      disabled={!selectedUser || selectedUser === 'all'}
                       variant="default"
                       size="sm"
                       className="flex-1"
@@ -213,7 +221,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                       variant="outline"
                       size="sm"
                       className="text-sm"
-                      disabled={!selectedUser}
+                      disabled={!selectedUser || selectedUser === 'all'}
                     >
                       Clear Filter
                     </Button>
@@ -221,7 +229,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                 </div>
               )}
 
-              {selectedUser && (
+              {selectedUser && selectedUser !== 'all' && (
                 <Alert variant="default" className="border-green-200 bg-green-50">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
