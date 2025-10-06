@@ -83,9 +83,13 @@ function parseFlexibleDate(value) {
 
 export async function POST(request) {
   try {
-    const syncData = await request.json();
+    // Input validation
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > 1024 * 1024) { // 1MB limit
+      return NextResponse.json({ error: 'Request too large' }, { status: 413 });
+    }
 
-    console.log(syncData)
+    const syncData = await request.json();
     
     // Validate required fields
     const requiredFields = ['gitlabUrl', 'gitlabToken', 'spreadsheetId', 'worksheetName'];
@@ -335,13 +339,44 @@ async function performActualSync(syncData) {
       return null;
     }
 
-    // Apply date filtering if enabled
-    if (syncData.startDate || syncData.endDate) {
-      syncStateManager.addOutput(`  - Applying date filter (${syncData.startDate || 'no start'} to ${syncData.endDate || 'no end'})\n`);
+    // Debug: Log user filter information
+    syncStateManager.addOutput(`  - User filter debug: ${JSON.stringify({
+      userFilter: syncData.userFilter,
+      columnMappings: syncData.columnMappings,
+      hasUserMapping: !!syncData.columnMappings?.USER
+    })}\n`);
 
-      // Allow explicit mapping for DATE column in config
-      const mappedDateColumn = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.DATE || syncData.columnMappings.date, sheet.headerValues) : null;
-      const dateColumn = mappedDateColumn || findColumnName(sheet.headerValues, ['date', 'created date', 'task date', 'created_date']);
+    // Apply user filtering if enabled
+    if (syncData.userFilter && syncData.userFilter !== 'all') {
+      syncStateManager.addOutput(`  - Applying user filter for: ${syncData.userFilter}\n`);
+      
+      const userColumn = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.USER, sheet.headerValues) : null;
+      
+      if (userColumn) {
+        const originalCount = rows.length;
+        rows = rows.filter(row => {
+          const userValue = row.get(userColumn);
+          const matches = userValue && userValue.toString().trim() === syncData.userFilter;
+          if (!matches) {
+            syncStateManager.addOutput(`  - Filtering out row with user: "${userValue}" (looking for: "${syncData.userFilter}")\n`);
+          }
+          return matches;
+        });
+        syncStateManager.addOutput(`  - User filter applied: ${originalCount} -> ${rows.length} rows (using column: ${userColumn})\n`);
+      } else {
+        syncStateManager.addOutput(`  - Warning: User filter enabled but no USER column mapping found. Processing all rows.\n`);
+      }
+    } else {
+      syncStateManager.addOutput(`  - No user filter applied (userFilter: ${syncData.userFilter})\n`);
+    }
+
+    // Apply date filtering if enabled
+    if (syncData.dateFilter && (syncData.dateFilter.startDate || syncData.dateFilter.endDate)) {
+      const startDate = syncData.dateFilter.startDate;
+      const endDate = syncData.dateFilter.endDate;
+      syncStateManager.addOutput(`  - Applying date filter (${startDate || 'no start'} to ${endDate || 'no end'})\n`);
+
+      const dateColumn = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.DATE, sheet.headerValues) : null;
 
       if (dateColumn) {
         const originalCount = rows.length;
@@ -353,23 +388,23 @@ async function performActualSync(syncData) {
           if (!rowDate) return false;
 
           let inRange = true;
-          if (syncData.startDate) {
-            const startDate = parseFlexibleDate(syncData.startDate) || new Date(syncData.startDate);
-            if (!startDate) return false; // invalid startDate -> skip
-            inRange = inRange && rowDate >= startDate;
+          if (startDate) {
+            const start = parseFlexibleDate(startDate) || new Date(startDate);
+            if (!start) return false;
+            inRange = inRange && rowDate >= start;
           }
-          if (syncData.endDate) {
-            const endDate = parseFlexibleDate(syncData.endDate) || new Date(syncData.endDate);
-            if (!endDate) return false;
-            endDate.setHours(23, 59, 59, 999); // Include full end date
-            inRange = inRange && rowDate <= endDate;
+          if (endDate) {
+            const end = parseFlexibleDate(endDate) || new Date(endDate);
+            if (!end) return false;
+            end.setHours(23, 59, 59, 999);
+            inRange = inRange && rowDate <= end;
           }
 
           return inRange;
         });
         syncStateManager.addOutput(`  - Date filter applied: ${originalCount} -> ${rows.length} rows (using column: ${dateColumn})\n`);
       } else {
-        syncStateManager.addOutput(`  - Warning: Date filter enabled but no date column found. Processing all rows.\n`);
+        syncStateManager.addOutput(`  - Warning: Date filter enabled but no DATE column mapping found. Processing all rows.\n`);
       }
     }
     
@@ -407,18 +442,8 @@ async function performActualSync(syncData) {
       // Get task data from the row
       const taskData = extractTaskData(row, sheet.headerValues);
 
-      // Determine GitLab ID column and existing value early so we can act on rows
-      // that already have an issue even if the main task cell is empty.
-      // Prefer an explicit mapping (from saved config) if provided in syncData.columnMappings
-      let gitIdColumn = null;
-      if (syncData.columnMappings && (syncData.columnMappings.GIT_ID || syncData.columnMappings.git_id || syncData.columnMappings.gitId)) {
-        const mapping = syncData.columnMappings.GIT_ID || syncData.columnMappings.git_id || syncData.columnMappings.gitId;
-        // Use resolveColumnFromMapping helper which supports object, header string, and numeric (1-based) values
-        gitIdColumn = resolveColumnFromMapping(mapping, sheet.headerValues) || gitIdColumn;
-      }
-      if (!gitIdColumn) {
-        gitIdColumn = findColumnName(sheet.headerValues, ['git id', 'gitlab id', 'issue id', 'git_id','git']);
-      }
+      // Determine GitLab ID column using column mappings
+      const gitIdColumn = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.GIT_ID, sheet.headerValues) : null;
       let existingGitIdValue = gitIdColumn ? row.get(gitIdColumn) : null;
 
       // If there's no main task and no existing GitLab id, skip the row.
@@ -484,8 +509,7 @@ async function performActualSync(syncData) {
         try {
           const shouldCheckStatus = !!syncData.checkStatusBeforeClose;
           if (shouldCheckStatus) {
-            const mappedStatusCol = resolveColumnFromMapping(syncData.columnMappings ? (syncData.columnMappings.STATUS || syncData.columnMappings.status) : null, sheet.headerValues);
-            const statusCol = mappedStatusCol || findColumnName(sheet.headerValues, ['status', 'state', 'issue status']);
+            const statusCol = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.STATUS, sheet.headerValues) : null;
             const rawStatus = statusCol ? (row.get(statusCol) || '') : '';
             const statusVal = rawStatus.toString().trim();
             const normalized = statusVal.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -536,6 +560,7 @@ async function performActualSync(syncData) {
 
     // Mark as completed
     syncStateManager.completeSync();
+    console.log('Sync process completed, final status:', syncStateManager.getStatus());
     
   } catch (error) {
     console.error('Sync process error:', error);
@@ -543,16 +568,6 @@ async function performActualSync(syncData) {
   }
 }
 
-// Helper function to find column name (case-insensitive)
-function findColumnName(headers, possibleNames) {
-  for (const possibleName of possibleNames) {
-    const found = headers.find(header => 
-      header.toLowerCase().trim().includes(possibleName.toLowerCase())
-    );
-    if (found) return found;
-  }
-  return null;
-}
 
 // Find matching project mapping for task data
 function findProjectMapping(projectMappings, taskData) {
@@ -583,46 +598,64 @@ function findProjectMapping(projectMappings, taskData) {
   return match;
 }
 
-// Extract task data from a sheet row
+// Extract task data from a sheet row using column mappings
 function extractTaskData(row, headers) {
   const taskData = {};
   
-  // Allow callers to pass in syncData.columnMappings by using a closure-resolved helper
-  // If columnMappings isn't available here, fall back to header heuristics
-  // Try to find main task column
-  const mainTaskColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
-    ? resolveColumnFromMapping(globalThis._syncColumnMappings.MAIN_TASK || globalThis._syncColumnMappings.MAIN_task || globalThis._syncColumnMappings.MAIN, headers)
-    : null;
-  const mainCol = mainTaskColumn || findColumnName(headers, ['main task', 'task', 'title', 'main_task']);
-  taskData.mainTask = mainCol ? row.get(mainCol) : '';
+  // Use column mappings from global sync data
+  const columnMappings = globalThis._syncColumnMappings || {};
+  
+  // Debug: Log column mappings
+  console.log('Column mappings available:', columnMappings);
+  
+  // Extract main task
+  const mainTaskColumn = resolveColumnFromMapping(columnMappings.MAIN_TASK, headers);
+  taskData.mainTask = mainTaskColumn ? row.get(mainTaskColumn) : '';
 
-  // Try to find sub task column
-  const subTaskColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
-    ? resolveColumnFromMapping(globalThis._syncColumnMappings.SUB_TASK || globalThis._syncColumnMappings.SUB_task || globalThis._syncColumnMappings.SUB, headers)
-    : null;
-  const subCol = subTaskColumn || findColumnName(headers, ['sub task', 'subtask', 'sub_task', 'description']);
-  taskData.subTask = subCol ? row.get(subCol) : '';
+  // Extract sub task
+  const subTaskColumn = resolveColumnFromMapping(columnMappings.SUB_TASK, headers);
+  taskData.subTask = subTaskColumn ? row.get(subTaskColumn) : '';
 
-  // Try to find project name
-  const projectColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
-    ? resolveColumnFromMapping(globalThis._syncColumnMappings.PROJECT_NAME || globalThis._syncColumnMappings.PROJECT || globalThis._syncColumnMappings.projectName, headers)
-    : null;
-  const projCol = projectColumn || findColumnName(headers, ['project name', 'project', 'project_name']);
-  taskData.projectName = projCol ? row.get(projCol) : '';
+  // Extract project name
+  const projectColumn = resolveColumnFromMapping(columnMappings.PROJECT_NAME, headers);
+  taskData.projectName = projectColumn ? row.get(projectColumn) : '';
 
-  // Try to find specific project
-  const specificProjectColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
-    ? resolveColumnFromMapping(globalThis._syncColumnMappings.SPECIFIC_PROJECT || globalThis._syncColumnMappings.SPECIFIC_project, headers)
-    : null;
-  const specCol = specificProjectColumn || findColumnName(headers, ['specific project', 'specific_project']);
-  taskData.specificProject = specCol ? row.get(specCol) : '';
+  // Extract specific project
+  const specificProjectColumn = resolveColumnFromMapping(columnMappings.SPECIFIC_PROJECT, headers);
+  taskData.specificProject = specificProjectColumn ? row.get(specificProjectColumn) : '';
 
-  // Try to find date
-  const dateColumn = (typeof resolveColumnFromMapping === 'function' && globalThis && globalThis._syncColumnMappings)
-    ? resolveColumnFromMapping(globalThis._syncColumnMappings.DATE || globalThis._syncColumnMappings.date, headers)
-    : null;
-  const dCol = dateColumn || findColumnName(headers, ['date', 'created date', 'task date']);
-  taskData.date = dCol ? row.get(dCol) : '';
+  // Extract date
+  const dateColumn = resolveColumnFromMapping(columnMappings.DATE, headers);
+  taskData.date = dateColumn ? row.get(dateColumn) : '';
+
+  // Extract start date
+  const startDateColumn = resolveColumnFromMapping(columnMappings.START_DATE, headers);
+  taskData.startDate = startDateColumn ? row.get(startDateColumn) : '';
+
+  // Extract due date - use END_DATE
+  const dueDateColumn = resolveColumnFromMapping(columnMappings.END_DATE, headers);
+  taskData.dueDate = dueDateColumn ? row.get(dueDateColumn) : '';
+
+  // Extract time tracking fields - use PLANNED_ESTIMATION and ACTUAL_ESTIMATION
+  const timeEstimateColumn = resolveColumnFromMapping(columnMappings.PLANNED_ESTIMATION, headers);
+  taskData.timeEstimate = timeEstimateColumn ? row.get(timeEstimateColumn) : '';
+
+  const timeSpentColumn = resolveColumnFromMapping(columnMappings.ACTUAL_ESTIMATION, headers);
+  taskData.timeSpent = timeSpentColumn ? row.get(timeSpentColumn) : '';
+
+  // Extract assignee from sheet if available
+  const assigneeColumn = resolveColumnFromMapping(columnMappings.ASSIGNEE, headers);
+  taskData.assignee = assigneeColumn ? row.get(assigneeColumn) : '';
+
+  // Debug: Log extracted data
+  console.log('Extracted task data:', {
+    timeEstimate: taskData.timeEstimate,
+    dueDate: taskData.dueDate,
+    assignee: taskData.assignee,
+    timeEstimateColumn: timeEstimateColumn,
+    dueDateColumn: dueDateColumn,
+    assigneeColumn: assigneeColumn
+  });
   
   return taskData;
 }
@@ -648,41 +681,99 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
     description += `**Date:** ${taskData.date}\n`;
   }
   
+  if (taskData.startDate) {
+    description += `**Start Date:** ${taskData.startDate}\n`;
+  }
+  
+  if (taskData.dueDate) {
+    description += `**Due Date:** ${taskData.dueDate}\n`;
+  }
+  
+  if (taskData.timeEstimate) {
+    description += `**Time Estimate:** ${taskData.timeEstimate}\n`;
+  }
+  
+  if (taskData.timeSpent) {
+    description += `**Time Spent:** ${taskData.timeSpent}\n`;
+  }
+  
+  if (taskData.assignee) {
+    description += `**Assignee:** ${taskData.assignee}\n`;
+  }
+  
   description += `\n*Created automatically from Google Sheets sync*`;
+  
+  // Debug: Log task data to see what's available
+  console.log('Task data for slash commands:', {
+    timeEstimate: taskData.timeEstimate,
+    dueDate: taskData.dueDate,
+    assignee: taskData.assignee,
+    projectConfig: {
+      assignee: projectConfig.assignee,
+      milestone: projectConfig.milestone,
+      labels: projectConfig.labels
+    }
+  });
+
+  // Add GitLab slash commands for better integration
+  const assigneeToUse = taskData.assignee || projectConfig.assignee;
+  if (assigneeToUse && assigneeToUse !== 'none' && assigneeToUse !== '') {
+    description += `\n\n/assign @${assigneeToUse}`;
+  }
+  
+  if (taskData.timeEstimate) {
+    description += `\n/estimate ${taskData.timeEstimate}`;
+  }
+  
+  if (taskData.timeSpent) {
+    description += `\n/spend ${taskData.timeSpent}`;
+  }
+  
+  if (projectConfig.milestone && projectConfig.milestone !== 'none' && projectConfig.milestone !== '') {
+    description += `\n/milestone %${projectConfig.milestone}`;
+  }
+  
+  // Note: Start and due dates are handled via API fields, not slash commands
+  
+  if (projectConfig.labels && Array.isArray(projectConfig.labels) && projectConfig.labels.length > 0) {
+    const validLabels = projectConfig.labels.filter(label => label && label !== 'none' && label !== '');
+    if (validLabels.length > 0) {
+      description += `\n/label ~${validLabels.join(' ~')}`;
+    }
+  }
   
   const issueData = {
     title: title,
     description: description,
   };
+
+  // Add date fields using GitLab API (slash commands don't work for dates)
+  if (taskData.startDate) {
+    // Parse and format the start date for GitLab API
+    const startDate = parseFlexibleDate(taskData.startDate);
+    if (startDate) {
+      issueData.created_at = startDate.toISOString();
+    }
+  }
   
-    // Add optional fields if configured in project config
-    if (projectConfig.assignee && projectConfig.assignee !== 'none' && projectConfig.assignee !== '') {
-      // For assignee, we need to get the user ID by username
-      const assigneeResponse = await fetch(`${gitlabUrl}projects/${projectId}/members/all`, {
+  if (taskData.dueDate) {
+    // Parse and format the due date for GitLab API
+    const dueDate = parseFlexibleDate(taskData.dueDate);
+    if (dueDate) {
+      issueData.due_date = dueDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+    }
+  }
+
+  console.log('Issue data:', issueData);
+  
+    // Note: Using slash commands in description instead of API fields for better GitLab integration
+  
+  // Log the complete request body before sending to GitLab
+  console.log('GitLab Issue Creation Request:', {
+    url: `${gitlabUrl}projects/${projectId}/issues`,
         headers: headers,
-      });
-      
-      if (assigneeResponse.ok) {
-        const members = await assigneeResponse.json();
-        const assignee = members.find(m => m.username === projectConfig.assignee);
-        if (assignee) {
-          issueData.assignee_ids = [assignee.id];
-        }
-      }
-    }
-    
-    if (projectConfig.milestone && projectConfig.milestone !== 'none' && projectConfig.milestone !== '') {
-      // Milestone ID should be numeric
-      issueData.milestone_id = parseInt(projectConfig.milestone);
-    }
-    
-    if (projectConfig.labels && Array.isArray(projectConfig.labels) && projectConfig.labels.length > 0) {
-      // Filter out empty labels and 'none' values
-      const validLabels = projectConfig.labels.filter(label => label && label !== 'none' && label !== '');
-      if (validLabels.length > 0) {
-        issueData.labels = validLabels;
-      }
-    }
+    body: issueData
+  });
   
   const response = await fetch(`${gitlabUrl}projects/${projectId}/issues`, {
     method: 'POST',

@@ -77,9 +77,17 @@ export async function POST(request) {
       });
     }
 
-    // Initialize the sheet
+    // Initialize the sheet with timeout
     const doc = new GoogleSpreadsheet(spreadsheetId, serviceAccountAuth);
-    await doc.loadInfo();
+    
+    // Add timeout to prevent hanging requests
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout: Google Sheets API took too long to respond')), 15000);
+    });
+    
+    const loadInfoPromise = doc.loadInfo();
+    
+    await Promise.race([loadInfoPromise, timeoutPromise]);
 
     // Get all sheet names
     const sheetNames = doc.sheetsByIndex.map(sheet => sheet.title);
@@ -88,17 +96,38 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error fetching sheet names:', error);
     
-    if (error.message.includes('The caller does not have permission')) {
+    if (error.message.includes('Request timeout')) {
+      return NextResponse.json(
+        { error: 'Request timeout. The Google Sheets API took too long to respond. Please try again.' },
+        { status: 408 }
+      );
+    }
+    
+    if (error.message.includes('The caller does not have permission') || error.message.includes('PERMISSION_DENIED')) {
       return NextResponse.json(
         { error: 'Permission denied. Please make sure the service account email has been added to the spreadsheet with editor permissions.' },
         { status: 403 }
       );
     }
     
-    if (error.message.includes('Requested entity was not found')) {
+    if (error.message.includes('Requested entity was not found') || error.message.includes('NOT_FOUND')) {
       return NextResponse.json(
-        { error: 'Spreadsheet not found. Please check the spreadsheet ID.' },
+        { error: 'Spreadsheet not found. Please check the spreadsheet ID and ensure it exists.' },
         { status: 404 }
+      );
+    }
+
+    if (error.message.includes('INVALID_ARGUMENT') || error.message.includes('Invalid spreadsheet ID')) {
+      return NextResponse.json(
+        { error: 'Invalid spreadsheet ID format. Please check the ID and try again.' },
+        { status: 400 }
+      );
+    }
+
+    if (error.message.includes('UNAUTHENTICATED') || error.message.includes('Invalid credentials')) {
+      return NextResponse.json(
+        { error: 'Authentication failed. Please check your service account credentials.' },
+        { status: 401 }
       );
     }
 

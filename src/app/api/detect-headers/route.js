@@ -89,11 +89,48 @@ export async function POST(request) {
       );
     }
 
-    // Load the header row
-    await sheet.loadHeaderRow();
+    // Try to load headers with duplicate handling
+    let rawHeaders = [];
     
-    // Get headers (column names)
-    const headers = sheet.headerValues || [];
+    try {
+      // Load the header row
+      await sheet.loadHeaderRow();
+      rawHeaders = sheet.headerValues || [];
+    } catch (headerError) {
+      console.warn('Failed to load header row, trying alternative method:', headerError.message);
+      
+      // Fallback: Get first row data directly
+      try {
+        const rows = await sheet.getRows({ limit: 1 });
+        if (rows.length > 0) {
+          rawHeaders = Object.keys(rows[0]._rawData || {});
+        }
+      } catch (fallbackError) {
+        console.warn('Fallback method also failed:', fallbackError.message);
+        // Last resort: generate generic headers
+        rawHeaders = Array.from({ length: 10 }, (_, i) => `Column ${i + 1}`);
+      }
+    }
+    
+    // Process headers to handle duplicates
+    const headers = [];
+    const headerCounts = {};
+    
+    rawHeaders.forEach((header, index) => {
+      if (!header || header.trim() === '') {
+        headers.push(`Column ${index + 1}`);
+        return;
+      }
+      
+      const cleanHeader = header.trim();
+      if (headerCounts[cleanHeader]) {
+        headerCounts[cleanHeader]++;
+        headers.push(`${cleanHeader} (${headerCounts[cleanHeader]})`);
+      } else {
+        headerCounts[cleanHeader] = 1;
+        headers.push(cleanHeader);
+      }
+    });
 
     return NextResponse.json({ headers });
   } catch (error) {
@@ -110,6 +147,13 @@ export async function POST(request) {
       return NextResponse.json(
         { error: 'Spreadsheet not found. Please check the spreadsheet ID.' },
         { status: 404 }
+      );
+    }
+
+    if (error.message.includes('Duplicate header detected')) {
+      return NextResponse.json(
+        { error: 'Duplicate headers detected in the spreadsheet. Please ensure all column headers are unique, or the system will automatically rename duplicates.' },
+        { status: 400 }
       );
     }
 

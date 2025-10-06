@@ -82,7 +82,7 @@ export async function PUT(request, { params }) {
         projectMappings: {
           create: projectMappings?.map((pm) => ({
             projectName: pm.projectName,
-            projectId: pm.projectId,
+            projectId: pm.projectId ? String(pm.projectId) : null,
             assignee: pm.assignee,
             milestone: pm.milestone,
             labels: pm.labels ? pm.labels : null,

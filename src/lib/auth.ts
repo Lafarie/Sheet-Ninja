@@ -69,24 +69,24 @@ export const authOptions = {
     strategy: 'jwt',
   },
   callbacks: {
-    jwt: async ({ token, user }) => {
+    jwt: async ({ token, user }: { token: any; user: any }) => {
       if (user) {
         token.id = user.id;
       }
       return token;
     },
-    session: async ({ session, token }) => {
+    session: async ({ session, token }: { session: any; token: any }) => {
       if (token) {
         session.user.id = token.id;
       }
       return session;
     },
-    redirect: async ({ url, baseUrl }) => {
+    redirect: async ({ url, baseUrl }: { url: string; baseUrl: string }) => {
       // Allows relative callback URLs
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       // Allows callback URLs on the same origin
       else if (new URL(url).origin === baseUrl) return url;
-      return `${baseUrl}/setup`;
+      return `${baseUrl}/v2`;
     },
   },
   pages: {
