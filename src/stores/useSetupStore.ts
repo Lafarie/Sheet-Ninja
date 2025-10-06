@@ -261,29 +261,54 @@ export const useSetupStore = create<SetupState>()(
       },
       
       loadFromSavedConfig: (savedConfig) => {
-        set({
-          gitlab: {
-            url: savedConfig.gitlabUrl || defaultGitLab.url,
-            token: savedConfig.gitlabToken || '',
-            projects: savedConfig.projects || [],
-          },
-          sheets: {
-            spreadsheetId: savedConfig.spreadsheetId || '',
-            worksheetName: savedConfig.worksheetName || 'Sheet1',
-            serviceAccount: savedConfig.serviceAccount || null,
-            serviceAccountEmail: savedConfig.serviceAccountEmail || '',
-            sheetNames: savedConfig.sheetNames || [],
-            headers: savedConfig.headers || [],
-          },
-          columnMappings: savedConfig.columnMappings || {},
-          projectMappings: savedConfig.projectMappings || [],
-          syncConfig: {
-            startDate: savedConfig.startDate,
-            endDate: savedConfig.endDate,
-            checkStatusBeforeClose: savedConfig.checkStatusBeforeClose || false,
-            enableDateFilter: savedConfig.enableDateFilter || false,
-          },
-        });
+        try {
+          // Safely process project mappings to ensure proper structure
+          const safeProjectMappings = (savedConfig.projectMappings || []).map((project: any) => ({
+            ...project,
+            projectData: {
+              labels: project.projectData?.labels || [],
+              milestones: project.projectData?.milestones || [],
+              assignees: project.projectData?.assignees || [],
+            },
+            labels: project.labels || [],
+            milestone: project.milestone || '',
+            estimate: project.estimate || '8h',
+          }));
+
+          set({
+            gitlab: {
+              url: savedConfig.gitlabUrl || defaultGitLab.url,
+              token: savedConfig.gitlabToken || '',
+              projects: savedConfig.projects || [],
+            },
+            sheets: {
+              spreadsheetId: savedConfig.spreadsheetId || '',
+              worksheetName: savedConfig.worksheetName || 'Sheet1',
+              serviceAccount: savedConfig.serviceAccount || null,
+              serviceAccountEmail: savedConfig.serviceAccountEmail || '',
+              sheetNames: savedConfig.sheetNames || [],
+              headers: savedConfig.headers || [],
+            },
+            columnMappings: savedConfig.columnMappings || {},
+            projectMappings: safeProjectMappings,
+            syncConfig: {
+              startDate: savedConfig.startDate,
+              endDate: savedConfig.endDate,
+              checkStatusBeforeClose: savedConfig.checkStatusBeforeClose || false,
+              enableDateFilter: savedConfig.enableDateFilter || false,
+            },
+          });
+        } catch (error) {
+          console.error('Error loading saved configuration:', error);
+          // Fallback to default state if loading fails
+          set({
+            gitlab: defaultGitLab,
+            sheets: defaultSheets,
+            columnMappings: {},
+            projectMappings: [],
+            syncConfig: defaultSyncConfig,
+          });
+        }
       },
     }),
     {

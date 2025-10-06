@@ -269,7 +269,7 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
                 </SelectTrigger>
                 <SelectContent className="w-full">
                   <SelectItem value="none" className="w-full">No milestone</SelectItem>
-                  {project.projectData.milestones.map((milestone) => (
+                  {(project.projectData?.milestones || []).map((milestone) => (
                     <SelectItem key={milestone.id} value={milestone.id} className="w-full">
                       {milestone.title}
                     </SelectItem>
@@ -310,7 +310,7 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
                     <SelectValue placeholder="Add label..." />
                   </SelectTrigger>
                   <SelectContent className="w-full">
-                    {project.projectData.labels
+                    {(project.projectData?.labels || [])
                       .filter(label => !project.labels.includes(label.name))
                       .map((label) => (
                         <SelectItem key={label.id} value={label.name} className="w-full">
