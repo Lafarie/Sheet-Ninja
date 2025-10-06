@@ -150,7 +150,7 @@ export function AssigneeSelector({ project, currentAssignee, onAssigneeChange, d
             ))
           ) : searchTerm.trim() ? (
             <div className="px-3 py-2 text-sm text-gray-500">
-              No assignees found matching "{searchTerm}"
+              No assignees found matching &quot;{searchTerm}&quot;
             </div>
           ) : (
             <div className="px-3 py-2 text-sm text-gray-500">

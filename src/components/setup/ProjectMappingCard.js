@@ -61,7 +61,7 @@ export function ProjectMappingCard({
               <SelectValue placeholder="Select GitLab project..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No project selected (won't sync)</SelectItem>
+              <SelectItem value="none">No project selected (won&apos;t sync)</SelectItem>
               {config.availableProjects?.map((gitlabProject) => (
                 <SelectItem key={gitlabProject.id} value={gitlabProject.id.toString()}>
                   {gitlabProject.name_with_namespace || gitlabProject.name}

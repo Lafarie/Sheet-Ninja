@@ -135,7 +135,7 @@ export function MilestoneSelector({ project, currentMilestone, onMilestoneChange
         ))
       ) : searchTerm.trim() ? (
         <div className="px-3 py-2 text-sm text-gray-500">
-          No milestones found matching "{searchTerm}"
+          No milestones found matching &quot;{searchTerm}&quot;
         </div>
       ) : (
         <div className="px-3 py-2 text-sm text-gray-500">

@@ -272,7 +272,7 @@ export function ProjectMappingRefactored({
           {!loading && uniqueProjectNames.length === 0 && (
             <Alert>
               <AlertDescription>
-                No project names found in your sheet. Make sure your sheet has a "Project Name" or similar column with data.
+                No project names found in your sheet. Make sure your sheet has a &quot;Project Name&quot; or similar column with data.
                 You can also add projects manually below.
               </AlertDescription>
             </Alert>

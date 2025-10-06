@@ -121,7 +121,7 @@ export function LabelSelector({ project, onAddLabel, onRemoveLabel }) {
                     }}
                   >
                     <Plus className="w-3 h-3 flex-shrink-0 text-green-600" />
-                    <span className="text-green-600">Create "{searchTerm.trim()}"</span>
+                    <span className="text-green-600">Create &quot;{searchTerm.trim()}&quot;</span>
                   </button>
                 )}
               </>
@@ -137,7 +137,7 @@ export function LabelSelector({ project, onAddLabel, onRemoveLabel }) {
                 }}
               >
                 <Plus className="w-3 h-3 flex-shrink-0" />
-                <span>Create "{searchTerm.trim()}"</span>
+                <span>Create &quot;{searchTerm.trim()}&quot;</span>
               </button>
             ) : (
               <div className="px-3 py-2 text-sm text-gray-500">

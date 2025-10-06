@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSetupStore } from '@/stores/useSetupStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +33,7 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
   const [newProjectName, setNewProjectName] = useState('');
 
   // Fetch project names from Google Sheets
-  const fetchProjectNames = async () => {
+  const fetchProjectNames = useCallback(async () => {
     if (!sheets.spreadsheetId || !sheets.worksheetName) return;
 
     setLoading(true);
@@ -71,7 +71,7 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sheets.spreadsheetId, sheets.worksheetName, sheets.serviceAccount, projectMappings.length, setProjectMappings]);
 
   // Fetch project-specific data (labels, milestones, assignees)
   const fetchProjectData = async (projectId: string, mappingId: string) => {

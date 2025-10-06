@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signIn, signOut } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useSetupStore } from "@/stores/useSetupStore";
 import { useUIStore } from "@/stores/useUIStore";
@@ -124,7 +124,7 @@ export default function SetupPage() {
   };
 
   // Load saved configurations
-  const loadSavedConfigs = async () => {
+  const loadSavedConfigs = useCallback(async () => {
     setLoadingConfigs(true);
     try {
       const response = await fetch("/api/user/configs");
@@ -142,7 +142,7 @@ export default function SetupPage() {
     } finally {
       setLoadingConfigs(false);
     }
-  };
+  }, [addNotification]);
 
   // Load a specific configuration
   const loadConfig = (savedConfig: any) => {
