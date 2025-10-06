@@ -43,8 +43,8 @@ export default function ContributorsPage() {
       <div className="w-full px-4 mt-6">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-center md:justify-start mb-4">
-            <Link href="/setup" className="inline-flex items-center gap-2 px-3 py-1.5 bg-transparent border border-gray-600 text-gray-200 rounded hover:bg-gray-700 transition">
-              ← Back to setup
+            <Link href="/v2" className="inline-flex items-center gap-2 px-3 py-1.5 bg-transparent border border-gray-600 text-gray-200 rounded hover:bg-gray-700 transition">
+              ← Back to dashboard
             </Link>
           </div>
           <div className="text-center">

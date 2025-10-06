@@ -51,7 +51,7 @@ export default function SignIn() {
         email: signInEmail,
         password: signInPassword,
         redirect: false,
-        callbackUrl: '/setup'
+        callbackUrl: '/v2'
       });
 
       console.log('🔐 Sign in result:', result);
@@ -64,7 +64,7 @@ export default function SignIn() {
         console.log('✅ Sign in successful, redirecting...');
         toast.success('Signed in successfully!');
         // Force redirect after successful sign in
-        window.location.href = '/setup';
+        window.location.href = '/v2';
       } else {
         console.log('🤔 Unexpected result:', result);
         setIsLoading(false);
@@ -116,7 +116,7 @@ export default function SignIn() {
           name: signUpName,
           password: signUpPassword,
           redirect: false,
-          callbackUrl: '/setup'
+          callbackUrl: '/v2'
         });
 
         if (result?.error) {
@@ -125,7 +125,7 @@ export default function SignIn() {
         } else if (result?.ok) {
           toast.success('Signed in successfully!');
           // Force redirect after successful sign in
-          window.location.href = '/setup';
+          window.location.href = '/v2';
         }
       } else {
         const data = await response.json();
@@ -147,7 +147,7 @@ export default function SignIn() {
         email: demoEmail,
         password: 'demo123', // Default demo password
         redirect: false,
-        callbackUrl: '/setup'
+        callbackUrl: '/v2'
       });
 
       if (result?.error) {
@@ -156,7 +156,7 @@ export default function SignIn() {
       } else if (result?.ok) {
         toast.success(`Signed in as ${demoName}`);
         // Force redirect after successful sign in
-        window.location.href = '/setup';
+        window.location.href = '/v2';
       }
     } catch (error) {
       console.error('Demo sign in error:', error);
