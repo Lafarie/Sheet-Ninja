@@ -44,118 +44,8 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
   const [syncOutput, setSyncOutput] = useState('');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  // User filtering state
-  const [enableUserFilter, setEnableUserFilter] = useState(false);
-  const [availableUsers, setAvailableUsers] = useState<string[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string>('');
-  const [previewData, setPreviewData] = useState<any[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [loadingPreview, setLoadingPreview] = useState(false);
   const [pollingTimeout, setPollingTimeout] = useState<NodeJS.Timeout | null>(null);
 
-  // Auto-detect users from USER column
-  const detectUsers = async () => {
-    if (!sheets.spreadsheetId || !sheets.worksheetName || !columnMappings.USER) {
-      addNotification({
-        type: 'error',
-        title: 'Configuration Required',
-        message: 'Please configure Google Sheets and map the USER column first',
-      });
-      return;
-    }
-
-    setLoadingUsers(true);
-    try {
-      const response = await fetch('/api/sheet-user-names', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          spreadsheetId: sheets.spreadsheetId,
-          worksheetName: sheets.worksheetName,
-          userColumn: columnMappings.USER,
-          serviceAccount: sheets.serviceAccount,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableUsers(data.users || []);
-        
-        addNotification({
-          type: 'success',
-          title: 'Users Detected',
-          message: `Found ${data.users?.length || 0} unique users`,
-        });
-      } else {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('User detection error:', error);
-      addNotification({
-        type: 'error',
-        title: 'Detection Failed',
-        message: `Failed to detect users: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      });
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  // Preview filtered data
-  const previewFilteredData = async () => {
-    if (!sheets.spreadsheetId || !sheets.worksheetName) {
-      addNotification({
-        type: 'error',
-        title: 'Configuration Required',
-        message: 'Please configure Google Sheets first',
-      });
-      return;
-    }
-
-    setLoadingPreview(true);
-    try {
-      const response = await fetch('/api/preview-sync-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          spreadsheetId: sheets.spreadsheetId,
-          worksheetName: sheets.worksheetName,
-          columnMappings,
-          projectMappings,
-          serviceAccount: sheets.serviceAccount,
-          userFilter: enableUserFilter && selectedUser && selectedUser !== 'all' ? selectedUser : null,
-          dateFilter: syncConfig.enableDateFilter ? {
-            startDate: syncConfig.startDate,
-            endDate: syncConfig.endDate
-          } : null,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPreviewData(data.rows || []);
-        setShowPreview(true);
-        
-        addNotification({
-          type: 'success',
-          title: 'Preview Generated',
-          message: `Found ${data.rows?.length || 0} rows to sync`,
-        });
-      } else {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Preview error:', error);
-      addNotification({
-        type: 'error',
-        title: 'Preview Failed',
-        message: `Failed to generate preview: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      });
-    } finally {
-      setLoadingPreview(false);
-    }
-  };
 
   const validateConfiguration = () => {
     const issues = [];
@@ -164,7 +54,6 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     if (!sheets.spreadsheetId) issues.push('Spreadsheet ID is required');
     if (!sheets.worksheetName) issues.push('Worksheet Name is required');
     if (projectMappings.length === 0) issues.push('At least one project mapping is required');
-    if (enableUserFilter && (!selectedUser || selectedUser === 'all')) issues.push('Please select a user for filtering');
     if (syncConfig.enableDateFilter && (!syncConfig.startDate || !syncConfig.endDate)) {
       issues.push('Please set both start and end dates for date filtering');
     }
@@ -200,7 +89,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         columnMappings: columnMappings,
         serviceAccount: sheets.serviceAccount,
         serviceAccountEmail: sheets.serviceAccountEmail,
-        userFilter: enableUserFilter && selectedUser && selectedUser !== 'all' ? selectedUser : null,
+        userFilter: columnMappings.SELECTED_USER || null,
         dateFilter: syncConfig.enableDateFilter ? {
           startDate: syncConfig.startDate,
           endDate: syncConfig.endDate
@@ -212,8 +101,6 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
 
       // Debug: Log sync data
       console.log('Sync data being sent:', {
-        enableUserFilter,
-        selectedUser,
         userFilter: syncData.userFilter,
         columnMappings: columnMappings,
         hasUserMapping: !!columnMappings.USER
@@ -613,13 +500,13 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         <CardContent className="space-y-4">
           {/* Project Mappings Display */}
           {projectMappings.length > 0 && (
-            <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-medium text-sm">Project Mappings ({projectMappings.length} configured)</h4>
+            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h4 className="font-medium text-sm text-blue-900 dark:text-blue-100">Project Mappings ({projectMappings.length} configured)</h4>
               <div className="space-y-2">
                 {projectMappings.map((mapping) => (
-                  <div key={mapping.id} className="text-sm bg-white p-2 rounded border">
-                    <div className="font-medium">{mapping.projectName}</div>
-                    <div className="text-gray-600">
+                  <div key={mapping.id} className="text-sm bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700">
+                    <div className="font-medium text-gray-900 dark:text-gray-100">{mapping.projectName}</div>
+                    <div className="text-gray-600 dark:text-gray-400">
                       Project ID: {mapping.projectId} | 
                       {mapping.milestone && ` Milestone: ${mapping.milestone} |`}
                       {mapping.labels.length > 0 && ` Labels: ${mapping.labels.join(', ')}`}
@@ -630,119 +517,38 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
             </div>
           )}
 
-          {/* User Filter Options */}
-          <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="enableUserFilter"
-                  checked={enableUserFilter}
-                  onChange={(e) => setEnableUserFilter(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                <label htmlFor="enableUserFilter" className="text-sm font-medium flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Enable user filter
-                </label>
-              </div>
-              {enableUserFilter && selectedUser && selectedUser !== 'all' && (
-                <Badge variant="default" className="bg-green-100 text-green-800">
-                  Filtering for: {selectedUser}
+          {/* User Filter Status */}
+          {columnMappings.SELECTED_USER && (
+            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">User Filter Active</span>
+                </div>
+                <Badge variant="default" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
+                  Filtering for: {columnMappings.SELECTED_USER}
                 </Badge>
-              )}
-            </div>
-            
-            {enableUserFilter && (
-              <div className="space-y-4">
-                {!columnMappings.USER ? (
-                  <Alert variant="destructive" className="border-red-200 bg-red-50">
-                    <AlertDescription className="text-red-800">
-                      <strong>USER column not mapped!</strong> Please go back to the Column Mapping step 
-                      and map a column that contains user information.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">USER Column Mapped</p>
-                        <p className="text-xs text-muted-foreground">
-                          Column {columnMappings.USER}: {sheets.headers[parseInt(columnMappings.USER) - 1]}
-                        </p>
-                      </div>
-                      <Badge variant="default" className="text-xs">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Mapped
-                      </Badge>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={detectUsers}
-                        disabled={loadingUsers}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        {loadingUsers ? 'Detecting...' : 'Auto-detect Users'}
-                      </Button>
-                      <Button 
-                        onClick={previewFilteredData}
-                        disabled={loadingPreview}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        {loadingPreview ? 'Generating...' : 'Preview Data'}
-                      </Button>
-                    </div>
-
-                    {availableUsers.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Select User to Filter By</Label>
-                        <Select value={selectedUser} onValueChange={setSelectedUser}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a user..." />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-60">
-                            <SelectItem value="all" className="text-sm">No filter (all users)</SelectItem>
-                            {availableUsers.map((user) => (
-                              <SelectItem key={user} value={user} className="text-sm">
-                                {user}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {selectedUser && selectedUser !== 'all' && (
-                      <Alert variant="default" className="border-green-200 bg-green-50">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        <AlertDescription className="text-green-800">
-                          <strong>Filter Active:</strong> Synchronization will only include rows for user: <strong>{selectedUser}</strong>
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </div>
-                )}
               </div>
-            )}
-          </div>
+              <Alert variant="default" className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-800 dark:text-green-200">
+                  <strong>Filter Active:</strong> Synchronization will only include rows for user: <strong>{columnMappings.SELECTED_USER}</strong>
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
 
           {/* Date Filter Options */}
-          <div className="space-y-4">
+          <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
                 id="enableDateFilter"
                 checked={syncConfig.enableDateFilter}
                 onChange={(e) => updateSyncConfig({ enableDateFilter: e.target.checked })}
-                className="rounded border-gray-300"
+                className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
               />
-              <label htmlFor="enableDateFilter" className="text-sm font-medium">
+              <label htmlFor="enableDateFilter" className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 Enable date filter
               </label>
             </div>
@@ -750,7 +556,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
             {syncConfig.enableDateFilter && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="startDate" className="text-sm font-medium">Start Date</Label>
+                  <Label htmlFor="startDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</Label>
                   <Input
                     className="w-full"
                     id="startDate"
@@ -760,7 +566,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="endDate" className="text-sm font-medium">End Date</Label>
+                  <Label htmlFor="endDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">End Date</Label>
                   <Input
                     className="w-full"
                     id="endDate"
@@ -778,9 +584,9 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                 id="checkStatusBeforeClose"
                 checked={syncConfig.checkStatusBeforeClose}
                 onChange={(e) => updateSyncConfig({ checkStatusBeforeClose: e.target.checked })}
-                className="rounded border-gray-300"
+                className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
               />
-              <label htmlFor="checkStatusBeforeClose" className="text-sm font-medium">
+              <label htmlFor="checkStatusBeforeClose" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Close issues based on status column
               </label>
             </div>
@@ -903,86 +709,30 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         </Card>
       )}
 
-      {/* Preview Data */}
-      {showPreview && previewData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              Preview Data ({previewData.length} rows)
-            </CardTitle>
-            <CardDescription>
-              This is what will be synchronized based on your current filters
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="max-h-96 overflow-y-auto">
-              <div className="space-y-2">
-                {previewData.slice(0, 10).map((row, index) => (
-                  <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><strong>Title:</strong> {row.title || 'N/A'}</div>
-                      <div><strong>User:</strong> {row.user || 'N/A'}</div>
-                      <div><strong>Project:</strong> {row.project || 'N/A'}</div>
-                      <div><strong>Date:</strong> {row.date || 'N/A'}</div>
-                    </div>
-                  </div>
-                ))}
-                {previewData.length > 10 && (
-                  <div className="text-center text-sm text-gray-500 py-2">
-                    ... and {previewData.length - 10} more rows
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => setShowPreview(false)}
-                className="flex-1"
-              >
-                Close Preview
-              </Button>
-              <Button 
-                size="sm" 
-                variant="default" 
-                onClick={() => {
-                  setShowPreview(false);
-                  startSync();
-                }}
-                className="flex-1"
-              >
-                Start Sync with This Data
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Status Alerts */}
       {syncProgress === 'completed' && (
-        <Alert variant="default" className="border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription className="text-green-800">
+        <Alert variant="default" className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <AlertDescription className="text-green-800 dark:text-green-200">
             ✅ Synchronization completed successfully! Check the output above for details.
           </AlertDescription>
         </Alert>
       )}
 
       {syncProgress === 'error' && (
-        <Alert variant="destructive" className="border-red-200 bg-red-50">
-          <XCircle className="h-4 w-4" />
-          <AlertDescription className="text-red-800">
+        <Alert variant="destructive" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+          <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+          <AlertDescription className="text-red-800 dark:text-red-200">
             ❌ Synchronization failed. Check the output above for error details.
           </AlertDescription>
         </Alert>
       )}
 
       {syncProgress === 'stopped' && (
-        <Alert variant="default" className="border-yellow-200 bg-yellow-50">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-yellow-800">
+        <Alert variant="default" className="border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
+          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          <AlertDescription className="text-yellow-800 dark:text-yellow-200">
             ⏹️ Synchronization was stopped by user.
           </AlertDescription>
         </Alert>
