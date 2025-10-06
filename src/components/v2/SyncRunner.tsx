@@ -301,11 +301,21 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     (window as any).syncStartTime = Date.now();
     (window as any).lastStep = null;
     (window as any).lastStepTime = Date.now();
+    (window as any).syncErrorCount = 0; // Reset error counter
     
     updateSyncProgress();
     intervalRef.current = setInterval(updateSyncProgress, 2000);
     
-    // Set a timeout to stop polling after 10 minutes
+    // Add a more frequent check for completion after 30 seconds
+    setTimeout(() => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = setInterval(updateSyncProgress, 1000); // Check every second
+        console.log('Switched to faster polling (1s) for completion detection');
+      }
+    }, 30000);
+    
+    // Set a timeout to stop polling after 5 minutes (reduced from 10)
     const timeout = setTimeout(() => {
       console.log('Sync polling timeout reached, stopping polling');
       if (intervalRef.current) {
@@ -318,9 +328,9 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
       addNotification({
         type: 'error',
         title: 'Sync Timeout',
-        message: 'Sync process timed out after 10 minutes',
+        message: 'Sync process timed out after 5 minutes',
       });
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 5 * 60 * 1000); // 5 minutes
     
     setPollingTimeout(timeout);
   };
@@ -358,34 +368,88 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
           setCurrentStep(stepIndex);
         }
       }
+      
+      // Reset error counter on successful response
+      (window as any).syncErrorCount = 0;
 
       if (data.output) {
         setSyncOutput(data.output);
+        
+        // Immediate completion check based on output
+        if (data.output.includes('Sync process completed successfully')) {
+          console.log('Found completion message in output, triggering completion immediately');
+          setSyncRunning(false);
+          setSyncProgress('completed');
+          setCurrentStep(syncSteps.length - 1);
+          setSyncLoading(false);
+          
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          
+          if (pollingTimeout) {
+            clearTimeout(pollingTimeout);
+            setPollingTimeout(null);
+          }
+
+          addNotification({
+            type: 'success',
+            title: 'Sync Completed',
+            message: 'Synchronization completed successfully!',
+          });
+          
+          onComplete();
+          return;
+        }
       }
 
+      // Enhanced completion detection with multiple indicators
       const isCompleted = data.currentStep === 'completed' || (!data.running && data.endTime);
       
-      // Additional check: if we've been polling for a while and no progress, assume completion
-      const hasBeenPolling = Date.now() - (window as any).syncStartTime > 30000; // 30 seconds
-      const shouldForceComplete = hasBeenPolling && !data.running && !data.error && data.currentStep !== 'error';
-      
-      // More aggressive completion detection
-      const isStuck = data.currentStep && ['updating-sheet', 'completed'].includes(data.currentStep);
-      const hasOutput = data.output && (
+      // Check for completion indicators in output
+      const hasCompletionOutput = data.output && (
         data.output.includes('Sync process completed successfully') ||
         data.output.includes('Synchronization completed successfully') ||
         data.output.includes('Finalizing updates') ||
-        data.output.includes('Created') && data.output.includes('GitLab issues')
+        (data.output.includes('Created') && data.output.includes('GitLab issues')) ||
+        data.output.includes('Updated') && data.output.includes('sheet rows')
       );
       
-      // Check if we've been in the same step for too long
-      const stepTimeout = Date.now() - (window as any).lastStepTime > 15000; // 15 seconds
+      // Check if we're in the final step (updating-sheet) and not running
+      const isInFinalStep = data.currentStep === 'updating-sheet' && !data.running;
+      
+      // Timeout fallback - if we've been polling for more than 1 minute without completion
+      const hasBeenPolling = Date.now() - (window as any).syncStartTime > 60000; // 1 minute
+      const shouldForceComplete = hasBeenPolling && !data.running && !data.error;
+      
+      // Check if we've been stuck in the same step for too long
+      const currentStepTime = (window as any).lastStepTime || (window as any).syncStartTime;
+      const stepStuckTooLong = Date.now() - currentStepTime > 30000; // 30 seconds
+      const isStuckInFinalSteps = ['updating-sheet', 'completed'].includes(data.currentStep) && stepStuckTooLong;
+      
+      // Update step tracking
       if (data.currentStep && data.currentStep !== (window as any).lastStep) {
         (window as any).lastStep = data.currentStep;
         (window as any).lastStepTime = Date.now();
       }
       
-      if (isCompleted || shouldForceComplete || isStuck || hasOutput || stepTimeout) {
+      // Debug logging for completion detection
+      console.log('Completion detection:', {
+        isCompleted,
+        hasCompletionOutput,
+        isInFinalStep,
+        shouldForceComplete,
+        isStuckInFinalSteps,
+        stepStuckTooLong,
+        currentStep: data.currentStep,
+        running: data.running,
+        endTime: data.endTime,
+        hasOutput: !!data.output,
+        outputSnippet: data.output ? data.output.slice(-200) : 'no output'
+      });
+      
+      if (isCompleted || hasCompletionOutput || isInFinalStep || shouldForceComplete || isStuckInFinalSteps) {
         setSyncRunning(false);
         setSyncProgress('completed');
         setCurrentStep(syncSteps.length - 1);
@@ -452,6 +516,32 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
       }
     } catch (error) {
       console.error('Progress polling error:', error);
+      
+      // If we get network errors repeatedly, consider the sync failed
+      const errorCount = (window as any).syncErrorCount || 0;
+      (window as any).syncErrorCount = errorCount + 1;
+      
+      if (errorCount >= 5) { // After 5 consecutive errors
+        setSyncRunning(false);
+        setSyncProgress('error');
+        setSyncLoading(false);
+        
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        
+        if (pollingTimeout) {
+          clearTimeout(pollingTimeout);
+          setPollingTimeout(null);
+        }
+        
+        addNotification({
+          type: 'error',
+          title: 'Sync Connection Error',
+          message: 'Lost connection to sync process. Please check your network and try again.',
+        });
+      }
     }
   };
 

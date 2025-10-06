@@ -560,6 +560,7 @@ async function performActualSync(syncData) {
 
     // Mark as completed
     syncStateManager.completeSync();
+    console.log('Sync process completed, final status:', syncStateManager.getStatus());
     
   } catch (error) {
     console.error('Sync process error:', error);

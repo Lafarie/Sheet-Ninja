@@ -70,6 +70,7 @@ class SyncStateManager {
     this.state.endTime = Date.now();
     this.state.lastUpdate = Date.now();
     this.addOutput(`[${new Date().toISOString()}] Sync process completed successfully\n`);
+    console.log('Sync completed successfully:', this.getStatus());
   }
 
   /**
