@@ -28,7 +28,6 @@ export interface ProjectMapping {
   id: string;
   projectName: string;
   projectId: string;
-  assignee: string;
   milestone: string;
   labels: string[];
   estimate: string;

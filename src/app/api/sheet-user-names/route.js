@@ -11,11 +11,11 @@ import { decrypt } from '@/lib/encryption';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { spreadsheetId, serviceAccount } = body || {};
+    const { spreadsheetId, worksheetName, userColumn, serviceAccount } = body || {};
 
-    if (!spreadsheetId) {
+    if (!spreadsheetId || !worksheetName || !userColumn) {
       return NextResponse.json(
-        { error: 'Spreadsheet ID is required' },
+        { error: 'Spreadsheet ID, worksheet name, and user column are required' },
         { status: 400 }
       );
     }
@@ -89,12 +89,40 @@ export async function POST(request) {
     
     await Promise.race([loadInfoPromise, timeoutPromise]);
 
-    // Get all sheet names
-    const sheetNames = doc.sheetsByIndex.map(sheet => sheet.title);
+    // Get the specific worksheet
+    const sheet = doc.sheetsByTitle[worksheetName];
+    if (!sheet) {
+      return NextResponse.json(
+        { error: `Worksheet "${worksheetName}" not found` },
+        { status: 404 }
+      );
+    }
 
-    return NextResponse.json({ sheetNames });
+    // Load all rows
+    await sheet.loadCells();
+    
+    // Get all rows with data
+    const rows = await sheet.getRows();
+    
+    // Extract unique users from the specified column
+    const userColumnIndex = parseInt(userColumn) - 1; // Convert to 0-based index
+    const users = new Set();
+    
+    rows.forEach(row => {
+      const userValue = row.values[userColumnIndex];
+      if (userValue && typeof userValue === 'string' && userValue.trim()) {
+        users.add(userValue.trim());
+      }
+    });
+
+    const uniqueUsers = Array.from(users).sort();
+
+    return NextResponse.json({ 
+      users: uniqueUsers,
+      total: uniqueUsers.length 
+    });
   } catch (error) {
-    console.error('Error fetching sheet names:', error);
+    console.error('Error fetching user names:', error);
     
     if (error.message.includes('Request timeout')) {
       return NextResponse.json(
@@ -112,7 +140,7 @@ export async function POST(request) {
     
     if (error.message.includes('Requested entity was not found') || error.message.includes('NOT_FOUND')) {
       return NextResponse.json(
-        { error: 'Spreadsheet not found. Please check the spreadsheet ID and ensure it exists.' },
+        { error: 'Spreadsheet or worksheet not found. Please check the IDs and ensure they exist.' },
         { status: 404 }
       );
     }
@@ -132,7 +160,7 @@ export async function POST(request) {
     }
 
     return NextResponse.json(
-      { error: 'Failed to fetch sheet names: ' + error.message },
+      { error: 'Failed to fetch user names: ' + error.message },
       { status: 500 }
     );
   }

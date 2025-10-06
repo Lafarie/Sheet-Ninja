@@ -58,7 +58,6 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
             id: Date.now() + Math.random().toString(),
             projectName: name,
             projectId: '',
-            assignee: '',
             milestone: '',
             labels: [],
             estimate: '8h',
@@ -110,7 +109,6 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
   const handleProjectIdChange = (mappingId: string, projectId: string) => {
     updateProjectMapping(mappingId, { 
       projectId,
-      assignee: '',
       milestone: '',
       labels: [],
       projectData: { labels: [], milestones: [], assignees: [] }
@@ -135,7 +133,6 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
       id: Date.now().toString(),
       projectName: newProjectName.trim(),
       projectId: '',
-      assignee: '',
       milestone: '',
       labels: [],
       estimate: '8h',
@@ -259,50 +256,26 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Assignee */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Assignee</Label>
-                <Select
-                  value={project.assignee || 'none'}
-                  onValueChange={(value : any) => updateProjectMapping(project.id, { assignee: value === 'none' ? '' : value })}
-                  disabled={!project.projectId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select assignee..." />
-                  </SelectTrigger>
-                  <SelectContent className="w-full">
-                    <SelectItem value="none" className="w-full">No assignee</SelectItem>
-                    {project.projectData.assignees.map((assignee) => (
-                      <SelectItem key={assignee.username} value={assignee.username} className="w-full">
-                        @{assignee.username} ({assignee.name || assignee.username})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Milestone */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Milestone</Label>
-                <Select
-                  value={project.milestone || 'none'}
-                  onValueChange={(value : any) => updateProjectMapping(project.id, { milestone: value === 'none' ? '' : value })}
-                  disabled={!project.projectId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select milestone..." />
-                  </SelectTrigger>
-                  <SelectContent className="w-full">
-                    <SelectItem value="none" className="w-full">No milestone</SelectItem>
-                    {project.projectData.milestones.map((milestone) => (
-                      <SelectItem key={milestone.id} value={milestone.id} className="w-full">
-                        {milestone.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Milestone */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Milestone</Label>
+              <Select
+                value={project.milestone || 'none'}
+                onValueChange={(value : any) => updateProjectMapping(project.id, { milestone: value === 'none' ? '' : value })}
+                disabled={!project.projectId}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select milestone..." />
+                </SelectTrigger>
+                <SelectContent className="w-full">
+                  <SelectItem value="none" className="w-full">No milestone</SelectItem>
+                  {project.projectData.milestones.map((milestone) => (
+                    <SelectItem key={milestone.id} value={milestone.id} className="w-full">
+                      {milestone.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Labels */}
@@ -419,12 +392,6 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
               <div className="flex justify-between">
                 <span>Total Projects:</span>
                 <Badge variant="secondary" className="text-xs">{projectMappings.length}</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Projects with Assignees:</span>
-                <Badge variant="secondary" className="text-xs">
-                  {projectMappings.filter(p => p.assignee).length}
-                </Badge>
               </div>
               <div className="flex justify-between">
                 <span>Projects with Milestones:</span>

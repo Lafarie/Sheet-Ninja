@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Play, Square, RotateCcw, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Play, Square, RotateCcw, CheckCircle, XCircle, AlertCircle, Users, Eye } from 'lucide-react';
 
 interface SyncRunnerProps {
   onComplete: () => void;
@@ -32,6 +33,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     projectMappings, 
     syncConfig, 
     updateSyncConfig,
+    updateColumnMapping,
     setSyncLoading 
   } = useSetupStore();
   const { addNotification } = useUIStore();
@@ -41,6 +43,118 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [syncOutput, setSyncOutput] = useState('');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // User filtering state
+  const [enableUserFilter, setEnableUserFilter] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<string[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string>('');
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  // Auto-detect users from USER column
+  const detectUsers = async () => {
+    if (!sheets.spreadsheetId || !sheets.worksheetName || !columnMappings.USER) {
+      addNotification({
+        type: 'error',
+        title: 'Configuration Required',
+        message: 'Please configure Google Sheets and map the USER column first',
+      });
+      return;
+    }
+
+    setLoadingUsers(true);
+    try {
+      const response = await fetch('/api/sheet-user-names', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spreadsheetId: sheets.spreadsheetId,
+          worksheetName: sheets.worksheetName,
+          userColumn: columnMappings.USER,
+          serviceAccount: sheets.serviceAccount,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableUsers(data.users || []);
+        
+        addNotification({
+          type: 'success',
+          title: 'Users Detected',
+          message: `Found ${data.users?.length || 0} unique users`,
+        });
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('User detection error:', error);
+      addNotification({
+        type: 'error',
+        title: 'Detection Failed',
+        message: `Failed to detect users: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // Preview filtered data
+  const previewFilteredData = async () => {
+    if (!sheets.spreadsheetId || !sheets.worksheetName) {
+      addNotification({
+        type: 'error',
+        title: 'Configuration Required',
+        message: 'Please configure Google Sheets first',
+      });
+      return;
+    }
+
+    setLoadingPreview(true);
+    try {
+      const response = await fetch('/api/preview-sync-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spreadsheetId: sheets.spreadsheetId,
+          worksheetName: sheets.worksheetName,
+          columnMappings,
+          projectMappings,
+          serviceAccount: sheets.serviceAccount,
+          userFilter: enableUserFilter ? selectedUser : null,
+          dateFilter: syncConfig.enableDateFilter ? {
+            startDate: syncConfig.startDate,
+            endDate: syncConfig.endDate
+          } : null,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPreviewData(data.rows || []);
+        setShowPreview(true);
+        
+        addNotification({
+          type: 'success',
+          title: 'Preview Generated',
+          message: `Found ${data.rows?.length || 0} rows to sync`,
+        });
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Preview error:', error);
+      addNotification({
+        type: 'error',
+        title: 'Preview Failed',
+        message: `Failed to generate preview: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
 
   const validateConfiguration = () => {
     const issues = [];
@@ -49,6 +163,10 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     if (!sheets.spreadsheetId) issues.push('Spreadsheet ID is required');
     if (!sheets.worksheetName) issues.push('Worksheet Name is required');
     if (projectMappings.length === 0) issues.push('At least one project mapping is required');
+    if (enableUserFilter && !selectedUser) issues.push('Please select a user for filtering');
+    if (syncConfig.enableDateFilter && (!syncConfig.startDate || !syncConfig.endDate)) {
+      issues.push('Please set both start and end dates for date filtering');
+    }
     
     if (issues.length > 0) {
       addNotification({
@@ -81,6 +199,11 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         columnMappings: columnMappings,
         serviceAccount: sheets.serviceAccount,
         serviceAccountEmail: sheets.serviceAccountEmail,
+        userFilter: enableUserFilter ? selectedUser : null,
+        dateFilter: syncConfig.enableDateFilter ? {
+          startDate: syncConfig.startDate,
+          endDate: syncConfig.endDate
+        } : null,
         ...syncConfig
       };
 
@@ -316,7 +439,6 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                     <div className="font-medium">{mapping.projectName}</div>
                     <div className="text-gray-600">
                       Project ID: {mapping.projectId} | 
-                      {mapping.assignee && ` Assignee: @${mapping.assignee} |`}
                       {mapping.milestone && ` Milestone: ${mapping.milestone} |`}
                       {mapping.labels.length > 0 && ` Labels: ${mapping.labels.join(', ')}`}
                     </div>
@@ -325,6 +447,101 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
               </div>
             </div>
           )}
+
+          {/* User Filter Options */}
+          <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="enableUserFilter"
+                checked={enableUserFilter}
+                onChange={(e) => setEnableUserFilter(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              <label htmlFor="enableUserFilter" className="text-sm font-medium flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Enable user filter
+              </label>
+            </div>
+            
+            {enableUserFilter && (
+              <div className="space-y-4">
+                {!columnMappings.USER ? (
+                  <Alert variant="destructive" className="border-red-200 bg-red-50">
+                    <AlertDescription className="text-red-800">
+                      <strong>USER column not mapped!</strong> Please go back to the Column Mapping step 
+                      and map a column that contains user information.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">USER Column Mapped</p>
+                        <p className="text-xs text-muted-foreground">
+                          Column {columnMappings.USER}: {sheets.headers[parseInt(columnMappings.USER) - 1]}
+                        </p>
+                      </div>
+                      <Badge variant="default" className="text-xs">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Mapped
+                      </Badge>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={detectUsers}
+                        disabled={loadingUsers}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        {loadingUsers ? 'Detecting...' : 'Auto-detect Users'}
+                      </Button>
+                      <Button 
+                        onClick={previewFilteredData}
+                        disabled={loadingPreview}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        {loadingPreview ? 'Generating...' : 'Preview Data'}
+                      </Button>
+                    </div>
+
+                    {availableUsers.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Select User to Filter By</Label>
+                        <Select value={selectedUser} onValueChange={setSelectedUser}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a user..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            <SelectItem value="" className="text-sm">No filter (all users)</SelectItem>
+                            {availableUsers.map((user) => (
+                              <SelectItem key={user} value={user} className="text-sm">
+                                {user}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {selectedUser && (
+                      <Alert variant="default" className="border-green-200 bg-green-50">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <AlertDescription className="text-green-800">
+                          <strong>Filter Active:</strong> Synchronization will only include rows for user: <strong>{selectedUser}</strong>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Date Filter Options */}
           <div className="space-y-4">
@@ -465,6 +682,63 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Preview Data */}
+      {showPreview && previewData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Preview Data ({previewData.length} rows)
+            </CardTitle>
+            <CardDescription>
+              This is what will be synchronized based on your current filters
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-96 overflow-y-auto">
+              <div className="space-y-2">
+                {previewData.slice(0, 10).map((row, index) => (
+                  <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><strong>Title:</strong> {row.title || 'N/A'}</div>
+                      <div><strong>User:</strong> {row.user || 'N/A'}</div>
+                      <div><strong>Project:</strong> {row.project || 'N/A'}</div>
+                      <div><strong>Date:</strong> {row.date || 'N/A'}</div>
+                    </div>
+                  </div>
+                ))}
+                {previewData.length > 10 && (
+                  <div className="text-center text-sm text-gray-500 py-2">
+                    ... and {previewData.length - 10} more rows
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setShowPreview(false)}
+                className="flex-1"
+              >
+                Close Preview
+              </Button>
+              <Button 
+                size="sm" 
+                variant="default" 
+                onClick={() => {
+                  setShowPreview(false);
+                  startSync();
+                }}
+                className="flex-1"
+              >
+                Start Sync with This Data
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

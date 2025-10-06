@@ -28,7 +28,10 @@ export async function POST(request) {
     while (page <= 5) { // Limit to first 5 pages (500 projects max)
       const projectsResponse = await fetch(
         `${baseUrl}projects?membership=true&simple=true&per_page=${perPage}&page=${page}&order_by=last_activity_at&sort=desc`,
-        { headers }
+        { 
+          headers,
+          signal: AbortSignal.timeout(10000) // 10 second timeout
+        }
       );
 
       if (!projectsResponse.ok) {
@@ -41,7 +44,28 @@ export async function POST(request) {
         throw new Error(`HTTP error! status: ${projectsResponse.status}`);
       }
 
-      const projects = await projectsResponse.json();
+      // Check if response has content before parsing JSON
+      const responseText = await projectsResponse.text();
+      if (!responseText.trim()) {
+        console.warn(`Empty response from GitLab API for page ${page}`);
+        break;
+      }
+
+      let projects;
+      try {
+        projects = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error(`Failed to parse JSON response for page ${page}:`, parseError);
+        console.error('Response text:', responseText.substring(0, 200) + '...');
+        throw new Error(`Invalid JSON response from GitLab API: ${parseError.message}`);
+      }
+
+      // Ensure projects is an array
+      if (!Array.isArray(projects)) {
+        console.error(`Expected array but got ${typeof projects} for page ${page}`);
+        console.error('Response:', projects);
+        break;
+      }
       
       if (projects.length === 0) {
         break; // No more projects
