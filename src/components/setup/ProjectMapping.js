@@ -564,7 +564,7 @@ export function ProjectMapping({
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl, config.spreadsheetId, config.worksheetName, projectMappings.length, setProjectMappings, config.serviceAccount, config.serviceAccountEmail, config.serviceAccountFilename]);
+  }, [apiBaseUrl, config.spreadsheetId, config.worksheetName, config.projectNameColumn, projectMappings.length, setProjectMappings, config.serviceAccount, config.serviceAccountEmail, config.serviceAccountFilename]);
 
   // Extract unique project names from sheet data when headers or sheet config change
   useEffect(() => {

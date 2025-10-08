@@ -630,7 +630,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
               </label>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 pl-6">
-              💡 <strong>Example:</strong> Close when status is 'Done', 'Complete', 'Finished', or 'Resolved'
+              💡 <strong>Example:</strong> Close when status is &apos;Done&apos;, &apos;Complete&apos;, &apos;Finished&apos;, or &apos;Resolved&apos;
             </p>
           </div>
 

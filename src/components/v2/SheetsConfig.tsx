@@ -247,9 +247,9 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
                 </div>
                 <p className="text-xs text-gray-600">
                   1. Open your Google Sheets document<br/>
-                  2. Click the "Share" button in the top right<br/>
-                  3. Add the email above with "Editor" access<br/>
-                  4. Click "Send" (no notification needed)
+                  2. Click the &quot;Share&quot; button in the top right<br/>
+                  3. Add the email above with &quot;Editor&quot; access<br/>
+                  4. Click &quot;Send&quot; (no notification needed)
                 </p>
               </div>
             </AlertDescription>

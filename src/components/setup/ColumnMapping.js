@@ -106,7 +106,6 @@ export function ColumnMapping({
   // Debug: help surface why saved mappings may be empty
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
       console.debug('ColumnMapping: savedMappings read from config:', savedMappings);
     }
   }, [savedMappings]);
