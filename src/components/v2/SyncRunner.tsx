@@ -566,6 +566,9 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                 Enable date filter
               </label>
             </div>
+            <p className="text-xs text-amber-600 dark:text-amber-400 pl-6">
+              📝 <strong>Note:</strong> Make sure Date column is in DD/MM/YYYY format for proper filtering
+            </p>
             
             {syncConfig.enableDateFilter && (
               <div className="grid grid-cols-2 gap-4">
@@ -604,6 +607,9 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                 Close issues based on status column
               </label>
             </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 pl-6">
+              💡 <strong>Example:</strong> Close when status is 'Done', 'Complete', 'Finished', or 'Resolved'
+            </p>
           </div>
 
           {/* Sync Controls */}

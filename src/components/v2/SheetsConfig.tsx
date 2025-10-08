@@ -212,6 +212,49 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Service Account Instructions */}
+          <Alert variant="default" className="border-blue-200 bg-blue-50">
+            <AlertDescription className="text-blue-800">
+              <div className="space-y-2">
+                <p className="font-medium">📧 Service Account Setup Required</p>
+                <p className="text-sm">
+                  To sync your Google Sheets, please add this service account email to your spreadsheet with <strong>Editor</strong> permissions:
+                </p>
+                <div className="flex items-center gap-2">
+                  <div className="bg-gray-100 p-2 rounded font-mono text-xs break-all">
+                    {sheets.serviceAccountEmail || sheets.serviceAccount?.client_email || 'automate@bright-torus-466008-t9.iam.gserviceaccount.com'}
+                  </div>
+                  <button
+                    type="button"
+                    className="px-2 py-1 bg-gray-200 rounded text-sm"
+                    onClick={() => {
+                      const email = sheets.serviceAccountEmail || sheets.serviceAccount?.client_email || 'automate@bright-torus-466008-t9.iam.gserviceaccount.com';
+                      try {
+                        navigator.clipboard.writeText(email);
+                        addNotification({
+                          type: 'success',
+                          title: 'Copied',
+                          message: 'Service account email copied to clipboard',
+                        });
+                      } catch (err) {
+                        console.error('Clipboard copy failed', err);
+                      }
+                    }}
+                    aria-label="Copy service account email"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="text-xs text-gray-600">
+                  1. Open your Google Sheets document<br/>
+                  2. Click the "Share" button in the top right<br/>
+                  3. Add the email above with "Editor" access<br/>
+                  4. Click "Send" (no notification needed)
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+
           {/* Service Account Upload */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Service Account JSON (Optional)</Label>
@@ -254,6 +297,9 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
             />
             <p className="text-xs text-muted-foreground">
               Find this in your Google Sheets URL: https://docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit
+            </p>
+            <p className="text-xs text-amber-600 mt-1">
+              📝 <strong>Note:</strong> Make sure your Date column is in DD/MM/YYYY format for proper date filtering
             </p>
           </div>
 
