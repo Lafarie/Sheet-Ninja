@@ -256,26 +256,17 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
               )}
             </div>
 
-            {/* Milestone */}
+            {/* Milestone - Auto-assigned based on date ranges */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Milestone</Label>
-              <Select
-                value={project.milestone || 'none'}
-                onValueChange={(value : any) => updateProjectMapping(project.id, { milestone: value === 'none' ? '' : value })}
-                disabled={!project.projectId}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select milestone..." />
-                </SelectTrigger>
-                <SelectContent className="w-full">
-                  <SelectItem value="none" className="w-full">No milestone</SelectItem>
-                  {(project.projectData?.milestones || []).map((milestone) => (
-                    <SelectItem key={milestone.id} value={milestone.id} className="w-full">
-                      {milestone.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>Auto-assigned:</strong> Milestones will be automatically assigned based on task dates and milestone date ranges.
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                  {project.projectData?.milestones?.length || 0} milestones available for auto-assignment
+                </p>
+              </div>
             </div>
 
             {/* Labels */}
@@ -394,9 +385,9 @@ export function ProjectMapping({ onComplete }: ProjectMappingProps) {
                 <Badge variant="secondary" className="text-xs">{projectMappings.length}</Badge>
               </div>
               <div className="flex justify-between">
-                <span>Projects with Milestones:</span>
+                <span>Auto-Assigned Milestones:</span>
                 <Badge variant="secondary" className="text-xs">
-                  {projectMappings.filter(p => p.milestone).length}
+                  {projectMappings.filter(p => p.projectData?.milestones?.length > 0).length}
                 </Badge>
               </div>
               <div className="flex justify-between">

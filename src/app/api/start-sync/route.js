@@ -342,9 +342,14 @@ async function performActualSync(syncData) {
     // Debug: Log user filter information
     syncStateManager.addOutput(`  - User filter debug: ${JSON.stringify({
       userFilter: syncData.userFilter,
+      userFilterType: typeof syncData.userFilter,
+      userFilterLength: syncData.userFilter ? syncData.userFilter.length : 0,
       columnMappings: syncData.columnMappings,
       hasUserMapping: !!syncData.columnMappings?.USER
     })}\n`);
+
+
+    console.log('Sync data:', syncData);
 
     // Apply user filtering if enabled
     if (syncData.userFilter && syncData.userFilter !== 'all') {
@@ -356,9 +361,18 @@ async function performActualSync(syncData) {
         const originalCount = rows.length;
         rows = rows.filter(row => {
           const userValue = row.get(userColumn);
-          const matches = userValue && userValue.toString().trim() === syncData.userFilter;
+          if (!userValue) {
+            syncStateManager.addOutput(`  - Filtering out row with empty user value\n`);
+            return false;
+          }
+          
+          // Normalize both values for comparison (trim, lowercase, remove extra spaces)
+          const normalizedUserValue = userValue.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+          const normalizedFilterValue = syncData.userFilter.trim().toLowerCase().replace(/\s+/g, ' ');
+          
+          const matches = normalizedUserValue === normalizedFilterValue;
           if (!matches) {
-            syncStateManager.addOutput(`  - Filtering out row with user: "${userValue}" (looking for: "${syncData.userFilter}")\n`);
+            syncStateManager.addOutput(`  - Filtering out row with user: "${userValue}" (normalized: "${normalizedUserValue}") (looking for: "${syncData.userFilter}" normalized: "${normalizedFilterValue}")\n`);
           }
           return matches;
         });
@@ -560,7 +574,7 @@ async function performActualSync(syncData) {
 
     // Mark as completed
     syncStateManager.completeSync();
-    console.log('Sync process completed, final status:', syncStateManager.getStatus());
+    // console.log('Sync process completed, final status:', syncStateManager.getStatus());
     
   } catch (error) {
     console.error('Sync process error:', error);
@@ -643,8 +657,9 @@ function extractTaskData(row, headers) {
   const timeSpentColumn = resolveColumnFromMapping(columnMappings.ACTUAL_ESTIMATION, headers);
   taskData.timeSpent = timeSpentColumn ? row.get(timeSpentColumn) : '';
 
-  // Extract assignee from sheet if available
-  const assigneeColumn = resolveColumnFromMapping(columnMappings.ASSIGNEE, headers);
+  // Extract assignee from sheet if available - check both ASSIGNEE and USER columns
+  const assigneeColumn = resolveColumnFromMapping(columnMappings.ASSIGNEE, headers) || 
+                        resolveColumnFromMapping(columnMappings.USER, headers);
   taskData.assignee = assigneeColumn ? row.get(assigneeColumn) : '';
 
   // Debug: Log extracted data
@@ -654,10 +669,59 @@ function extractTaskData(row, headers) {
     assignee: taskData.assignee,
     timeEstimateColumn: timeEstimateColumn,
     dueDateColumn: dueDateColumn,
-    assigneeColumn: assigneeColumn
+    assigneeColumn: assigneeColumn,
+    columnMappings: {
+      ASSIGNEE: columnMappings.ASSIGNEE,
+      USER: columnMappings.USER,
+      SELECTED_USER: columnMappings.SELECTED_USER
+    }
   });
   
   return taskData;
+}
+
+// Find milestone by date range - returns the first matching milestone
+function findMilestoneByDateRange(taskDate, milestones) {
+  if (!taskDate || !milestones || milestones.length === 0) return null;
+  
+  // Sort milestones by start date (chronologically first)
+  const sortedMilestones = milestones
+    .filter(m => m.start_date || m.due_date)
+    .sort((a, b) => {
+      // Use start_date if available, otherwise use due_date
+      const aDate = new Date(a.start_date || a.due_date);
+      const bDate = new Date(b.start_date || b.due_date);
+      return aDate - bDate;
+    });
+  
+  // Find the first milestone that matches the task date
+  for (const milestone of sortedMilestones) {
+    const startDate = milestone.start_date ? new Date(milestone.start_date) : null;
+    const dueDate = milestone.due_date ? new Date(milestone.due_date) : null;
+    
+    let isMatch = false;
+    
+    // If milestone has both start and due dates, check if task date is within range
+    if (startDate && dueDate) {
+      isMatch = taskDate >= startDate && taskDate <= dueDate;
+    }
+    // If milestone only has start date, check if task date is after start date
+    else if (startDate && !dueDate) {
+      isMatch = taskDate >= startDate;
+    }
+    // If milestone only has due date, check if task date is before due date
+    else if (!startDate && dueDate) {
+      isMatch = taskDate <= dueDate;
+    }
+    
+    // Return the first matching milestone (chronologically first)
+    if (isMatch) {
+      console.log(`Milestone conflict resolved: Selected "${milestone.title}" (start: ${milestone.start_date}, due: ${milestone.due_date}) for task date: ${taskDate.toISOString().split('T')[0]}`);
+      return milestone;
+    }
+  }
+  
+  return null;
 }
 
 // Create a GitLab issue
@@ -716,9 +780,27 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   });
 
   // Add GitLab slash commands for better integration
-  const assigneeToUse = taskData.assignee || projectConfig.assignee;
-  if (assigneeToUse && assigneeToUse !== 'none' && assigneeToUse !== '') {
-    description += `\n\n/assign @${assigneeToUse}`;
+  // Try to get assignee from task data, project config, or fallback to selected user filter
+  const globalColumnMappings = globalThis._syncColumnMappings || {};
+  const selectedUserFilter = globalColumnMappings.SELECTED_USER;
+  
+  const assigneeToUse = taskData.assignee || projectConfig.assignee || selectedUserFilter;
+  
+  // Normalize assignee name by removing spaces and converting to lowercase
+  const normalizedAssignee = assigneeToUse ? 
+    assigneeToUse.toString().trim().toLowerCase().replace(/\s+/g, '') : null;
+  
+  console.log('Assignee handling:', {
+    taskDataAssignee: taskData.assignee,
+    projectConfigAssignee: projectConfig.assignee,
+    selectedUserFilter: selectedUserFilter,
+    assigneeToUse: assigneeToUse,
+    normalizedAssignee: normalizedAssignee,
+    hasAssignee: !!normalizedAssignee && normalizedAssignee !== 'none' && normalizedAssignee !== ''
+  });
+  
+  if (normalizedAssignee && normalizedAssignee !== 'none' && normalizedAssignee !== '') {
+    description += `\n\n/assign @${normalizedAssignee}`;
   }
   
   if (taskData.timeEstimate) {
@@ -729,8 +811,21 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
     description += `\n/spend ${taskData.timeSpent}`;
   }
   
-  if (projectConfig.milestone && projectConfig.milestone !== 'none' && projectConfig.milestone !== '') {
-    description += `\n/milestone %${projectConfig.milestone}`;
+  // Auto-assign milestone based on task date and milestone date ranges
+  let milestoneToUse = null;
+  const taskDate = parseFlexibleDate(taskData.date || taskData.startDate);
+  if (taskDate && projectConfig.projectData?.milestones) {
+    const matchingMilestone = findMilestoneByDateRange(taskDate, projectConfig.projectData.milestones);
+    if (matchingMilestone) {
+      milestoneToUse = matchingMilestone.id;
+      console.log(`Auto-assigned milestone: ${matchingMilestone.title} for date: ${taskDate.toISOString().split('T')[0]}`);
+    }
+  }
+  
+  if (milestoneToUse && milestoneToUse !== 'none' && milestoneToUse !== '') {
+    // Find the milestone title from the project data
+    const milestoneTitle = projectConfig.projectData?.milestones?.find(m => m.id === milestoneToUse)?.title || milestoneToUse;
+    description += `\n/milestone %"${milestoneTitle}"`;
   }
   
   // Note: Start and due dates are handled via API fields, not slash commands

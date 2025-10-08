@@ -9,18 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Users, Filter, CheckCircle } from 'lucide-react';
+import { Users, Filter, CheckCircle, GitBranch } from 'lucide-react';
 
 interface UserFilterProps {
   onComplete?: () => void;
 }
 
 export function UserFilter({ onComplete }: UserFilterProps) {
-  const { sheets, columnMappings, updateColumnMapping } = useSetupStore();
+  const { sheets, columnMappings, projectMappings, updateColumnMapping } = useSetupStore();
   const { addNotification } = useUIStore();
   const [availableUsers, setAvailableUsers] = useState<string[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [filterMode, setFilterMode] = useState<'sheet' | 'assignee'>('sheet');
 
   // Extract unique users from the USER column if it exists
   const extractUsers = async () => {
@@ -70,6 +71,29 @@ export function UserFilter({ onComplete }: UserFilterProps) {
     }
   };
 
+  // Get assignees from GitLab projects
+  const getAssigneesFromProjects = () => {
+    const allAssignees = new Set<string>();
+    
+    projectMappings.forEach(project => {
+      if (project.projectData?.assignees) {
+        project.projectData.assignees.forEach(assignee => {
+          allAssignees.add(assignee.username);
+        });
+      }
+    });
+    
+    const assigneeList = Array.from(allAssignees);
+    setAvailableUsers(assigneeList);
+    setFilterMode('assignee');
+    
+    addNotification({
+      type: 'success',
+      title: 'Assignees Loaded',
+      message: `Found ${assigneeList.length} assignees from GitLab projects`,
+    });
+  };
+
   const handleUserSelect = (user: string) => {
     setSelectedUser(user);
     if (user === 'all') {
@@ -88,7 +112,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
   };
 
   const handleApplyFilter = () => {
-    if (!selectedUser || selectedUser === 'all') {
+    if (!selectedUser || selectedUser === '') {
       addNotification({
         type: 'error',
         title: 'No User Selected',
@@ -98,13 +122,42 @@ export function UserFilter({ onComplete }: UserFilterProps) {
     }
 
     // Store the selected user in the store for use during sync
-    updateColumnMapping('SELECTED_USER', selectedUser);
-    
-    addNotification({
-      type: 'success',
-      title: 'Filter Applied',
-      message: `Synchronization will be filtered for user: ${selectedUser}`,
-    });
+    if (selectedUser === 'all') {
+      updateColumnMapping('SELECTED_USER', ''); // Clear filter for all users
+      addNotification({
+        type: 'success',
+        title: 'Filter Applied',
+        message: 'Synchronization will include all users (no filtering)',
+      });
+    } else {
+      updateColumnMapping('SELECTED_USER', selectedUser);
+      
+      // If we're using assignee mode and no USER column is mapped, 
+      // we need to set the ASSIGNEE column mapping to the USER column
+      if (filterMode === 'assignee' && !columnMappings.USER) {
+        // Find the USER column index from the sheet headers
+        const userColumnIndex = sheets.headers.findIndex(header => 
+          header.toLowerCase().includes('user') || 
+          header.toLowerCase().includes('assignee') ||
+          header.toLowerCase().includes('resource')
+        );
+        
+        if (userColumnIndex !== -1) {
+          updateColumnMapping('ASSIGNEE', (userColumnIndex + 1).toString());
+          addNotification({
+            type: 'info',
+            title: 'Assignee Column Mapped',
+            message: `Auto-mapped column ${userColumnIndex + 1} (${sheets.headers[userColumnIndex]}) as assignee column`,
+          });
+        }
+      }
+      
+      addNotification({
+        type: 'success',
+        title: 'Filter Applied',
+        message: `Synchronization will be filtered for ${filterMode === 'assignee' ? 'assignee' : 'user'}: ${selectedUser}`,
+      });
+    }
 
     if (onComplete) {
       onComplete();
@@ -143,28 +196,76 @@ export function UserFilter({ onComplete }: UserFilterProps) {
 
           {!columnMappings.USER ? (
             <div className="space-y-4">
-              <Alert variant="default" className="border-yellow-200 bg-yellow-50">
-                <AlertDescription className="text-yellow-800">
-                  <strong>USER column not mapped.</strong> If you want to use user filtering, go back to the Column Mapping step 
-                  and map a column that contains user information. Otherwise, you can skip this step.
+              <Alert variant="default" className="border-blue-200 bg-blue-50">
+                <AlertDescription className="text-blue-800">
+                  <strong>USER column not mapped.</strong> You can still filter by GitLab assignees from your configured projects, 
+                  or skip this step entirely.
                 </AlertDescription>
               </Alert>
               
-              <Button 
-                onClick={() => {
-                  if (onComplete) onComplete();
-                  addNotification({
-                    type: 'info',
-                    title: 'User Filter Skipped',
-                    message: 'Proceeding without user filtering',
-                  });
-                }}
-                variant="outline"
-                size="sm"
-                className="w-full"
-              >
-                Skip User Filter
-              </Button>
+              {projectMappings.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">GitLab Projects Configured</p>
+                      <p className="text-xs text-muted-foreground">
+                        {projectMappings.length} projects with assignee data available
+                      </p>
+                    </div>
+                    <Badge variant="default" className="text-xs">
+                      <GitBranch className="h-3 w-3 mr-1" />
+                      {projectMappings.length} projects
+                    </Badge>
+                  </div>
+
+                  <Button 
+                    onClick={getAssigneesFromProjects}
+                    disabled={loading}
+                    variant="default"
+                    size="sm"
+                    className="w-full"
+                  >
+                    <GitBranch className="h-4 w-4 mr-2" />
+                    Load Assignees from GitLab Projects
+                  </Button>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => {
+                    if (onComplete) onComplete();
+                    addNotification({
+                      type: 'info',
+                      title: 'User Filter Skipped',
+                      message: 'Proceeding without user filtering',
+                    });
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  Skip User Filter
+                </Button>
+                {projectMappings.length === 0 && (
+                  <Button 
+                    onClick={() => {
+                      if (onComplete) onComplete();
+                      addNotification({
+                        type: 'info',
+                        title: 'No Projects Configured',
+                        message: 'Please configure project mappings first to use assignee filtering',
+                      });
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    disabled
+                  >
+                    No Projects Available
+                  </Button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -194,7 +295,9 @@ export function UserFilter({ onComplete }: UserFilterProps) {
               {availableUsers.length > 0 && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">Select User to Filter By</Label>
+                    <Label className="text-sm font-medium">
+                      Select {filterMode === 'assignee' ? 'Assignee' : 'User'} to Filter By
+                    </Label>
                     <Select value={selectedUser} onValueChange={handleUserSelect}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a user..." />
@@ -226,20 +329,20 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                   <div className="flex gap-2">
                     <Button 
                       onClick={handleApplyFilter}
-                      disabled={!selectedUser || selectedUser === 'all'}
+                      disabled={!selectedUser || selectedUser === ''}
                       variant="default"
                       size="sm"
                       className="flex-1"
                     >
                       <Filter className="h-4 w-4 mr-2" />
-                      Apply User Filter
+                      Apply {filterMode === 'assignee' ? 'Assignee' : 'User'} Filter
                     </Button>
                     <Button 
                       onClick={handleClearFilter}
                       variant="outline"
                       size="sm"
                       className="text-sm"
-                      disabled={!selectedUser || selectedUser === 'all'}
+                      disabled={!selectedUser || selectedUser === 'all' || selectedUser === ''}
                     >
                       Clear Filter
                     </Button>
@@ -269,7 +372,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                 <Alert variant="default" className="border-green-200 bg-green-50">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    <strong>Filter Active:</strong> Synchronization will only include rows for user: <strong>{selectedUser}</strong>
+                    <strong>Filter Active:</strong> Synchronization will only include rows for {filterMode === 'assignee' ? 'assignee' : 'user'}: <strong>{selectedUser}</strong>
                   </AlertDescription>
                 </Alert>
               )}

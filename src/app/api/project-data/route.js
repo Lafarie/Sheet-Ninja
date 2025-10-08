@@ -86,6 +86,7 @@ export async function POST(request) {
         id: milestone.id,
         title: milestone.title,
         description: milestone.description,
+        start_date: milestone.start_date,
         due_date: milestone.due_date,
       })),
       labels: labels.map(label => ({
