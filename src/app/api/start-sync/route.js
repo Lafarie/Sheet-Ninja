@@ -45,8 +45,8 @@ function resolveColumnFromMapping(mapping, headers) {
   return null;
 }
 
-// Helper: parse flexible date formats (accepts DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY, and native ISO)
-function parseFlexibleDate(value) {
+// Helper: parse DD/MM/YYYY date format only
+function parseDDMMYYYYDate(value) {
   if (!value) return null;
   // If already a Date
   if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
@@ -54,26 +54,18 @@ function parseFlexibleDate(value) {
   const s = String(value).trim();
   if (!s) return null;
 
-  // Try native parse first (ISO etc.)
-  const d1 = new Date(s);
-  if (!isNaN(d1.getTime())) return d1;
-
-  // Try DD-MM-YYYY or D-M-YYYY or DD/MM/YYYY
-  const dmY = s.match(/^(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})$/);
+  // Only accept DD/MM/YYYY format
+  const dmY = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (dmY) {
     const day = parseInt(dmY[1], 10);
     const month = parseInt(dmY[2], 10);
     const year = parseInt(dmY[3], 10);
-    const maybe = new Date(year, month - 1, day);
-    if (!isNaN(maybe.getTime())) return maybe;
-  }
-
-  // Try YYYY/MM/DD or YYYY.MM.DD
-  const ymd = s.match(/^(\d{4})[\-\/\.](\d{1,2})[\-\/\.](\d{1,2})$/);
-  if (ymd) {
-    const year = parseInt(ymd[1], 10);
-    const month = parseInt(ymd[2], 10);
-    const day = parseInt(ymd[3], 10);
+    
+    // Validate date components
+    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      return null;
+    }
+    
     const maybe = new Date(year, month - 1, day);
     if (!isNaN(maybe.getTime())) return maybe;
   }
@@ -302,8 +294,8 @@ async function performActualSync(syncData) {
     
     
 
-    // Helper: parse flexible date formats (accepts DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY, and native ISO)
-    function parseFlexibleDate(value) {
+    // Helper: parse DD/MM/YYYY date format only
+    function parseDDMMYYYYDate(value) {
       if (!value) return null;
       // If already a Date
       if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
@@ -311,27 +303,18 @@ async function performActualSync(syncData) {
       const s = String(value).trim();
       if (!s) return null;
 
-      // Try native parse first (ISO etc.)
-      const d1 = new Date(s);
-      if (!isNaN(d1.getTime())) return d1;
-
-      // Try DD-MM-YYYY or D-M-YYYY or DD/MM/YYYY
-      const dmY = s.match(/^(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})$/);
+      // Only accept DD/MM/YYYY format
+      const dmY = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
       if (dmY) {
         const day = parseInt(dmY[1], 10);
         const month = parseInt(dmY[2], 10);
         const year = parseInt(dmY[3], 10);
-        // If looks like YYYY-MM-DD (e.g., 2025-09-16) this will have month > 31; but we've already tried native parse
-        const maybe = new Date(year, month - 1, day);
-        if (!isNaN(maybe.getTime())) return maybe;
-      }
-
-      // Try YYYY/MM/DD or YYYY.MM.DD
-      const ymd = s.match(/^(\d{4})[\-\/\.](\d{1,2})[\-\/\.](\d{1,2})$/);
-      if (ymd) {
-        const year = parseInt(ymd[1], 10);
-        const month = parseInt(ymd[2], 10);
-        const day = parseInt(ymd[3], 10);
+        
+        // Validate date components
+        if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+          return null;
+        }
+        
         const maybe = new Date(year, month - 1, day);
         if (!isNaN(maybe.getTime())) return maybe;
       }
@@ -398,17 +381,17 @@ async function performActualSync(syncData) {
           const dateValue = row.get(dateColumn);
           if (!dateValue) return false;
 
-          const rowDate = parseFlexibleDate(dateValue);
+          const rowDate = parseDDMMYYYYDate(dateValue);
           if (!rowDate) return false;
 
           let inRange = true;
           if (startDate) {
-            const start = parseFlexibleDate(startDate) || new Date(startDate);
+            const start = parseDDMMYYYYDate(startDate) || new Date(startDate);
             if (!start) return false;
             inRange = inRange && rowDate >= start;
           }
           if (endDate) {
-            const end = parseFlexibleDate(endDate) || new Date(endDate);
+            const end = parseDDMMYYYYDate(endDate) || new Date(endDate);
             if (!end) return false;
             end.setHours(23, 59, 59, 999);
             inRange = inRange && rowDate <= end;
@@ -813,7 +796,7 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   
   // Auto-assign milestone based on task date and milestone date ranges
   let milestoneToUse = null;
-  const taskDate = parseFlexibleDate(taskData.date || taskData.startDate);
+  const taskDate = parseDDMMYYYYDate(taskData.date || taskData.startDate);
   if (taskDate && projectConfig.projectData?.milestones) {
     const matchingMilestone = findMilestoneByDateRange(taskDate, projectConfig.projectData.milestones);
     if (matchingMilestone) {
@@ -845,7 +828,7 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   // Add date fields using GitLab API (slash commands don't work for dates)
   if (taskData.startDate) {
     // Parse and format the start date for GitLab API
-    const startDate = parseFlexibleDate(taskData.startDate);
+    const startDate = parseDDMMYYYYDate(taskData.startDate);
     if (startDate) {
       issueData.created_at = startDate.toISOString();
     }
@@ -853,7 +836,7 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   
   if (taskData.dueDate) {
     // Parse and format the due date for GitLab API
-    const dueDate = parseFlexibleDate(taskData.dueDate);
+    const dueDate = parseDDMMYYYYDate(taskData.dueDate);
     if (dueDate) {
       issueData.due_date = dueDate.toISOString().split('T')[0]; // YYYY-MM-DD format
     }

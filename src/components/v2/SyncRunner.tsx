@@ -37,6 +37,26 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     setSyncLoading 
   } = useSetupStore();
   const { addNotification } = useUIStore();
+
+  // Helper function to format date to DD/MM/YYYY
+  const formatDateToDDMMYYYY = (dateString: string): string => {
+    if (!dateString) return '';
+    
+    // If already in DD/MM/YYYY format, return as is
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)) {
+      return dateString;
+    }
+    
+    // Try to parse as ISO date or other formats and convert to DD/MM/YYYY
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
+  };
   
   const [syncRunning, setSyncRunning] = useState(false);
   const [syncProgress, setSyncProgress] = useState('idle');
@@ -93,12 +113,12 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         serviceAccountEmail: sheets.serviceAccountEmail,
         userFilter: columnMappings.SELECTED_USER || null, // Optional user filter
         dateFilter: syncConfig.enableDateFilter ? {
-          startDate: syncConfig.startDate,
-          endDate: syncConfig.endDate
+          startDate: syncConfig.startDate ? formatDateToDDMMYYYY(syncConfig.startDate) : null,
+          endDate: syncConfig.endDate ? formatDateToDDMMYYYY(syncConfig.endDate) : null
         } : null,
         checkStatusBeforeClose: syncConfig.checkStatusBeforeClose,
-        startDate: syncConfig.startDate,
-        endDate: syncConfig.endDate
+        startDate: syncConfig.startDate ? formatDateToDDMMYYYY(syncConfig.startDate) : null,
+        endDate: syncConfig.endDate ? formatDateToDDMMYYYY(syncConfig.endDate) : null
       };
 
       // Debug: Log sync data
@@ -567,7 +587,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
               </label>
             </div>
             <p className="text-xs text-amber-600 dark:text-amber-400 pl-6">
-              📝 <strong>Note:</strong> Make sure Date column is in DD/MM/YYYY format for proper filtering
+              📝 <strong>Note:</strong> Date column must be in DD/MM/YYYY format (e.g., 15/03/2024). Other formats will not be processed.
             </p>
             
             {syncConfig.enableDateFilter && (
@@ -577,7 +597,8 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                   <Input
                     className="w-full"
                     id="startDate"
-                    type="date"
+                    type="text"
+                    placeholder="DD/MM/YYYY"
                     value={syncConfig.startDate || ''}
                     onChange={(e : any) => updateSyncConfig({ startDate: e.target.value })}
                   />
@@ -587,7 +608,8 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                   <Input
                     className="w-full"
                     id="endDate"
-                    type="date"
+                    type="text"
+                    placeholder="DD/MM/YYYY"
                     value={syncConfig.endDate || ''}
                     onChange={(e : any) => updateSyncConfig({ endDate: e.target.value })}
                   />

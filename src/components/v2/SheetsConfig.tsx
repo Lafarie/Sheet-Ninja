@@ -299,7 +299,7 @@ export function SheetsConfig({ onComplete }: SheetsConfigProps) {
               Find this in your Google Sheets URL: https://docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit
             </p>
             <p className="text-xs text-amber-600 mt-1">
-              📝 <strong>Note:</strong> Make sure your Date column is in DD/MM/YYYY format for proper date filtering
+              📝 <strong>Note:</strong> Date column must be in DD/MM/YYYY format (e.g., 15/03/2024). Other formats will not be processed.
             </p>
           </div>
 
