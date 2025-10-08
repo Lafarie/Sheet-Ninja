@@ -86,11 +86,6 @@ jobs:
           # Start services one by one to better isolate issues
           sudo /usr/local/bin/docker-compose up -d
 
-      - name: Prisma migrate deploy
-        run: |
-          # Run migrations (production-safe deploy command)
-          docker exec scripts-app_container sh -c "npx prisma migrate deploy"
-
       - name: Clean up
         run: |
             # 1 minute cleanup
