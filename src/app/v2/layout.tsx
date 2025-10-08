@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { Toaster } from '@/components/ui/sonner';
-import './globals.css';
+import '../globals.css';
 
 export const metadata: Metadata = {
   title: 'Sheet Ninja v2 - Advanced GitLab & Google Sheets Sync',
