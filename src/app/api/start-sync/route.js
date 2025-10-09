@@ -93,18 +93,7 @@ function parseDDMMYYYYDate(value) {
       return null;
     }
     
-    // Try DD-MM-YYYY format first (European format)
-    if (first >= 1 && first <= 31 && second >= 1 && second <= 12) {
-      const day = first;
-      const month = second;
-      console.log('Interpreting as DD-MM-YYYY:', { day, month, year });
-      
-      const maybe = new Date(year, month - 1, day);
-      console.log('DD-MM-YYYY result:', maybe);
-      if (!isNaN(maybe.getTime())) return maybe;
-    }
-    
-    // Try MM-DD-YYYY format (American format)
+    // Try MM-DD-YYYY format first (American format) - prioritize this for ambiguous dates
     if (first >= 1 && first <= 12 && second >= 1 && second <= 31) {
       const month = first;
       const day = second;
@@ -112,6 +101,21 @@ function parseDDMMYYYYDate(value) {
       
       const maybe = new Date(year, month - 1, day);
       console.log('MM-DD-YYYY result:', maybe);
+      console.log('MM-DD-YYYY ISO string:', maybe.toISOString());
+      console.log('MM-DD-YYYY date only:', maybe.toISOString().split('T')[0]);
+      if (!isNaN(maybe.getTime())) return maybe;
+    }
+    
+    // Try DD-MM-YYYY format (European format) as fallback
+    if (first >= 1 && first <= 31 && second >= 1 && second <= 12) {
+      const day = first;
+      const month = second;
+      console.log('Interpreting as DD-MM-YYYY:', { day, month, year });
+      
+      const maybe = new Date(year, month - 1, day);
+      console.log('DD-MM-YYYY result:', maybe);
+      console.log('DD-MM-YYYY ISO string:', maybe.toISOString());
+      console.log('DD-MM-YYYY date only:', maybe.toISOString().split('T')[0]);
       if (!isNaN(maybe.getTime())) return maybe;
     }
     
@@ -135,18 +139,7 @@ function parseDDMMYYYYDate(value) {
       return null;
     }
     
-    // Try DD-MM-YYYY format first (European format)
-    if (first >= 1 && first <= 31 && second >= 1 && second <= 12) {
-      const day = first;
-      const month = second;
-      console.log('Single separator - DD-MM-YYYY:', { day, month, year });
-      
-      const maybe = new Date(year, month - 1, day);
-      console.log('Single separator - DD-MM-YYYY result:', maybe);
-      if (!isNaN(maybe.getTime())) return maybe;
-    }
-    
-    // Try MM-DD-YYYY format (American format)
+    // Try MM-DD-YYYY format first (American format) - prioritize this for ambiguous dates
     if (first >= 1 && first <= 12 && second >= 1 && second <= 31) {
       const month = first;
       const day = second;
@@ -154,6 +147,21 @@ function parseDDMMYYYYDate(value) {
       
       const maybe = new Date(year, month - 1, day);
       console.log('Single separator - MM-DD-YYYY result:', maybe);
+      console.log('Single separator - MM-DD-YYYY ISO string:', maybe.toISOString());
+      console.log('Single separator - MM-DD-YYYY date only:', maybe.toISOString().split('T')[0]);
+      if (!isNaN(maybe.getTime())) return maybe;
+    }
+    
+    // Try DD-MM-YYYY format (European format) as fallback
+    if (first >= 1 && first <= 31 && second >= 1 && second <= 12) {
+      const day = first;
+      const month = second;
+      console.log('Single separator - DD-MM-YYYY:', { day, month, year });
+      
+      const maybe = new Date(year, month - 1, day);
+      console.log('Single separator - DD-MM-YYYY result:', maybe);
+      console.log('Single separator - DD-MM-YYYY ISO string:', maybe.toISOString());
+      console.log('Single separator - DD-MM-YYYY date only:', maybe.toISOString().split('T')[0]);
       if (!isNaN(maybe.getTime())) return maybe;
     }
     
@@ -975,30 +983,16 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   
   if (taskData.dueDate) {
     console.log('Processing due date:', taskData.dueDate);
-    const dueDate = parseDDMMYYYYDate(taskData.dueDate);
-    console.log('Parsed due date:', dueDate);
     
-    if (dueDate) {
-      // Format as YYYY-MM-DD for GitLab slash command
-      const formattedDate = dueDate.toISOString().split('T')[0];
-      console.log('Formatted date for /due command:', formattedDate);
-      
-      description += `\n/due ${formattedDate}`;
-      console.log('Due date slash command added to description');
-      console.log('Current description length:', description.length);
-      
-      console.log('Due date slash command added:', {
-        originalDueDate: taskData.dueDate,
-        parsedDate: dueDate,
-        formattedDate: formattedDate,
-        slashCommand: `/due ${formattedDate}`
-      });
-    } else {
-      console.log('Due date parsing failed:', {
-        originalDueDate: taskData.dueDate,
-        type: typeof taskData.dueDate
-      });
-    }
+    // Use the raw date directly without parsing
+    description += `\n/due ${taskData.dueDate}`;
+    console.log('Due date slash command added to description');
+    console.log('Current description length:', description.length);
+    
+    console.log('Due date slash command added:', {
+      originalDueDate: taskData.dueDate,
+      slashCommand: `/due ${taskData.dueDate}`
+    });
   } else {
     console.log('No due date found in taskData.dueDate');
   }
@@ -1049,22 +1043,13 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   
   if (taskData.dueDate) {
     console.log('API field - taskData.dueDate:', taskData.dueDate);
-    const dueDate = parseDDMMYYYYDate(taskData.dueDate);
-    console.log('API field - parsed due date:', dueDate);
     
-    if (dueDate) {
-      issueData.due_date = dueDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-      console.log('Due date API field set:', {
-        originalDueDate: taskData.dueDate,
-        parsedDate: dueDate,
-        apiField: issueData.due_date
-      });
-    } else {
-      console.log('Due date API field parsing failed:', {
-        originalDueDate: taskData.dueDate,
-        type: typeof taskData.dueDate
-      });
-    }
+    // Use the raw date directly without parsing
+    issueData.due_date = taskData.dueDate;
+    console.log('Due date API field set:', {
+      originalDueDate: taskData.dueDate,
+      apiField: issueData.due_date
+    });
   } else {
     console.log('No due date for API field processing');
   }
