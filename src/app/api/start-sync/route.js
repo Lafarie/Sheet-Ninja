@@ -794,6 +794,26 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
     description += `\n/spend ${taskData.timeSpent}`;
   }
   
+  // Add due date slash command for GitLab due date field
+  if (taskData.dueDate) {
+    const dueDate = parseDDMMYYYYDate(taskData.dueDate);
+    if (dueDate) {
+      // Format as YYYY-MM-DD for GitLab slash command
+      const formattedDate = dueDate.toISOString().split('T')[0];
+      description += `\n/due ${formattedDate}`;
+      console.log('Due date slash command added:', {
+        originalDueDate: taskData.dueDate,
+        parsedDate: dueDate,
+        formattedDate: formattedDate
+      });
+    } else {
+      console.log('Due date parsing failed:', {
+        originalDueDate: taskData.dueDate,
+        type: typeof taskData.dueDate
+      });
+    }
+  }
+  
   // Auto-assign milestone based on task date and milestone date ranges
   let milestoneToUse = null;
   const taskDate = parseDDMMYYYYDate(taskData.date || taskData.startDate);
@@ -839,6 +859,16 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
     const dueDate = parseDDMMYYYYDate(taskData.dueDate);
     if (dueDate) {
       issueData.due_date = dueDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      console.log('Due date API field set:', {
+        originalDueDate: taskData.dueDate,
+        parsedDate: dueDate,
+        apiField: issueData.due_date
+      });
+    } else {
+      console.log('Due date API field parsing failed:', {
+        originalDueDate: taskData.dueDate,
+        type: typeof taskData.dueDate
+      });
     }
   }
 
