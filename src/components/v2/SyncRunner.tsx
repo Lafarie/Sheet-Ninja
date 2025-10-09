@@ -38,24 +38,46 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
   } = useSetupStore();
   const { addNotification } = useUIStore();
 
-  // Helper function to format date to DD/MM/YYYY
+  // Helper function to format date to DD/MM/YYYY (date only, no time)
   const formatDateToDDMMYYYY = (dateString: string): string => {
     if (!dateString) return '';
     
+    const trimmed = dateString.trim();
+    if (!trimmed) return '';
+    
     // If already in DD/MM/YYYY format, return as is
-    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)) {
-      return dateString;
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) {
+      return trimmed;
     }
     
-    // Try to parse as ISO date or other formats and convert to DD/MM/YYYY
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
+    // If already in DD-MM-YYYY format, convert to DD/MM/YYYY
+    if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(trimmed)) {
+      const parts = trimmed.split('-');
+      return `${parts[0]}/${parts[1]}/${parts[2]}`;
+    }
     
+    // Handle YYYY-MM-DD format (ISO date)
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmed)) {
+      const parts = trimmed.split('-');
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    
+    // Try to parse as Date object and convert to DD/MM/YYYY
+    const date = new Date(trimmed);
+    if (isNaN(date.getTime())) {
+      console.warn('Failed to parse date:', dateString);
+      return trimmed; // Return original if parsing fails
+    }
+    
+    // Extract only date components (no time)
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     
-    return `${day}/${month}/${year}`;
+    const formattedDate = `${day}/${month}/${year}`;
+    console.log('Date formatting:', { input: dateString, output: formattedDate });
+    
+    return formattedDate;
   };
   
   const [syncRunning, setSyncRunning] = useState(false);
@@ -74,8 +96,45 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     if (!sheets.spreadsheetId) issues.push('Spreadsheet ID is required');
     if (!sheets.worksheetName) issues.push('Worksheet Name is required');
     if (projectMappings.length === 0) issues.push('At least one project mapping is required');
-    if (syncConfig.enableDateFilter && (!syncConfig.startDate || !syncConfig.endDate)) {
-      issues.push('Please set both start and end dates for date filtering');
+    
+    // Enhanced date filter validation
+    if (syncConfig.enableDateFilter) {
+      if (!syncConfig.startDate && !syncConfig.endDate) {
+        issues.push('Please set at least one date (start or end) for date filtering');
+      } else {
+        // Validate date formats
+        if (syncConfig.startDate) {
+          const formattedStartDate = formatDateToDDMMYYYY(syncConfig.startDate);
+          if (!formattedStartDate || formattedStartDate === syncConfig.startDate) {
+            // Try to parse the original date to see if it's valid
+            const testDate = new Date(syncConfig.startDate);
+            if (isNaN(testDate.getTime())) {
+              issues.push('Invalid start date format. Please use DD/MM/YYYY, DD-MM-YYYY, or YYYY-MM-DD format');
+            }
+          }
+        }
+        
+        if (syncConfig.endDate) {
+          const formattedEndDate = formatDateToDDMMYYYY(syncConfig.endDate);
+          if (!formattedEndDate || formattedEndDate === syncConfig.endDate) {
+            // Try to parse the original date to see if it's valid
+            const testDate = new Date(syncConfig.endDate);
+            if (isNaN(testDate.getTime())) {
+              issues.push('Invalid end date format. Please use DD/MM/YYYY, DD-MM-YYYY, or YYYY-MM-DD format');
+            }
+          }
+        }
+        
+        // Check if both dates are provided and start is before end
+        if (syncConfig.startDate && syncConfig.endDate) {
+          const startDate = new Date(formatDateToDDMMYYYY(syncConfig.startDate).split('/').reverse().join('-'));
+          const endDate = new Date(formatDateToDDMMYYYY(syncConfig.endDate).split('/').reverse().join('-'));
+          
+          if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && startDate > endDate) {
+            issues.push('Start date must be before or equal to end date');
+          }
+        }
+      }
     }
     
     // Note: User mapping and user filter are optional - no validation needed
@@ -127,7 +186,16 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         hasUserFilter: !!syncData.userFilter,
         columnMappings: columnMappings,
         hasUserMapping: !!columnMappings.USER,
-        userMappingOptional: true
+        userMappingOptional: true,
+        dateFilter: syncData.dateFilter,
+        startDate: syncData.startDate,
+        endDate: syncData.endDate,
+        dateFilterTypes: {
+          startDateType: typeof syncData.dateFilter?.startDate,
+          endDateType: typeof syncData.dateFilter?.endDate,
+          startDateValue: syncData.dateFilter?.startDate,
+          endDateValue: syncData.dateFilter?.endDate
+        }
       });
 
       const response = await fetch('/api/start-sync', {
@@ -587,7 +655,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
               </label>
             </div>
             <p className="text-xs text-amber-600 dark:text-amber-400 pl-6">
-              📝 <strong>Note:</strong> Date column must be in DD/MM/YYYY format (e.g., 15/03/2024). Other formats will not be processed.
+              📝 <strong>Note:</strong> Date column must be in DD/MM/YYYY format (e.g., 15/03/2024). Other formats will not be processed. Only date strings are sent, no time components.
             </p>
             
             {syncConfig.enableDateFilter && (
@@ -598,10 +666,13 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                     className="w-full"
                     id="startDate"
                     type="text"
-                    placeholder="DD/MM/YYYY"
+                    placeholder="DD/MM/YYYY or DD-MM-YYYY"
                     value={syncConfig.startDate || ''}
                     onChange={(e : any) => updateSyncConfig({ startDate: e.target.value })}
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Examples: 15/03/2024, 15-03-2024, 2024-03-15
+                  </p>
                 </div>
                 <div>
                   <Label htmlFor="endDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">End Date</Label>
@@ -609,10 +680,13 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                     className="w-full"
                     id="endDate"
                     type="text"
-                    placeholder="DD/MM/YYYY"
+                    placeholder="DD/MM/YYYY or DD-MM-YYYY"
                     value={syncConfig.endDate || ''}
                     onChange={(e : any) => updateSyncConfig({ endDate: e.target.value })}
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Examples: 15/03/2024, 15-03-2024, 2024-03-15
+                  </p>
                 </div>
               </div>
             )}

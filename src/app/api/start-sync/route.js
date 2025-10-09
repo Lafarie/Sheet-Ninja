@@ -45,7 +45,7 @@ function resolveColumnFromMapping(mapping, headers) {
   return null;
 }
 
-// Helper: parse DD/MM/YYYY or DD-MM-YYYY date format
+// Helper: parse DD/MM/YYYY, DD-MM-YYYY, or YYYY-MM-DD date format
 function parseDDMMYYYYDate(value) {
   if (!value) return null;
   // If already a Date
@@ -54,20 +54,111 @@ function parseDDMMYYYYDate(value) {
   const s = String(value).trim();
   if (!s) return null;
 
-  // Accept both DD/MM/YYYY and DD-MM-YYYY formats
-  const dmY = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (dmY) {
-    const day = parseInt(dmY[1], 10);
-    const month = parseInt(dmY[2], 10);
-    const year = parseInt(dmY[3], 10);
+  console.log('parseDDMMYYYYDate input:', { value, s });
+
+  // Try YYYY-MM-DD format first (ISO format)
+  const ymd = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  console.log('YYYY-MM-DD match:', ymd);
+  if (ymd) {
+    const year = parseInt(ymd[1], 10);
+    const month = parseInt(ymd[2], 10);
+    const day = parseInt(ymd[3], 10);
+    
+    console.log('YYYY-MM-DD parsed:', { year, month, day });
     
     // Validate date components
     if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      console.log('YYYY-MM-DD validation failed');
       return null;
     }
     
     const maybe = new Date(year, month - 1, day);
+    console.log('YYYY-MM-DD result:', maybe);
     if (!isNaN(maybe.getTime())) return maybe;
+  }
+
+  // Accept both DD/MM/YYYY and DD-MM-YYYY formats
+  const dmY = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  console.log('Double separator match:', dmY);
+  if (dmY) {
+    const first = parseInt(dmY[1], 10);
+    const second = parseInt(dmY[2], 10);
+    const year = parseInt(dmY[3], 10);
+    
+    console.log('Double separator parsed:', { first, second, year });
+    
+    // Validate year
+    if (year < 1900 || year > 2100) {
+      console.log('Double separator validation failed - invalid year');
+      return null;
+    }
+    
+    // Try DD-MM-YYYY format first (European format)
+    if (first >= 1 && first <= 31 && second >= 1 && second <= 12) {
+      const day = first;
+      const month = second;
+      console.log('Interpreting as DD-MM-YYYY:', { day, month, year });
+      
+      const maybe = new Date(year, month - 1, day);
+      console.log('DD-MM-YYYY result:', maybe);
+      if (!isNaN(maybe.getTime())) return maybe;
+    }
+    
+    // Try MM-DD-YYYY format (American format)
+    if (first >= 1 && first <= 12 && second >= 1 && second <= 31) {
+      const month = first;
+      const day = second;
+      console.log('Interpreting as MM-DD-YYYY:', { month, day, year });
+      
+      const maybe = new Date(year, month - 1, day);
+      console.log('MM-DD-YYYY result:', maybe);
+      if (!isNaN(maybe.getTime())) return maybe;
+    }
+    
+    console.log('Double separator validation failed - no valid interpretation');
+    return null;
+  }
+
+  // Also try DD-MM-YYYY format (single separator) - this is redundant now but kept for compatibility
+  const dmY_single = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  console.log('Single separator match:', dmY_single);
+  if (dmY_single) {
+    const first = parseInt(dmY_single[1], 10);
+    const second = parseInt(dmY_single[2], 10);
+    const year = parseInt(dmY_single[3], 10);
+    
+    console.log('Single separator parsed:', { first, second, year });
+    
+    // Validate year
+    if (year < 1900 || year > 2100) {
+      console.log('Single separator validation failed - invalid year');
+      return null;
+    }
+    
+    // Try DD-MM-YYYY format first (European format)
+    if (first >= 1 && first <= 31 && second >= 1 && second <= 12) {
+      const day = first;
+      const month = second;
+      console.log('Single separator - DD-MM-YYYY:', { day, month, year });
+      
+      const maybe = new Date(year, month - 1, day);
+      console.log('Single separator - DD-MM-YYYY result:', maybe);
+      if (!isNaN(maybe.getTime())) return maybe;
+    }
+    
+    // Try MM-DD-YYYY format (American format)
+    if (first >= 1 && first <= 12 && second >= 1 && second <= 31) {
+      const month = first;
+      const day = second;
+      console.log('Single separator - MM-DD-YYYY:', { month, day, year });
+      
+      const maybe = new Date(year, month - 1, day);
+      console.log('Single separator - MM-DD-YYYY result:', maybe);
+      if (!isNaN(maybe.getTime())) return maybe;
+    }
+    
+    console.log('Single separator validation failed - no valid interpretation');
+    return null;
   }
 
   return null;
@@ -294,33 +385,7 @@ async function performActualSync(syncData) {
     
     
 
-    // Helper: parse DD/MM/YYYY date format only
-    function parseDDMMYYYYDate(value) {
-      if (!value) return null;
-      // If already a Date
-      if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
-
-      const s = String(value).trim();
-      if (!s) return null;
-
-      // Only accept DD/MM/YYYY format
-      const dmY = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (dmY) {
-        const day = parseInt(dmY[1], 10);
-        const month = parseInt(dmY[2], 10);
-        const year = parseInt(dmY[3], 10);
-        
-        // Validate date components
-        if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
-          return null;
-        }
-        
-        const maybe = new Date(year, month - 1, day);
-        if (!isNaN(maybe.getTime())) return maybe;
-      }
-
-      return null;
-    }
+    // Note: Using the global parseDDMMYYYYDate function defined at the top of the file
 
     // Debug: Log user filter information
     syncStateManager.addOutput(`  - User filter debug: ${JSON.stringify({
@@ -381,6 +446,13 @@ async function performActualSync(syncData) {
         endDateParsed: endDate ? parseDDMMYYYYDate(endDate) : null
       });
 
+      // Validate that date filter is properly configured
+      if (!startDate && !endDate) {
+        syncStateManager.addOutput(`  - ERROR: Date filter enabled but no start or end date provided!\n`);
+        syncStateManager.errorSync('Date filter is enabled but no valid dates provided');
+        return;
+      }
+
       const dateColumn = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.DATE, sheet.headerValues) : null;
 
       // Debug: Log column resolution details
@@ -393,7 +465,28 @@ async function performActualSync(syncData) {
 
       if (dateColumn) {
         const originalCount = rows.length;
-        const originalRows = [...rows]; // Store original rows for fallback
+        
+        // Parse filter dates once
+        const parsedStartDate = startDate ? parseDDMMYYYYDate(startDate) : null;
+        const parsedEndDate = endDate ? parseDDMMYYYYDate(endDate) : null;
+        
+        // Validate parsed dates
+        if (startDate && !parsedStartDate) {
+          syncStateManager.addOutput(`  - ERROR: Invalid start date format: ${startDate}. Expected DD/MM/YYYY or DD-MM-YYYY format.\n`);
+          syncStateManager.errorSync('Invalid start date format');
+          return;
+        }
+        
+        if (endDate && !parsedEndDate) {
+          syncStateManager.addOutput(`  - ERROR: Invalid end date format: ${endDate}. Expected DD/MM/YYYY or DD-MM-YYYY format.\n`);
+          syncStateManager.errorSync('Invalid end date format');
+          return;
+        }
+        
+        // Set end date to end of day for inclusive filtering
+        if (parsedEndDate) {
+          parsedEndDate.setHours(23, 59, 59, 999);
+        }
         
         // Debug: Log all date values from the sheet before filtering
         console.log('Date values from sheet before filtering:', {
@@ -408,7 +501,10 @@ async function performActualSync(syncData) {
         
         rows = rows.filter(row => {
           const dateValue = row.get(dateColumn);
-          if (!dateValue) return false;
+          if (!dateValue) {
+            syncStateManager.addOutput(`  - Filtering out row with empty date value\n`);
+            return false;
+          }
 
           const rowDate = parseDDMMYYYYDate(dateValue);
           if (!rowDate) {
@@ -418,20 +514,20 @@ async function performActualSync(syncData) {
               // Try alternative parsing
               alternativeParse: new Date(dateValue)
             });
+            syncStateManager.addOutput(`  - Filtering out row with unparseable date: "${dateValue}"\n`);
             return false;
           }
 
           let inRange = true;
-          if (startDate) {
-            const start = parseDDMMYYYYDate(startDate) || new Date(startDate);
-            if (!start) return false;
-            inRange = inRange && rowDate >= start;
+          
+          // Check start date
+          if (parsedStartDate) {
+            inRange = inRange && rowDate >= parsedStartDate;
           }
-          if (endDate) {
-            const end = parseDDMMYYYYDate(endDate) || new Date(endDate);
-            if (!end) return false;
-            end.setHours(23, 59, 59, 999);
-            inRange = inRange && rowDate <= end;
+          
+          // Check end date
+          if (parsedEndDate) {
+            inRange = inRange && rowDate <= parsedEndDate;
           }
 
           // Debug: Log row date filtering
@@ -442,9 +538,18 @@ async function performActualSync(syncData) {
             inRange: inRange,
             startDate: startDate,
             endDate: endDate,
-            startDateParsed: startDate ? parseDDMMYYYYDate(startDate) : null,
-            endDateParsed: endDate ? parseDDMMYYYYDate(endDate) : null
+            parsedStartDate: parsedStartDate,
+            parsedEndDate: parsedEndDate,
+            comparison: {
+              rowDate: rowDate ? rowDate.toISOString().split('T')[0] : 'null',
+              startDate: parsedStartDate ? parsedStartDate.toISOString().split('T')[0] : 'null',
+              endDate: parsedEndDate ? parsedEndDate.toISOString().split('T')[0] : 'null'
+            }
           });
+
+          if (!inRange) {
+            syncStateManager.addOutput(`  - Filtering out row with date: "${dateValue}" (${rowDate.toISOString().split('T')[0]}) - outside range\n`);
+          }
 
           return inRange;
         });
@@ -453,14 +558,7 @@ async function performActualSync(syncData) {
         if (rows.length === 0 && originalCount > 0) {
           syncStateManager.addOutput(`  - WARNING: Date filter removed all rows! No issues will be created.\n`);
           syncStateManager.addOutput(`  - Filter range: ${startDate || 'no start'} to ${endDate || 'no end'}\n`);
-          syncStateManager.addOutput(`  - Consider adjusting your date filter or checking date formats in the sheet.\n`);
-          
-          // Option to disable date filtering and process all rows
-          if (syncData.ignoreDateFilterWhenNoMatches !== false) {
-            syncStateManager.addOutput(`  - Disabling date filter to process all rows...\n`);
-            rows = originalRows; // Restore original rows
-            syncStateManager.addOutput(`  - Processing all ${rows.length} rows without date filter\n`);
-          }
+          syncStateManager.addOutput(`  - No rows match the specified date range. Check your date filter settings.\n`);
         }
         
         syncStateManager.addOutput(`  - Date filter applied: ${originalCount} -> ${rows.length} rows (using column: ${dateColumn})\n`);
@@ -470,6 +568,14 @@ async function performActualSync(syncData) {
     }
     
     syncStateManager.addOutput(`  - Found ${rows.length} rows to process\n`);
+
+    // Final validation: If date filter was enabled and no rows match, stop processing
+    if (syncData.dateFilter && (syncData.dateFilter.startDate || syncData.dateFilter.endDate) && rows.length === 0) {
+      syncStateManager.addOutput(`  - Date filter is enabled but no rows match the specified date range.\n`);
+      syncStateManager.addOutput(`  - Sync completed with 0 issues created due to date filtering.\n`);
+      syncStateManager.completeSync();
+      return;
+    }
 
     // Check if sync was stopped
     if (!syncStateManager.getStatus().running) return;
