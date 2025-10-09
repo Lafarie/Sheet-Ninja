@@ -45,7 +45,7 @@ function resolveColumnFromMapping(mapping, headers) {
   return null;
 }
 
-// Helper: parse DD/MM/YYYY date format only
+// Helper: parse DD/MM/YYYY or DD-MM-YYYY date format
 function parseDDMMYYYYDate(value) {
   if (!value) return null;
   // If already a Date
@@ -54,8 +54,8 @@ function parseDDMMYYYYDate(value) {
   const s = String(value).trim();
   if (!s) return null;
 
-  // Only accept DD/MM/YYYY format
-  const dmY = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  // Accept both DD/MM/YYYY and DD-MM-YYYY formats
+  const dmY = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (dmY) {
     const day = parseInt(dmY[1], 10);
     const month = parseInt(dmY[2], 10);
@@ -373,16 +373,53 @@ async function performActualSync(syncData) {
       const endDate = syncData.dateFilter.endDate;
       syncStateManager.addOutput(`  - Applying date filter (${startDate || 'no start'} to ${endDate || 'no end'})\n`);
 
+      // Debug: Log date filter parsing
+      console.log('Date filter parsing:', {
+        startDate: startDate,
+        endDate: endDate,
+        startDateParsed: startDate ? parseDDMMYYYYDate(startDate) : null,
+        endDateParsed: endDate ? parseDDMMYYYYDate(endDate) : null
+      });
+
       const dateColumn = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.DATE, sheet.headerValues) : null;
+
+      // Debug: Log column resolution details
+      console.log('Date column resolution:', {
+        columnMappings: syncData.columnMappings,
+        dateMapping: syncData.columnMappings?.DATE,
+        sheetHeaders: sheet.headerValues,
+        resolvedDateColumn: dateColumn
+      });
 
       if (dateColumn) {
         const originalCount = rows.length;
+        const originalRows = [...rows]; // Store original rows for fallback
+        
+        // Debug: Log all date values from the sheet before filtering
+        console.log('Date values from sheet before filtering:', {
+          dateColumn: dateColumn,
+          totalRows: originalCount,
+          dateValues: rows.map((row, index) => ({
+            rowIndex: index + 2, // +2 because sheet rows are 1-based and we skip header
+            dateValue: row.get(dateColumn),
+            rawValue: row.get(dateColumn)
+          }))
+        });
+        
         rows = rows.filter(row => {
           const dateValue = row.get(dateColumn);
           if (!dateValue) return false;
 
           const rowDate = parseDDMMYYYYDate(dateValue);
-          if (!rowDate) return false;
+          if (!rowDate) {
+            console.log('Row date parsing failed:', {
+              dateValue: dateValue,
+              type: typeof dateValue,
+              // Try alternative parsing
+              alternativeParse: new Date(dateValue)
+            });
+            return false;
+          }
 
           let inRange = true;
           if (startDate) {
@@ -397,8 +434,35 @@ async function performActualSync(syncData) {
             inRange = inRange && rowDate <= end;
           }
 
+          // Debug: Log row date filtering
+          console.log('Row date filtering:', {
+            dateValue: dateValue,
+            rowDate: rowDate,
+            rowDateFormatted: rowDate ? rowDate.toISOString().split('T')[0] : null,
+            inRange: inRange,
+            startDate: startDate,
+            endDate: endDate,
+            startDateParsed: startDate ? parseDDMMYYYYDate(startDate) : null,
+            endDateParsed: endDate ? parseDDMMYYYYDate(endDate) : null
+          });
+
           return inRange;
         });
+        
+        // Check if date filtering removed all rows
+        if (rows.length === 0 && originalCount > 0) {
+          syncStateManager.addOutput(`  - WARNING: Date filter removed all rows! No issues will be created.\n`);
+          syncStateManager.addOutput(`  - Filter range: ${startDate || 'no start'} to ${endDate || 'no end'}\n`);
+          syncStateManager.addOutput(`  - Consider adjusting your date filter or checking date formats in the sheet.\n`);
+          
+          // Option to disable date filtering and process all rows
+          if (syncData.ignoreDateFilterWhenNoMatches !== false) {
+            syncStateManager.addOutput(`  - Disabling date filter to process all rows...\n`);
+            rows = originalRows; // Restore original rows
+            syncStateManager.addOutput(`  - Processing all ${rows.length} rows without date filter\n`);
+          }
+        }
+        
         syncStateManager.addOutput(`  - Date filter applied: ${originalCount} -> ${rows.length} rows (using column: ${dateColumn})\n`);
       } else {
         syncStateManager.addOutput(`  - Warning: Date filter enabled but no DATE column mapping found. Processing all rows.\n`);
@@ -793,18 +857,35 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   if (taskData.timeSpent) {
     description += `\n/spend ${taskData.timeSpent}`;
   }
+
+
+  console.log("taskdata:", taskData);
   
   // Add due date slash command for GitLab due date field
+  console.log('=== DUE DATE PROCESSING DEBUG ===');
+  console.log('taskData.dueDate:', taskData.dueDate);
+  console.log('taskData.dueDate type:', typeof taskData.dueDate);
+  console.log('taskData.dueDate truthy:', !!taskData.dueDate);
+  
   if (taskData.dueDate) {
+    console.log('Processing due date:', taskData.dueDate);
     const dueDate = parseDDMMYYYYDate(taskData.dueDate);
+    console.log('Parsed due date:', dueDate);
+    
     if (dueDate) {
       // Format as YYYY-MM-DD for GitLab slash command
       const formattedDate = dueDate.toISOString().split('T')[0];
+      console.log('Formatted date for /due command:', formattedDate);
+      
       description += `\n/due ${formattedDate}`;
+      console.log('Due date slash command added to description');
+      console.log('Current description length:', description.length);
+      
       console.log('Due date slash command added:', {
         originalDueDate: taskData.dueDate,
         parsedDate: dueDate,
-        formattedDate: formattedDate
+        formattedDate: formattedDate,
+        slashCommand: `/due ${formattedDate}`
       });
     } else {
       console.log('Due date parsing failed:', {
@@ -812,7 +893,10 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
         type: typeof taskData.dueDate
       });
     }
+  } else {
+    console.log('No due date found in taskData.dueDate');
   }
+  console.log('=== END DUE DATE PROCESSING DEBUG ===');
   
   // Auto-assign milestone based on task date and milestone date ranges
   let milestoneToUse = null;
@@ -854,9 +938,14 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
     }
   }
   
+  console.log('=== API FIELD PROCESSING DEBUG ===');
+  console.log('Processing due date for API field...');
+  
   if (taskData.dueDate) {
-    // Parse and format the due date for GitLab API
+    console.log('API field - taskData.dueDate:', taskData.dueDate);
     const dueDate = parseDDMMYYYYDate(taskData.dueDate);
+    console.log('API field - parsed due date:', dueDate);
+    
     if (dueDate) {
       issueData.due_date = dueDate.toISOString().split('T')[0]; // YYYY-MM-DD format
       console.log('Due date API field set:', {
@@ -870,7 +959,19 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
         type: typeof taskData.dueDate
       });
     }
+  } else {
+    console.log('No due date for API field processing');
   }
+  console.log('=== END API FIELD PROCESSING DEBUG ===');
+
+  console.log('=== FINAL DESCRIPTION DEBUG ===');
+  console.log('Final description that will be sent to GitLab:');
+  console.log('Description length:', description.length);
+  console.log('Description content:');
+  console.log('--- START DESCRIPTION ---');
+  console.log(description);
+  console.log('--- END DESCRIPTION ---');
+  console.log('=== END FINAL DESCRIPTION DEBUG ===');
 
   console.log('Issue data:', issueData);
   
