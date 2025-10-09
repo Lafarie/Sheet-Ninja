@@ -474,28 +474,6 @@ async function performActualSync(syncData) {
       if (dateColumn) {
         const originalCount = rows.length;
         
-        // Parse filter dates once
-        const parsedStartDate = startDate ? parseDDMMYYYYDate(startDate) : null;
-        const parsedEndDate = endDate ? parseDDMMYYYYDate(endDate) : null;
-        
-        // Validate parsed dates
-        if (startDate && !parsedStartDate) {
-          syncStateManager.addOutput(`  - ERROR: Invalid start date format: ${startDate}. Expected DD/MM/YYYY or DD-MM-YYYY format.\n`);
-          syncStateManager.errorSync('Invalid start date format');
-          return;
-        }
-        
-        if (endDate && !parsedEndDate) {
-          syncStateManager.addOutput(`  - ERROR: Invalid end date format: ${endDate}. Expected DD/MM/YYYY or DD-MM-YYYY format.\n`);
-          syncStateManager.errorSync('Invalid end date format');
-          return;
-        }
-        
-        // Set end date to end of day for inclusive filtering
-        if (parsedEndDate) {
-          parsedEndDate.setHours(23, 59, 59, 999);
-        }
-        
         // Debug: Log all date values from the sheet before filtering
         console.log('Date values from sheet before filtering:', {
           dateColumn: dateColumn,
@@ -514,49 +492,33 @@ async function performActualSync(syncData) {
             return false;
           }
 
-          const rowDate = parseDDMMYYYYDate(dateValue);
-          if (!rowDate) {
-            console.log('Row date parsing failed:', {
-              dateValue: dateValue,
-              type: typeof dateValue,
-              // Try alternative parsing
-              alternativeParse: new Date(dateValue)
-            });
-            syncStateManager.addOutput(`  - Filtering out row with unparseable date: "${dateValue}"\n`);
-            return false;
-          }
-
           let inRange = true;
           
-          // Check start date
-          if (parsedStartDate) {
-            inRange = inRange && rowDate >= parsedStartDate;
+          // Use raw string comparison for start date
+          if (startDate) {
+            inRange = inRange && dateValue >= startDate;
           }
           
-          // Check end date
-          if (parsedEndDate) {
-            inRange = inRange && rowDate <= parsedEndDate;
+          // Use raw string comparison for end date
+          if (endDate) {
+            inRange = inRange && dateValue <= endDate;
           }
 
           // Debug: Log row date filtering
-          console.log('Row date filtering:', {
+          console.log('Row date filtering (raw string comparison):', {
             dateValue: dateValue,
-            rowDate: rowDate,
-            rowDateFormatted: rowDate ? rowDate.toISOString().split('T')[0] : null,
             inRange: inRange,
             startDate: startDate,
             endDate: endDate,
-            parsedStartDate: parsedStartDate,
-            parsedEndDate: parsedEndDate,
             comparison: {
-              rowDate: rowDate ? rowDate.toISOString().split('T')[0] : 'null',
-              startDate: parsedStartDate ? parsedStartDate.toISOString().split('T')[0] : 'null',
-              endDate: parsedEndDate ? parsedEndDate.toISOString().split('T')[0] : 'null'
+              dateValue: dateValue,
+              startDate: startDate,
+              endDate: endDate
             }
           });
 
           if (!inRange) {
-            syncStateManager.addOutput(`  - Filtering out row with date: "${dateValue}" (${rowDate.toISOString().split('T')[0]}) - outside range\n`);
+            syncStateManager.addOutput(`  - Filtering out row with date: "${dateValue}" - outside range\n`);
           }
 
           return inRange;
@@ -564,9 +526,11 @@ async function performActualSync(syncData) {
         
         // Check if date filtering removed all rows
         if (rows.length === 0 && originalCount > 0) {
-          syncStateManager.addOutput(`  - WARNING: Date filter removed all rows! No issues will be created.\n`);
+          syncStateManager.addOutput(`  - No dates found in the specified range.\n`);
           syncStateManager.addOutput(`  - Filter range: ${startDate || 'no start'} to ${endDate || 'no end'}\n`);
-          syncStateManager.addOutput(`  - No rows match the specified date range. Check your date filter settings.\n`);
+          syncStateManager.addOutput(`  - Sync completed with 0 issues created due to date filtering.\n`);
+          syncStateManager.completeSync();
+          return;
         }
         
         syncStateManager.addOutput(`  - Date filter applied: ${originalCount} -> ${rows.length} rows (using column: ${dateColumn})\n`);
