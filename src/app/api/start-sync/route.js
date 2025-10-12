@@ -297,6 +297,20 @@ async function performActualSync(syncData) {
       if (syncData && syncData.columnMappings) {
         // store on globalThis so helper functions inside this module can read it
         globalThis._syncColumnMappings = syncData.columnMappings;
+        
+        // Also store GitLab user information if available
+        if (syncData.gitlabUser) {
+          globalThis._syncColumnMappings.GITLAB_USER = syncData.gitlabUser;
+        }
+        if (syncData.gitlabUserName) {
+          globalThis._syncColumnMappings.GITLAB_USER_NAME = syncData.gitlabUserName;
+        }
+        if (syncData.gitlabUserEmail) {
+          globalThis._syncColumnMappings.GITLAB_USER_EMAIL = syncData.gitlabUserEmail;
+        }
+        if (syncData.useGitlabUserAsAssignee !== undefined) {
+          globalThis._syncColumnMappings.USE_GITLAB_USER_AS_ASSIGNEE = syncData.useGitlabUserAsAssignee.toString();
+        }
       } else {
         globalThis._syncColumnMappings = {};
       }
@@ -407,8 +421,8 @@ async function performActualSync(syncData) {
 
     console.log('Sync data:', syncData);
 
-    // Apply user filtering if enabled
-    if (syncData.userFilter && syncData.userFilter !== 'all') {
+    // Apply user filtering if enabled (but skip if using GitLab user as assignee for all issues)
+    if (syncData.userFilter && syncData.userFilter !== 'all' && !syncData.useGitlabUserAsAssignee) {
       syncStateManager.addOutput(`  - Applying user filter for: ${syncData.userFilter}\n`);
       
       const userColumn = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.USER, sheet.headerValues) : null;
@@ -436,6 +450,9 @@ async function performActualSync(syncData) {
       } else {
         syncStateManager.addOutput(`  - Warning: User filter enabled but no USER column mapping found. Processing all rows.\n`);
       }
+    } else if (syncData.useGitlabUserAsAssignee) {
+      syncStateManager.addOutput(`  - Using GitLab user as assignee for all issues: ${syncData.gitlabUser} (${syncData.gitlabUserName})\n`);
+      syncStateManager.addOutput(`  - User filtering disabled - processing all rows and assigning to GitLab user\n`);
     } else {
       syncStateManager.addOutput(`  - No user filter applied (userFilter: ${syncData.userFilter})\n`);
     }
@@ -905,17 +922,33 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   });
 
   // Add GitLab slash commands for better integration
-  // Try to get assignee from task data, project config, or fallback to selected user filter
+  // Check if we should use GitLab user as assignee for all issues
   const globalColumnMappings = globalThis._syncColumnMappings || {};
   const selectedUserFilter = globalColumnMappings.SELECTED_USER;
+  const useGitlabUserAsAssignee = globalColumnMappings.USE_GITLAB_USER_AS_ASSIGNEE === 'true';
+  const gitlabUser = globalColumnMappings.GITLAB_USER;
   
-  const assigneeToUse = taskData.assignee || projectConfig.assignee || selectedUserFilter;
+  let assigneeToUse;
+  let normalizedAssignee;
   
-  // Normalize assignee name by removing spaces and converting to lowercase
-  const normalizedAssignee = assigneeToUse ? 
-    assigneeToUse.toString().trim().toLowerCase().replace(/\s+/g, '') : null;
+  if (useGitlabUserAsAssignee && gitlabUser) {
+    // Use GitLab user as assignee for all issues
+    assigneeToUse = gitlabUser;
+    normalizedAssignee = gitlabUser.toString().trim().toLowerCase().replace(/\s+/g, '');
+    console.log('Using GitLab user as assignee for all issues:', {
+      gitlabUser: gitlabUser,
+      normalizedAssignee: normalizedAssignee
+    });
+  } else {
+    // Use normal assignee logic (task data, project config, or selected user filter)
+    assigneeToUse = taskData.assignee || projectConfig.assignee || selectedUserFilter;
+    normalizedAssignee = assigneeToUse ? 
+      assigneeToUse.toString().trim().toLowerCase().replace(/\s+/g, '') : null;
+  }
   
   console.log('Assignee handling:', {
+    useGitlabUserAsAssignee: useGitlabUserAsAssignee,
+    gitlabUser: gitlabUser,
     taskDataAssignee: taskData.assignee,
     projectConfigAssignee: projectConfig.assignee,
     selectedUserFilter: selectedUserFilter,

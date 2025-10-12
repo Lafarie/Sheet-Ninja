@@ -171,6 +171,10 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         serviceAccount: sheets.serviceAccount,
         serviceAccountEmail: sheets.serviceAccountEmail,
         userFilter: columnMappings.SELECTED_USER || null, // Optional user filter
+        gitlabUser: columnMappings.GITLAB_USER || null, // GitLab user information
+        gitlabUserName: columnMappings.GITLAB_USER_NAME || null,
+        gitlabUserEmail: columnMappings.GITLAB_USER_EMAIL || null,
+        useGitlabUserAsAssignee: columnMappings.USE_GITLAB_USER_AS_ASSIGNEE === 'true', // Flag to use GitLab user as assignee
         dateFilter: syncConfig.enableDateFilter ? {
           startDate: syncConfig.startDate ? formatDateToDDMMYYYY(syncConfig.startDate) : null,
           endDate: syncConfig.endDate ? formatDateToDDMMYYYY(syncConfig.endDate) : null
@@ -184,6 +188,9 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
       console.log('Sync data being sent:', {
         userFilter: syncData.userFilter,
         hasUserFilter: !!syncData.userFilter,
+        gitlabUser: syncData.gitlabUser,
+        gitlabUserName: syncData.gitlabUserName,
+        useGitlabUserAsAssignee: syncData.useGitlabUserAsAssignee,
         columnMappings: columnMappings,
         hasUserMapping: !!columnMappings.USER,
         userMappingOptional: true,
@@ -610,7 +617,25 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
           )}
 
           {/* User Filter Status */}
-          {columnMappings.SELECTED_USER ? (
+          {columnMappings.USE_GITLAB_USER_AS_ASSIGNEE === 'true' ? (
+            <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-medium text-purple-900 dark:text-purple-100">GitLab User Assignment</span>
+                </div>
+                <Badge variant="default" className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200">
+                  Assigning to: {columnMappings.GITLAB_USER}
+                </Badge>
+              </div>
+              <Alert variant="default" className="border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20">
+                <CheckCircle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <AlertDescription className="text-purple-800 dark:text-purple-200">
+                  <strong>GitLab User Mode:</strong> All issues will be assigned to <strong>{columnMappings.GITLAB_USER}</strong> ({columnMappings.GITLAB_USER_NAME})
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : columnMappings.SELECTED_USER ? (
             <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">

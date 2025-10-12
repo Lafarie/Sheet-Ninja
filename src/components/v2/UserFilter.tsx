@@ -16,12 +16,13 @@ interface UserFilterProps {
 }
 
 export function UserFilter({ onComplete }: UserFilterProps) {
-  const { sheets, columnMappings, projectMappings, updateColumnMapping } = useSetupStore();
+  const { sheets, gitlab, columnMappings, projectMappings, updateColumnMapping } = useSetupStore();
   const { addNotification } = useUIStore();
   const [availableUsers, setAvailableUsers] = useState<string[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [filterMode, setFilterMode] = useState<'sheet' | 'assignee'>('sheet');
+  const [filterMode, setFilterMode] = useState<'sheet' | 'assignee' | 'gitlab'>('sheet');
+  const [gitlabUser, setGitlabUser] = useState<any>(null);
 
   // Extract unique users from the USER column if it exists
   const extractUsers = async () => {
@@ -94,6 +95,61 @@ export function UserFilter({ onComplete }: UserFilterProps) {
     });
   };
 
+  // Get current GitLab user information
+  const getGitLabUser = async () => {
+    if (!gitlab.url || !gitlab.token) {
+      addNotification({
+        type: 'error',
+        title: 'GitLab Configuration Required',
+        message: 'Please configure GitLab connection first',
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/gitlab-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gitlabUrl: gitlab.url,
+          gitlabToken: gitlab.token,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGitlabUser(data.user);
+        setAvailableUsers([data.user.username]);
+        setFilterMode('gitlab');
+        setSelectedUser(data.user.username); // Automatically select the GitLab user
+        
+        // Store GitLab user information in the store for sync process
+        updateColumnMapping('GITLAB_USER', data.user.username);
+        updateColumnMapping('GITLAB_USER_NAME', data.user.name);
+        updateColumnMapping('GITLAB_USER_EMAIL', data.user.email || '');
+        updateColumnMapping('USE_GITLAB_USER_AS_ASSIGNEE', 'true');
+        
+        addNotification({
+          type: 'success',
+          title: 'GitLab User Loaded',
+          message: `Connected as: ${data.user.name} (@${data.user.username})`,
+        });
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('GitLab user fetch error:', error);
+      addNotification({
+        type: 'error',
+        title: 'GitLab User Fetch Failed',
+        message: `Failed to fetch GitLab user: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleUserSelect = (user: string) => {
     setSelectedUser(user);
     if (user === 'all') {
@@ -132,6 +188,14 @@ export function UserFilter({ onComplete }: UserFilterProps) {
     } else {
       updateColumnMapping('SELECTED_USER', selectedUser);
       
+      // If we're using GitLab user mode, store the GitLab user information
+      if (filterMode === 'gitlab' && gitlabUser) {
+        updateColumnMapping('GITLAB_USER', gitlabUser.username);
+        updateColumnMapping('GITLAB_USER_NAME', gitlabUser.name);
+        updateColumnMapping('GITLAB_USER_EMAIL', gitlabUser.email || '');
+        updateColumnMapping('USE_GITLAB_USER_AS_ASSIGNEE', 'true');
+      }
+      
       // If we're using assignee mode and no USER column is mapped, 
       // we need to set the ASSIGNEE column mapping to the USER column
       if (filterMode === 'assignee' && !columnMappings.USER) {
@@ -155,7 +219,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
       addNotification({
         type: 'success',
         title: 'Filter Applied',
-        message: `Synchronization will be filtered for ${filterMode === 'assignee' ? 'assignee' : 'user'}: ${selectedUser}`,
+        message: `Synchronization will be filtered for ${filterMode === 'assignee' ? 'assignee' : filterMode === 'gitlab' ? 'GitLab user' : 'user'}: ${selectedUser}`,
       });
     }
 
@@ -218,16 +282,29 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                     </Badge>
                   </div>
 
-                  <Button 
-                    onClick={getAssigneesFromProjects}
-                    disabled={loading}
-                    variant="default"
-                    size="sm"
-                    className="w-full"
-                  >
-                    <GitBranch className="h-4 w-4 mr-2" />
-                    Load Assignees from GitLab Projects
-                  </Button>
+                  <div className="space-y-2">
+                    <Button 
+                      onClick={getAssigneesFromProjects}
+                      disabled={loading}
+                      variant="default"
+                      size="sm"
+                      className="w-full"
+                    >
+                      <GitBranch className="h-4 w-4 mr-2" />
+                      Load Assignees from GitLab Projects
+                    </Button>
+                    
+                    <Button 
+                      onClick={getGitLabUser}
+                      disabled={loading}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Use My GitLab Account
+                    </Button>
+                  </div>
                 </div>
               )}
               
@@ -282,21 +359,36 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                 </Badge>
               </div>
 
-              <Button 
-                onClick={extractUsers}
-                disabled={loading}
-                variant="default"
-                size="sm"
-                className="w-full"
-              >
-                {loading ? 'Extracting Users...' : 'Extract Users from Sheet'}
-              </Button>
+              <div className="space-y-2">
+                <Button 
+                  onClick={extractUsers}
+                  disabled={loading}
+                  variant="default"
+                  size="sm"
+                  className="w-full"
+                >
+                  {loading ? 'Extracting Users...' : 'Extract Users from Sheet'}
+                </Button>
+                
+                {gitlab.url && gitlab.token && (
+                  <Button 
+                    onClick={getGitLabUser}
+                    disabled={loading}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Use My GitLab Account
+                  </Button>
+                )}
+              </div>
 
               {availableUsers.length > 0 && (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">
-                      Select {filterMode === 'assignee' ? 'Assignee' : 'User'} to Filter By
+                      Select {filterMode === 'assignee' ? 'Assignee' : filterMode === 'gitlab' ? 'GitLab User' : 'User'} to Filter By
                     </Label>
                     <Select value={selectedUser} onValueChange={handleUserSelect}>
                       <SelectTrigger className="w-full">
@@ -335,7 +427,7 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                       className="flex-1"
                     >
                       <Filter className="h-4 w-4 mr-2" />
-                      Apply {filterMode === 'assignee' ? 'Assignee' : 'User'} Filter
+                      Apply {filterMode === 'assignee' ? 'Assignee' : filterMode === 'gitlab' ? 'GitLab User' : 'User'} Filter
                     </Button>
                     <Button 
                       onClick={handleClearFilter}
@@ -372,7 +464,27 @@ export function UserFilter({ onComplete }: UserFilterProps) {
                 <Alert variant="default" className="border-green-200 bg-green-50">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    <strong>Filter Active:</strong> Synchronization will only include rows for {filterMode === 'assignee' ? 'assignee' : 'user'}: <strong>{selectedUser}</strong>
+                    <strong>Filter Active:</strong> Synchronization will only include rows for {filterMode === 'assignee' ? 'assignee' : filterMode === 'gitlab' ? 'GitLab user' : 'user'}: <strong>{selectedUser}</strong>
+                    {filterMode === 'gitlab' && gitlabUser && (
+                      <div className="mt-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          {gitlabUser.avatar_url && (
+                            <img 
+                              src={gitlabUser.avatar_url} 
+                              alt={gitlabUser.name}
+                              className="w-6 h-6 rounded-full"
+                            />
+                          )}
+                          <span className="font-medium">{gitlabUser.name}</span>
+                          <span className="text-gray-600">(@{gitlabUser.username})</span>
+                        </div>
+                        {gitlabUser.email && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            {gitlabUser.email}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
