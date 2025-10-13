@@ -52,12 +52,43 @@ export async function GET(request) {
       },
     });
 
+    // Get user-specific animation settings statistics
+    const totalUserSettings = await prisma.userAnimationSettings.count();
+    const usersWithCustomSettings = await prisma.userAnimationSettings.count({
+      where: {
+        OR: [
+          { isEnabled: { not: settings.isEnabled } },
+          { itemCount: { not: settings.itemCount } },
+          { duration: { not: settings.duration } },
+          { maxViewsPerUser: { not: settings.maxViewsPerUser } },
+        ],
+      },
+    });
+
+    const topUserSettings = await prisma.userAnimationSettings.findMany({
+      take: 10,
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
     return NextResponse.json({
       settings,
       stats: {
         totalViews: totalViews._sum.viewCount || 0,
         uniqueViewers,
         recentViews,
+        totalUserSettings,
+        usersWithCustomSettings,
+        topUserSettings,
       },
     });
   } catch (error) {

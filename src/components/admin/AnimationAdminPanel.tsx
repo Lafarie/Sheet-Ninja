@@ -35,10 +35,25 @@ interface AnimationSettings {
 interface AnimationStats {
   totalViews: number;
   uniqueViewers: number;
+  totalUserSettings: number;
+  usersWithCustomSettings: number;
   recentViews: Array<{
     id: string;
     viewCount: number;
     lastViewAt: string;
+    user: {
+      name: string;
+      email: string;
+    };
+  }>;
+  topUserSettings: Array<{
+    id: string;
+    isEnabled: boolean;
+    items: string[];
+    itemCount: number;
+    duration: number;
+    maxViewsPerUser: number;
+    updatedAt: string;
     user: {
       name: string;
       email: string;
@@ -212,16 +227,17 @@ export function AnimationAdminPanel() {
             Animation Administration
           </CardTitle>
           <CardDescription>
-            Manage falling animations shown to users when they login or visit the page
+            Manage global default animation settings. Users can customize their own animations at /v2/settings/animation
           </CardDescription>
         </CardHeader>
       </Card>
 
       <Tabs defaultValue="settings" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger className="" value="settings">Settings</TabsTrigger>
-          <TabsTrigger className="" value="items">Animation Items</TabsTrigger>
-          <TabsTrigger className="" value="stats">Statistics</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger className="" value="settings">Global Defaults</TabsTrigger>
+          <TabsTrigger className="" value="items">Default Items</TabsTrigger>
+          <TabsTrigger className="" value="stats">View Statistics</TabsTrigger>
+          <TabsTrigger className="" value="users">User Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="space-y-6">
@@ -229,8 +245,11 @@ export function AnimationAdminPanel() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
-                Animation Settings
+                Global Default Settings
               </CardTitle>
+              <CardDescription>
+                These settings serve as defaults for new users. Existing users with custom settings won't be affected.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-2">
@@ -300,7 +319,7 @@ export function AnimationAdminPanel() {
               <div className="flex gap-2">
                 <Button onClick={saveSettings} disabled={saving}>
                   <Save className="h-4 w-4 mr-2" />
-                  {saving ? 'Saving...' : 'Save Settings'}
+                  {saving ? 'Saving...' : 'Save Global Defaults'}
                 </Button>
                 
                 <Button 
@@ -326,10 +345,10 @@ export function AnimationAdminPanel() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4" />
-                Animation Items
+                Default Animation Items
               </CardTitle>
               <CardDescription>
-                Configure what items fall during the animation
+                Configure the default items that new users will start with. Users can customize their own items later.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -388,7 +407,7 @@ export function AnimationAdminPanel() {
         </TabsContent>
 
         <TabsContent value="stats" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center space-x-2">
@@ -416,15 +435,22 @@ export function AnimationAdminPanel() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center space-x-2">
+                  <Settings className="h-4 w-4 text-purple-500" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Users with Settings</p>
+                    <p className="text-2xl font-bold">{stats?.totalUserSettings || 0}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
                   <Heart className="h-4 w-4 text-red-500" />
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">Avg Views/User</p>
-                    <p className="text-2xl font-bold">
-                      {stats?.uniqueViewers 
-                        ? Math.round((stats.totalViews / stats.uniqueViewers) * 10) / 10
-                        : 0
-                      }
-                    </p>
+                    <p className="text-sm font-medium">Custom Settings</p>
+                    <p className="text-2xl font-bold">{stats?.usersWithCustomSettings || 0}</p>
                   </div>
                 </div>
               </CardContent>
@@ -480,6 +506,67 @@ export function AnimationAdminPanel() {
                 <Trash2 className="h-4 w-4" />
                 Reset All View Counts
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="users" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>User Animation Settings</CardTitle>
+              <CardDescription>
+                Overview of users who have customized their animation settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats?.topUserSettings && stats.topUserSettings.length > 0 ? (
+                <div className="space-y-4">
+                  {stats.topUserSettings.map((userSetting) => (
+                    <div
+                      key={userSetting.id}
+                      className="p-4 border rounded-lg space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{userSetting.user.name || userSetting.user.email}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Last updated: {new Date(userSetting.updatedAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <Badge variant={userSetting.isEnabled ? "default" : "secondary"}>
+                          {userSetting.isEnabled ? "Enabled" : "Disabled"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium">Items: </span>
+                          <span className="text-muted-foreground">{userSetting.itemCount}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Duration: </span>
+                          <span className="text-muted-foreground">{userSetting.duration}ms</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Max Views: </span>
+                          <span className="text-muted-foreground">{userSetting.maxViewsPerUser}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-1">
+                        {userSetting.items.slice(0, 10).map((item, index) => (
+                          <span key={index} className="text-lg">{item}</span>
+                        ))}
+                        {userSetting.items.length > 10 && (
+                          <span className="text-sm text-muted-foreground">+{userSetting.items.length - 10} more</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No users have customized their animation settings yet</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

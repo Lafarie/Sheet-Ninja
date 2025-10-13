@@ -47,6 +47,7 @@ model User {
   savedConfigs  SavedConfig[]
   sessions      Session[]
   animationViews AnimationView[]
+  animationSettings UserAnimationSettings?
 }
 
 model VerificationToken {
@@ -108,6 +109,22 @@ model AnimationSettings {
   updatedAt   DateTime @updatedAt
 
   @@map("animation_settings")
+}
+
+model UserAnimationSettings {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  isEnabled   Boolean  @default(true)
+  items       Json     @default("[\"\u2764\ufe0f\", \"\ud83d\udc96\", \"\ud83d\udc95\", \"\ud83d\udc97\", \"\ud83d\udc9d\"]") // Default hearts
+  itemCount   Int      @default(50)
+  duration    Int      @default(3000)
+  maxViewsPerUser Int  @default(5)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_animation_settings")
 }
 
 model AnimationView {

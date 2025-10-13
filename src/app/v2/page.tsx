@@ -24,7 +24,7 @@ const SyncRunner = dynamic(() => import("@/components/v2/SyncRunner").then((mod)
 import { NotificationToast } from "@/components/ui/notification";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { SaveConfigModal } from "@/components/v2/SaveConfigModal";
-import { GitBranch, Sheet, Columns, Settings, Users, Play, CheckCircle, ArrowLeft, Save, Loader2, RefreshCw, User, Plus, Star, Trash2, LogOut, Shield } from "lucide-react";
+import { GitBranch, Sheet, Columns, Settings, Users, Play, CheckCircle, ArrowLeft, Save, Loader2, RefreshCw, User, Plus, Star, Trash2, LogOut, Shield, Heart } from "lucide-react";
 
 const steps = [
   { id: "gitlab", title: "GitLab", icon: GitBranch, description: "Connect to GitLab" },
@@ -389,6 +389,12 @@ export default function SetupPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <a href="/v2/settings/animation">
+                      <Heart className="w-4 h-4 mr-2" />
+                      Animation Settings
+                    </a>
+                  </Button>
                   <Button variant="outline" onClick={() => signOut()}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
