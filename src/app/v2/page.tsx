@@ -389,23 +389,25 @@ export default function SetupPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <a href="/v2/settings/animation">
-                      <Heart className="w-4 h-4 mr-2" />
-                      Animation Settings
-                    </a>
-                  </Button>
                   <Button variant="outline" onClick={() => signOut()}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
                   </Button>
                   {session.user.isAdmin && (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href="/v2/admin/animation">
-                        <Shield className="w-4 h-4 mr-2" />
-                        Animation Admin
-                      </a>
-                    </Button>
+                    <>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href="/v2/settings/animation">
+                          <Heart className="w-4 h-4 mr-2" />
+                          Animation Settings
+                        </a>
+                      </Button>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href="/v2/admin/animation">
+                          <Shield className="w-4 h-4 mr-2" />
+                          Animation Admin
+                        </a>
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

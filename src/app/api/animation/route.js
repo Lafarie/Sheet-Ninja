@@ -24,33 +24,36 @@ export async function GET(request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get or create user-specific animation settings
-    let userSettings = user.animationSettings;
+    // Check if user has custom settings set by admin, otherwise use global settings
+    let effectiveSettings = user.animationSettings;
     
-    if (!userSettings) {
-      // Get global default settings
+    if (!effectiveSettings) {
+      // No custom settings, use global default settings
       const globalSettings = await prisma.animationSettings.findFirst();
       
-      // Create user settings with global defaults
-      userSettings = await prisma.userAnimationSettings.create({
-        data: {
-          userId: user.id,
-          isEnabled: globalSettings?.isEnabled ?? true,
-          items: globalSettings?.items ?? ["❤️", "💖", "💕", "💗", "💝"],
-          itemCount: globalSettings?.itemCount ?? 50,
-          duration: globalSettings?.duration ?? 3000,
-          maxViewsPerUser: globalSettings?.maxViewsPerUser ?? 5,
-        },
-      });
+      if (!globalSettings) {
+        // Create default global settings if none exist
+        effectiveSettings = await prisma.animationSettings.create({
+          data: {
+            isEnabled: true,
+            items: ["❤️", "💖", "💕", "💗", "💝"],
+            itemCount: 50,
+            duration: 3000,
+            maxViewsPerUser: 5,
+          },
+        });
+      } else {
+        effectiveSettings = globalSettings;
+      }
     }
 
-    // Check if user should see animation based on their personal settings
+    // Check if user should see animation based on effective settings
     const animationView = user.animationViews[0];
-    const shouldShowAnimation = userSettings.isEnabled && (!animationView || 
-      animationView.viewCount < userSettings.maxViewsPerUser);
+    const shouldShowAnimation = effectiveSettings.isEnabled && (!animationView || 
+      animationView.viewCount < effectiveSettings.maxViewsPerUser);
 
     return NextResponse.json({
-      settings: userSettings,
+      settings: effectiveSettings,
       shouldShowAnimation,
       userViewCount: animationView?.viewCount || 0,
     });
