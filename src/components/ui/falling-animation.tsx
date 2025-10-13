@@ -49,16 +49,23 @@ export function FallingAnimation({
   }, [items, itemCount]);
 
   useEffect(() => {
+    console.log('FallingAnimation effect - isVisible:', isVisible);
     if (isVisible) {
       generateFallingItems();
       const timer = setTimeout(() => {
+        console.log('FallingAnimation completing');
         onComplete?.();
       }, duration);
       return () => clearTimeout(timer);
     }
   }, [isVisible, generateFallingItems, duration, onComplete]);
 
-  if (!isVisible) return null;
+  if (!isVisible) {
+    console.log('FallingAnimation not visible');
+    return null;
+  }
+
+  console.log('FallingAnimation rendering with', fallingItems.length, 'items');
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
