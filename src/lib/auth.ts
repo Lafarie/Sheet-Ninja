@@ -55,6 +55,7 @@ export const authOptions = {
             id: user.id,
             email: user.email,
             name: user.name,
+            isAdmin: (user as any).isAdmin || false,
           };
           console.log('✅ Returning user:', returnUser);
           return returnUser;
@@ -78,6 +79,17 @@ export const authOptions = {
     session: async ({ session, token }: { session: any; token: any }) => {
       if (token) {
         session.user.id = token.id;
+        
+        // Fetch user's admin status
+        try {
+          const user = await prisma.user.findUnique({
+            where: { id: token.id },
+          }) as any;
+          session.user.isAdmin = user?.isAdmin || false;
+        } catch (error) {
+          console.error('Error fetching user admin status:', error);
+          session.user.isAdmin = false;
+        }
       }
       return session;
     },

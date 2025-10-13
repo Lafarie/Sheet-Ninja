@@ -26,20 +26,20 @@ export default function V2Layout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster 
-            position="top-right"
-            expand={true}
-            richColors={true}
-            closeButton={true}
-          />
-        </ThemeProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster 
+              position="top-right"
+              expand={true}
+              richColors={true}
+              closeButton={true}
+            />
+          </ThemeProvider>
       </body>
     </html>
   );

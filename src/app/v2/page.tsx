@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 // Import components with error handling
 import dynamic from "next/dynamic";
+import { FallingAnimation } from "@/components/ui/falling-animation";
+import { useAnimation } from "@/hooks/useAnimation";
 
 const GitLabConfig = dynamic(() => import("@/components/v2/GitLabConfig").then((mod) => ({ default: mod.GitLabConfig })), { ssr: false });
 const SheetsConfig = dynamic(() => import("@/components/v2/SheetsConfig").then((mod) => ({ default: mod.SheetsConfig })), { ssr: false });
@@ -22,7 +24,7 @@ const SyncRunner = dynamic(() => import("@/components/v2/SyncRunner").then((mod)
 import { NotificationToast } from "@/components/ui/notification";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { SaveConfigModal } from "@/components/v2/SaveConfigModal";
-import { GitBranch, Sheet, Columns, Settings, Users, Play, CheckCircle, ArrowLeft, Save, Loader2, RefreshCw, User, Plus, Star, Trash2, LogOut } from "lucide-react";
+import { GitBranch, Sheet, Columns, Settings, Users, Play, CheckCircle, ArrowLeft, Save, Loader2, RefreshCw, User, Plus, Star, Trash2, LogOut, Shield } from "lucide-react";
 
 const steps = [
   { id: "gitlab", title: "GitLab", icon: GitBranch, description: "Connect to GitLab" },
@@ -36,6 +38,7 @@ const steps = [
 export default function SetupPage() {
   const { data: session, status } = useSession();
   const { currentStep, activeTab, setCurrentStep, setActiveTab, gitlab, sheets, columnMappings, projectMappings, loading, resetSetup } = useSetupStore();
+  const { animationData, recordView } = useAnimation();
 
   const { addNotification, openModal } = useUIStore();
   const [showDashboard, setShowDashboard] = useState(true);
@@ -43,6 +46,15 @@ export default function SetupPage() {
   const [loadingConfigs, setLoadingConfigs] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  // Handle animation on session change
+  useEffect(() => {
+    if (session && animationData?.shouldShowAnimation && animationData.settings.isEnabled) {
+      setShowAnimation(true);
+      recordView();
+    }
+  }, [session, animationData, recordView]);
 
   const handleStepComplete = (step: number) => {
     if (step < 6) {
@@ -376,10 +388,20 @@ export default function SetupPage() {
                     <CardDescription className="text-gray-600 dark:text-gray-400">{session.user.email}</CardDescription>
                   </div>
                 </div>
-                <Button variant="outline" onClick={() => signOut()}>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => signOut()}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </Button>
+                  {session.user.isAdmin && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href="/v2/admin/animation">
+                        <Shield className="w-4 h-4 mr-2" />
+                        Animation Admin
+                      </a>
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
           </Card>
@@ -473,6 +495,17 @@ export default function SetupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 relative">
       <NotificationToast />
+
+      {/* Falling Animation */}
+      {animationData && (
+        <FallingAnimation
+          isVisible={showAnimation}
+          onComplete={() => setShowAnimation(false)}
+          items={animationData.settings.items}
+          itemCount={animationData.settings.itemCount}
+          duration={animationData.settings.duration}
+        />
+      )}
 
       {/* Save Configuration Modal */}
       <SaveConfigModal isOpen={showSaveModal} onClose={() => setShowSaveModal(false)} onSave={handleSaveConfigSubmit} loading={savingConfig} />
