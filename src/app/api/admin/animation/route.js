@@ -140,6 +140,9 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'maxViewsPerUser must be between 0 and 100' }, { status: 400 });
     }
 
+    // Get existing global settings to check if maxViewsPerUser changed
+    const existingSettings = await prisma.animationSettings.findFirst();
+
     // Update or create settings
     const settings = await prisma.animationSettings.upsert({
       where: {
@@ -161,6 +164,33 @@ export async function PUT(request) {
         maxViewsPerUser,
       },
     });
+
+    // Reset all animation view counts if maxViewsPerUser was changed for global settings
+    // This affects users who don't have custom settings and use global defaults
+    if (!existingSettings || existingSettings.maxViewsPerUser !== maxViewsPerUser) {
+      // Reset view counts for users who don't have custom animation settings
+      // These users rely on global settings
+      const usersWithoutCustomSettings = await prisma.user.findMany({
+        where: {
+          animationSettings: null,
+        },
+        select: { id: true },
+      });
+
+      if (usersWithoutCustomSettings.length > 0) {
+        await prisma.animationView.updateMany({
+          where: {
+            userId: {
+              in: usersWithoutCustomSettings.map(u => u.id),
+            },
+          },
+          data: {
+            viewCount: 0,
+            lastViewAt: new Date(),
+          },
+        });
+      }
+    }
 
     return NextResponse.json(settings);
   } catch (error) {

@@ -50,15 +50,7 @@ export default function SetupPage() {
 
   // Handle animation on session change
   useEffect(() => {
-    console.log('Animation check:', {
-      hasSession: !!session,
-      animationData,
-      shouldShowAnimation: animationData?.shouldShowAnimation,
-      isEnabled: animationData?.settings?.isEnabled
-    });
-    
     if (session && animationData?.shouldShowAnimation && animationData.settings.isEnabled) {
-      console.log('Triggering animation');
       setShowAnimation(true);
       recordView();
     }
@@ -516,24 +508,11 @@ export default function SetupPage() {
       {animationData && (
         <FallingAnimation
           isVisible={showAnimation}
-          onComplete={() => {
-            console.log('Animation completed');
-            setShowAnimation(false);
-          }}
+          onComplete={() => setShowAnimation(false)}
           items={animationData.settings.items}
           itemCount={animationData.settings.itemCount}
           duration={animationData.settings.duration}
         />
-      )}
-      
-      {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-4 right-4 bg-black text-white p-2 text-xs z-50">
-          <div>Animation Data: {animationData ? 'Yes' : 'No'}</div>
-          <div>Show Animation: {showAnimation ? 'Yes' : 'No'}</div>
-          <div>Should Show: {animationData?.shouldShowAnimation ? 'Yes' : 'No'}</div>
-          <div>Enabled: {animationData?.settings?.isEnabled ? 'Yes' : 'No'}</div>
-        </div>
       )}
 
       {/* Save Configuration Modal */}

@@ -32,11 +32,9 @@ export function useAnimation() {
       }
       
       const data = await response.json();
-      console.log('Animation data fetched:', data);
       setAnimationData(data);
       setError(null);
     } catch (err) {
-      console.error('Animation fetch error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       setAnimationData(null);
     } finally {

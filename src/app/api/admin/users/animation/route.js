@@ -109,6 +109,11 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'Target user not found' }, { status: 404 });
     }
 
+    // Get existing settings to check if maxViewsPerUser changed
+    const existingSettings = await prisma.userAnimationSettings.findUnique({
+      where: { userId },
+    });
+
     // Update or create user-specific animation settings
     const userSettings = await prisma.userAnimationSettings.upsert({
       where: { userId },
@@ -128,6 +133,22 @@ export async function PUT(request) {
         maxViewsPerUser,
       },
     });
+
+    // Reset animation view count if maxViewsPerUser was changed
+    // This allows users to see animations again up to the new limit
+    if (!existingSettings || existingSettings.maxViewsPerUser !== maxViewsPerUser) {
+      await prisma.animationView.upsert({
+        where: { userId },
+        update: {
+          viewCount: 0,
+          lastViewAt: new Date(),
+        },
+        create: {
+          userId,
+          viewCount: 0,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
