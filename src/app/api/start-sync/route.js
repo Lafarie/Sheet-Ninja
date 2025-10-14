@@ -45,8 +45,11 @@ function resolveColumnFromMapping(mapping, headers) {
   return null;
 }
 
-// Helper: parse DD/MM/YYYY, DD-MM-YYYY, or YYYY-MM-DD date format
-function parseDDMMYYYYDate(value) {
+// Helper: parse dates with automatic format detection
+// - If date has / (slash): treat as MM/DD/YYYY format
+// - If date has - (dash): treat as DD/MM/YYYY format
+function parseDateWithFormatDetection(value) {
+  console.log('parseDateWithFormatDetection input:', { value });
   if (!value) return null;
   // If already a Date
   if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
@@ -54,121 +57,49 @@ function parseDDMMYYYYDate(value) {
   const s = String(value).trim();
   if (!s) return null;
 
-  console.log('parseDDMMYYYYDate input:', { value, s });
+  console.log('parseDateWithFormatDetection input:', { value, s });
 
-  // Try YYYY-MM-DD format first (ISO format)
-  const ymd = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  console.log('YYYY-MM-DD match:', ymd);
-  if (ymd) {
-    const year = parseInt(ymd[1], 10);
-    const month = parseInt(ymd[2], 10);
-    const day = parseInt(ymd[3], 10);
+  // Check for MM/DD/YYYY format (slash separator)
+  const mmddyyyy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mmddyyyy) {
+    const month = parseInt(mmddyyyy[1], 10);
+    const day = parseInt(mmddyyyy[2], 10);
+    const year = parseInt(mmddyyyy[3], 10);
     
-    console.log('YYYY-MM-DD parsed:', { year, month, day });
+    console.log('MM/DD/YYYY format detected:', { month, day, year });
     
     // Validate date components
     if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
-      console.log('YYYY-MM-DD validation failed');
+      console.log('MM/DD/YYYY validation failed - invalid date components');
       return null;
     }
     
     const maybe = new Date(year, month - 1, day);
-    console.log('YYYY-MM-DD result:', maybe);
+    console.log('MM/DD/YYYY result:', maybe);
     if (!isNaN(maybe.getTime())) return maybe;
   }
 
-  // Accept both DD/MM/YYYY and DD-MM-YYYY formats
-  const dmY = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  console.log('Double separator match:', dmY);
-  if (dmY) {
-    const first = parseInt(dmY[1], 10);
-    const second = parseInt(dmY[2], 10);
-    const year = parseInt(dmY[3], 10);
+  // Check for DD/MM/YYYY format (dash separator)
+  const ddmmyyyy = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (ddmmyyyy) {
+    const day = parseInt(ddmmyyyy[1], 10);
+    const month = parseInt(ddmmyyyy[2], 10);
+    const year = parseInt(ddmmyyyy[3], 10);
     
-    console.log('Double separator parsed:', { first, second, year });
+    console.log('DD/MM/YYYY format detected:', { day, month, year });
     
-    // Validate year
-    if (year < 1900 || year > 2100) {
-      console.log('Double separator validation failed - invalid year');
+    // Validate date components
+    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      console.log('DD/MM/YYYY validation failed - invalid date components');
       return null;
     }
     
-    // Try MM-DD-YYYY format first (American format) - prioritize this for ambiguous dates
-    if (first >= 1 && first <= 12 && second >= 1 && second <= 31) {
-      const month = first;
-      const day = second;
-      console.log('Interpreting as MM-DD-YYYY:', { month, day, year });
-      
-      const maybe = new Date(year, month - 1, day);
-      console.log('MM-DD-YYYY result:', maybe);
-      console.log('MM-DD-YYYY ISO string:', maybe.toISOString());
-      console.log('MM-DD-YYYY date only:', maybe.toISOString().split('T')[0]);
-      if (!isNaN(maybe.getTime())) return maybe;
-    }
-    
-    // Try DD-MM-YYYY format (European format) as fallback
-    if (first >= 1 && first <= 31 && second >= 1 && second <= 12) {
-      const day = first;
-      const month = second;
-      console.log('Interpreting as DD-MM-YYYY:', { day, month, year });
-      
-      const maybe = new Date(year, month - 1, day);
-      console.log('DD-MM-YYYY result:', maybe);
-      console.log('DD-MM-YYYY ISO string:', maybe.toISOString());
-      console.log('DD-MM-YYYY date only:', maybe.toISOString().split('T')[0]);
-      if (!isNaN(maybe.getTime())) return maybe;
-    }
-    
-    console.log('Double separator validation failed - no valid interpretation');
-    return null;
+    const maybe = new Date(year, month - 1, day);
+    console.log('DD/MM/YYYY result:', maybe);
+    if (!isNaN(maybe.getTime())) return maybe;
   }
 
-  // Also try DD-MM-YYYY format (single separator) - this is redundant now but kept for compatibility
-  const dmY_single = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  console.log('Single separator match:', dmY_single);
-  if (dmY_single) {
-    const first = parseInt(dmY_single[1], 10);
-    const second = parseInt(dmY_single[2], 10);
-    const year = parseInt(dmY_single[3], 10);
-    
-    console.log('Single separator parsed:', { first, second, year });
-    
-    // Validate year
-    if (year < 1900 || year > 2100) {
-      console.log('Single separator validation failed - invalid year');
-      return null;
-    }
-    
-    // Try MM-DD-YYYY format first (American format) - prioritize this for ambiguous dates
-    if (first >= 1 && first <= 12 && second >= 1 && second <= 31) {
-      const month = first;
-      const day = second;
-      console.log('Single separator - MM-DD-YYYY:', { month, day, year });
-      
-      const maybe = new Date(year, month - 1, day);
-      console.log('Single separator - MM-DD-YYYY result:', maybe);
-      console.log('Single separator - MM-DD-YYYY ISO string:', maybe.toISOString());
-      console.log('Single separator - MM-DD-YYYY date only:', maybe.toISOString().split('T')[0]);
-      if (!isNaN(maybe.getTime())) return maybe;
-    }
-    
-    // Try DD-MM-YYYY format (European format) as fallback
-    if (first >= 1 && first <= 31 && second >= 1 && second <= 12) {
-      const day = first;
-      const month = second;
-      console.log('Single separator - DD-MM-YYYY:', { day, month, year });
-      
-      const maybe = new Date(year, month - 1, day);
-      console.log('Single separator - DD-MM-YYYY result:', maybe);
-      console.log('Single separator - DD-MM-YYYY ISO string:', maybe.toISOString());
-      console.log('Single separator - DD-MM-YYYY date only:', maybe.toISOString().split('T')[0]);
-      if (!isNaN(maybe.getTime())) return maybe;
-    }
-    
-    console.log('Single separator validation failed - no valid interpretation');
-    return null;
-  }
-
+  console.log('Date format not supported - only MM/DD/YYYY (with /) or DD/MM/YYYY (with -) formats accepted');
   return null;
 }
 
@@ -407,7 +338,7 @@ async function performActualSync(syncData) {
     
     
 
-    // Note: Using the global parseDDMMYYYYDate function defined at the top of the file
+    // Note: Using the global parseDateWithFormatDetection function defined at the top of the file
 
     // Debug: Log user filter information
     syncStateManager.addOutput(`  - User filter debug: ${JSON.stringify({
@@ -467,8 +398,8 @@ async function performActualSync(syncData) {
       console.log('Date filter parsing:', {
         startDate: startDate,
         endDate: endDate,
-        startDateParsed: startDate ? parseDDMMYYYYDate(startDate) : null,
-        endDateParsed: endDate ? parseDDMMYYYYDate(endDate) : null
+        startDateParsed: startDate ? parseDateWithFormatDetection(startDate) : null,
+        endDateParsed: endDate ? parseDateWithFormatDetection(endDate) : null
       });
 
       // Validate that date filter is properly configured
@@ -509,29 +440,45 @@ async function performActualSync(syncData) {
             return false;
           }
 
-          let inRange = true;
-          
-          // Use raw string comparison for start date
-          if (startDate) {
-            inRange = inRange && dateValue >= startDate;
-          }
-          
-          // Use raw string comparison for end date
-          if (endDate) {
-            inRange = inRange && dateValue <= endDate;
-          }
+          // Parse dates for proper comparison (auto-detect format)
+          const rowDate = parseDateWithFormatDetection(dateValue);
+          const startDateParsed = startDate ? parseDateWithFormatDetection(startDate) : null;
+          const endDateParsed = endDate ? parseDateWithFormatDetection(endDate) : null;
 
           // Debug: Log row date filtering
-          console.log('Row date filtering (raw string comparison):', {
+          console.log('Row date filtering (parsed date comparison):', {
             dateValue: dateValue,
-            inRange: inRange,
+            rowDate: rowDate,
             startDate: startDate,
+            startDateParsed: startDateParsed,
             endDate: endDate,
-            comparison: {
-              dateValue: dateValue,
-              startDate: startDate,
-              endDate: endDate
-            }
+            endDateParsed: endDateParsed
+          });
+
+          // If row date is not in supported format, skip it but don't filter it out
+          if (!rowDate) {
+            syncStateManager.addOutput(`  - Skipping row with invalid date format: "${dateValue}" (must be MM/DD/YYYY with / or DD/MM/YYYY with -) - including in sync\n`);
+            return true; // Include the row even if date format is invalid
+          }
+
+          let inRange = true;
+          
+          // Use parsed date comparison for start date
+          if (startDateParsed) {
+            inRange = inRange && rowDate >= startDateParsed;
+          }
+          
+          // Use parsed date comparison for end date
+          if (endDateParsed) {
+            inRange = inRange && rowDate <= endDateParsed;
+          }
+
+          console.log('Date range check:', {
+            dateValue: dateValue,
+            rowDate: rowDate,
+            inRange: inRange,
+            startDateParsed: startDateParsed,
+            endDateParsed: endDateParsed
           });
 
           if (!inRange) {
@@ -997,7 +944,7 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   
   // Auto-assign milestone based on task date and milestone date ranges
   let milestoneToUse = null;
-  const taskDate = parseDDMMYYYYDate(taskData.date || taskData.startDate);
+  const taskDate = parseDateWithFormatDetection(taskData.date || taskData.startDate);
   if (taskDate && projectConfig.projectData?.milestones) {
     const matchingMilestone = findMilestoneByDateRange(taskDate, projectConfig.projectData.milestones);
     if (matchingMilestone) {
@@ -1029,7 +976,7 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   // Add date fields using GitLab API (slash commands don't work for dates)
   if (taskData.startDate) {
     // Parse and format the start date for GitLab API
-    const startDate = parseDDMMYYYYDate(taskData.startDate);
+    const startDate = parseDateWithFormatDetection(taskData.startDate);
     if (startDate) {
       issueData.created_at = startDate.toISOString();
     }
