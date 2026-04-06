@@ -83,8 +83,9 @@ jobs:
       - name: Deploy with Docker Compose
         run: |
           cd /actions-runner-scripts/_work/Sheet-Ninja/Sheet-Ninja/
-          # Start services one by one to better isolate issues
-          sudo /usr/local/bin/docker-compose up -d app
+          sudo docker network inspect scripts_web >/dev/null 2>&1 || sudo docker network create scripts_web
+          sudo /usr/local/bin/docker-compose down --remove-orphans || true
+          sudo /usr/local/bin/docker-compose up -d
 
       - name: Clean up
         run: |

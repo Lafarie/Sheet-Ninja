@@ -1,5 +1,6 @@
 services:
   # postgres:
+  #   container_name: scripts-postgres_container
   #   image: postgres:15
   #   ports:
   #     - "5434:5432"
@@ -8,7 +9,7 @@ services:
   #   volumes:
   #     - /hms/data:/var/lib/postgresql/data
   #   networks:
-  #     - web
+  #     - scripts_web
 
   app:
     container_name: scripts-app_container
@@ -46,4 +47,5 @@ volumes:
 
 networks:
   scripts_web:
+    name: scripts_web
     external: true
