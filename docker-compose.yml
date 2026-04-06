@@ -21,8 +21,8 @@ services:
     # avoid publishing app port directly unless you need it for debugging
     # ports:
     #   - "3000:3000"
-    depends_on:
-      - postgres
+    # depends_on:
+    #   - postgres
     env_file:
       - .env.production
     networks:
@@ -46,4 +46,4 @@ volumes:
 
 networks:
   web:
-    driver: bridge
+    external: true
