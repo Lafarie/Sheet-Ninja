@@ -26,7 +26,7 @@ services:
     env_file:
       - .env.production
     networks:
-      - web
+      - scripts_web
 
   nginx:
     image: nginx:stable-alpine
@@ -39,11 +39,11 @@ services:
       # Optionally mount the Next.js public folder if you want nginx to serve static assets directly
       # - ./public:/usr/share/nginx/html:ro
     networks:
-      - web
+      - scripts_web
 
 volumes:
   postgres_data:
 
 networks:
-  web:
+  scripts_web:
     external: true
