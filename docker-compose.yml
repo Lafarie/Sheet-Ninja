@@ -1,15 +1,15 @@
 services:
-  # postgres:
-  #   container_name: scripts-postgres_container
-  #   image: postgres:15
-  #   ports:
-  #     - "5434:5432"
-  #   env_file:
-  #     - .env.production
-  #   volumes:
-  #     - /hms/data:/var/lib/postgresql/data
-  #   networks:
-  #     - scripts_web
+  postgres:
+    container_name: scripts-postgres_container
+    image: postgres:15
+    ports:
+      - "5434:5432"
+    env_file:
+      - .env.production
+    volumes:
+      - /hms/data:/var/lib/postgresql/data
+    networks:
+      - scripts_web
 
   app:
     container_name: scripts-app_container
@@ -22,8 +22,8 @@ services:
     # avoid publishing app port directly unless you need it for debugging
     # ports:
     #   - "3000:3000"
-    # depends_on:
-    #   - postgres
+    depends_on:
+      - postgres
     env_file:
       - .env.production
     networks:
