@@ -84,7 +84,7 @@ jobs:
         run: |
           cd /actions-runner-scripts/_work/Sheet-Ninja/Sheet-Ninja/
           # Start services one by one to better isolate issues
-          sudo /usr/local/bin/docker-compose up -d
+          sudo /usr/local/bin/docker-compose up -d app
 
       - name: Clean up
         run: |
