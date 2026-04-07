@@ -516,72 +516,74 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
             </div>
           </div>
 
-          {/* Date Filter Options */}
-          <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="enableDateFilter"
-                checked={syncConfig.enableDateFilter}
-                onChange={(e) => updateSyncConfig({ enableDateFilter: e.target.checked })}
-                className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-              />
-              <label htmlFor="enableDateFilter" className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                Enable date filter
-              </label>
-            </div>
-            
-            {syncConfig.enableDateFilter && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="startDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</Label>
-                  <Input
-                    className="w-full"
-                    id="startDate"
-                    type="date"
-                    value={formatToDatePicker(syncConfig.startDate || '')}
-                    onChange={(e: any) => updateSyncConfig({ startDate: datePickerToFormat(e.target.value) })}
-                  />
-                  {syncConfig.startDate && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Sending as: {syncConfig.startDate}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="endDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">End Date</Label>
-                  <Input
-                    className="w-full"
-                    id="endDate"
-                    type="date"
-                    value={formatToDatePicker(syncConfig.endDate || '')}
-                    onChange={(e: any) => updateSyncConfig({ endDate: datePickerToFormat(e.target.value) })}
-                  />
-                  {syncConfig.endDate && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Sending as: {syncConfig.endDate}
-                    </p>
-                  )}
-                </div>
+          {/* Sync-only options (hidden in import mode) */}
+          {!syncConfig.importFromGitlab && (
+            <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="enableDateFilter"
+                  checked={syncConfig.enableDateFilter}
+                  onChange={(e) => updateSyncConfig({ enableDateFilter: e.target.checked })}
+                  className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                />
+                <label htmlFor="enableDateFilter" className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Enable date filter
+                </label>
               </div>
-            )}
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="checkStatusBeforeClose"
-                checked={syncConfig.checkStatusBeforeClose}
-                onChange={(e) => updateSyncConfig({ checkStatusBeforeClose: e.target.checked })}
-                className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-              />
-              <label htmlFor="checkStatusBeforeClose" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Close issues based on status column
-              </label>
+              {syncConfig.enableDateFilter && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="startDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</Label>
+                    <Input
+                      className="w-full"
+                      id="startDate"
+                      type="date"
+                      value={formatToDatePicker(syncConfig.startDate || '')}
+                      onChange={(e: any) => updateSyncConfig({ startDate: datePickerToFormat(e.target.value) })}
+                    />
+                    {syncConfig.startDate && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Sending as: {syncConfig.startDate}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="endDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">End Date</Label>
+                    <Input
+                      className="w-full"
+                      id="endDate"
+                      type="date"
+                      value={formatToDatePicker(syncConfig.endDate || '')}
+                      onChange={(e: any) => updateSyncConfig({ endDate: datePickerToFormat(e.target.value) })}
+                    />
+                    {syncConfig.endDate && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Sending as: {syncConfig.endDate}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="checkStatusBeforeClose"
+                  checked={syncConfig.checkStatusBeforeClose}
+                  onChange={(e) => updateSyncConfig({ checkStatusBeforeClose: e.target.checked })}
+                  className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                />
+                <label htmlFor="checkStatusBeforeClose" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Close issues based on status column
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 pl-6">
+                💡 <strong>Example:</strong> Close when status is &apos;Done&apos;, &apos;Complete&apos;, &apos;Finished&apos;, or &apos;Resolved&apos;
+              </p>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 pl-6">
-              💡 <strong>Example:</strong> Close when status is &apos;Done&apos;, &apos;Complete&apos;, &apos;Finished&apos;, or &apos;Resolved&apos;
-            </p>
-          </div>
+          )}
 
           {/* Sync Controls */}
           <div className="flex gap-2">

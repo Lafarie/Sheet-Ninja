@@ -22,7 +22,8 @@ const SyncRunner = dynamic(() => import("@/components/v2/SyncRunner").then((mod)
 import { NotificationToast } from "@/components/ui/notification";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { SaveConfigModal } from "@/components/v2/SaveConfigModal";
-import { GitBranch, Sheet, Columns, Settings, Users, Play, CheckCircle, ArrowLeft, Save, Loader2, RefreshCw, User, Plus, Star, Trash2, LogOut } from "lucide-react";
+import Link from "next/link";
+import { GitBranch, Sheet, Columns, Settings, Users, Play, CheckCircle, ArrowLeft, Save, Loader2, RefreshCw, User, Plus, Star, Trash2, LogOut, Download } from "lucide-react";
 
 const steps = [
   { id: "gitlab", title: "GitLab", icon: GitBranch, description: "Connect to GitLab" },
@@ -509,6 +510,12 @@ export default function SetupPage() {
                 <CardDescription className="text-blue-100 text-lg">Advanced GitLab and Google Sheets synchronization</CardDescription>
               </div>
               <div className="flex items-center gap-2">
+                <Link href="/v2/import">
+                  <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
+                    <Download className="w-4 h-4 mr-2" />
+                    Import
+                  </Button>
+                </Link>
                 <ThemeToggle />
                 <Button variant="ghost" size="sm" onClick={handleSaveConfig} className="text-white hover:bg-white/10">
                   <Save className="w-4 h-4 mr-2" />

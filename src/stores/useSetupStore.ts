@@ -48,6 +48,11 @@ export interface SyncConfig {
   checkStatusBeforeClose: boolean;
   enableDateFilter: boolean;
   dateFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY';
+  importFromGitlab: boolean;
+  importState: 'all' | 'opened' | 'closed';
+  importMilestone: string;
+  importLabels: string;
+  importAssignee: string;
 }
 
 export interface SetupState {
@@ -137,6 +142,11 @@ const defaultSyncConfig: SyncConfig = {
   checkStatusBeforeClose: false,
   enableDateFilter: false,
   dateFormat: 'MM/DD/YYYY',
+  importFromGitlab: false,
+  importState: 'all',
+  importMilestone: '',
+  importLabels: '',
+  importAssignee: '',
 };
 
 export const useSetupStore = create<SetupState>()(
@@ -294,6 +304,7 @@ export const useSetupStore = create<SetupState>()(
             columnMappings: savedConfig.columnMappings || {},
             projectMappings: safeProjectMappings,
             syncConfig: {
+              ...defaultSyncConfig,
               startDate: savedConfig.startDate,
               endDate: savedConfig.endDate,
               checkStatusBeforeClose: savedConfig.checkStatusBeforeClose || false,
