@@ -47,6 +47,7 @@ export interface SyncConfig {
   endDate?: string;
   checkStatusBeforeClose: boolean;
   enableDateFilter: boolean;
+  dateFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY';
 }
 
 export interface SetupState {
@@ -135,6 +136,7 @@ const defaultSheets: SheetsConfig = {
 const defaultSyncConfig: SyncConfig = {
   checkStatusBeforeClose: false,
   enableDateFilter: false,
+  dateFormat: 'MM/DD/YYYY',
 };
 
 export const useSetupStore = create<SetupState>()(
@@ -296,6 +298,7 @@ export const useSetupStore = create<SetupState>()(
               endDate: savedConfig.endDate,
               checkStatusBeforeClose: savedConfig.checkStatusBeforeClose || false,
               enableDateFilter: savedConfig.enableDateFilter || false,
+              dateFormat: savedConfig.dateFormat || 'MM/DD/YYYY',
             },
           });
         } catch (error) {

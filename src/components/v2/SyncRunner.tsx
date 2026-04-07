@@ -38,60 +38,35 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
   } = useSetupStore();
   const { addNotification } = useUIStore();
 
-  // Helper function to validate date formats with automatic detection
-  // - If date has / (slash): treat as MM/DD/YYYY format
-  // - If date has - (dash): treat as DD/MM/YYYY format
-  const validateDateWithFormatDetection = (dateString: string): boolean => {
-    if (!dateString) return false;
-    
-    const trimmed = dateString.trim();
-    if (!trimmed) return false;
-    
-    // Check for MM/DD/YYYY format (slash separator)
-    const mmddyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
-    const slashMatch = trimmed.match(mmddyyyy);
-    
-    if (slashMatch) {
-      const month = parseInt(slashMatch[1], 10);
-      const day = parseInt(slashMatch[2], 10);
-      const year = parseInt(slashMatch[3], 10);
-      
-      // Validate date components
-      if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
-        return false;
-      }
-      
-      // Validate the actual date
-      const date = new Date(year, month - 1, day);
-      return !isNaN(date.getTime()) && 
-             date.getMonth() === month - 1 && 
-             date.getDate() === day && 
-             date.getFullYear() === year;
+  // Convert YYYY-MM-DD (from date picker) to the selected format for display/sending
+  const datePickerToFormat = (isoDate: string): string => {
+    if (!isoDate) return '';
+    const [year, month, day] = isoDate.split('-');
+    if (!year || !month || !day) return '';
+    const format = syncConfig.dateFormat || 'MM/DD/YYYY';
+    if (format === 'DD/MM/YYYY') {
+      return `${day}/${month}/${year}`;
     }
-    
-    // Check for DD/MM/YYYY format (dash separator)
-    const ddmmyyyy = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
-    const dashMatch = trimmed.match(ddmmyyyy);
-    
-    if (dashMatch) {
-      const day = parseInt(dashMatch[1], 10);
-      const month = parseInt(dashMatch[2], 10);
-      const year = parseInt(dashMatch[3], 10);
-      
-      // Validate date components
-      if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
-        return false;
-      }
-      
-      // Validate the actual date
-      const date = new Date(year, month - 1, day);
-      return !isNaN(date.getTime()) && 
-             date.getMonth() === month - 1 && 
-             date.getDate() === day && 
-             date.getFullYear() === year;
+    return `${month}/${day}/${year}`;
+  };
+
+  // Convert the selected format back to YYYY-MM-DD (for date picker value)
+  const formatToDatePicker = (dateStr: string): string => {
+    if (!dateStr) return '';
+    const format = syncConfig.dateFormat || 'MM/DD/YYYY';
+    const match = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (!match) return '';
+    let month: string, day: string, year: string;
+    if (format === 'DD/MM/YYYY') {
+      day = match[1].padStart(2, '0');
+      month = match[2].padStart(2, '0');
+      year = match[3];
+    } else {
+      month = match[1].padStart(2, '0');
+      day = match[2].padStart(2, '0');
+      year = match[3];
     }
-    
-    return false;
+    return `${year}-${month}-${day}`;
   };
   
   const [syncRunning, setSyncRunning] = useState(false);
@@ -111,32 +86,16 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     if (!sheets.worksheetName) issues.push('Worksheet Name is required');
     if (projectMappings.length === 0) issues.push('At least one project mapping is required');
     
-    // Enhanced date filter validation - only MM/DD/YYYY format
+    // Date filter validation
     if (syncConfig.enableDateFilter) {
       if (!syncConfig.startDate && !syncConfig.endDate) {
         issues.push('Please set at least one date (start or end) for date filtering');
-      } else {
-        // Validate date formats - auto-detect format
-        if (syncConfig.startDate) {
-          if (!validateDateWithFormatDetection(syncConfig.startDate)) {
-            issues.push('Invalid start date format. Please use MM/DD/YYYY (with /) or DD/MM/YYYY (with -) format');
-          }
-        }
-        
-        if (syncConfig.endDate) {
-          if (!validateDateWithFormatDetection(syncConfig.endDate)) {
-            issues.push('Invalid end date format. Please use MM/DD/YYYY (with /) or DD/MM/YYYY (with -) format');
-          }
-        }
-        
-        // Check if both dates are provided and start is before end
-        if (syncConfig.startDate && syncConfig.endDate) {
-          const startDate = new Date(syncConfig.startDate);
-          const endDate = new Date(syncConfig.endDate);
-          
-          if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && startDate > endDate) {
-            issues.push('Start date must be before or equal to end date');
-          }
+      } else if (syncConfig.startDate && syncConfig.endDate) {
+        // Check start is before end using the picker values
+        const startPicker = formatToDatePicker(syncConfig.startDate);
+        const endPicker = formatToDatePicker(syncConfig.endDate);
+        if (startPicker && endPicker && startPicker > endPicker) {
+          issues.push('Start date must be before or equal to end date');
         }
       }
     }
@@ -179,6 +138,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         gitlabUserName: columnMappings.GITLAB_USER_NAME || null,
         gitlabUserEmail: columnMappings.GITLAB_USER_EMAIL || null,
         useGitlabUserAsAssignee: columnMappings.USE_GITLAB_USER_AS_ASSIGNEE === 'true', // Flag to use GitLab user as assignee
+        dateFormat: syncConfig.dateFormat || 'MM/DD/YYYY',
         dateFilter: syncConfig.enableDateFilter ? {
           startDate: syncConfig.startDate || null,
           endDate: syncConfig.endDate || null
@@ -669,6 +629,55 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
             </div>
           )}
 
+          {/* Date Format Selection */}
+          <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="space-y-2">
+              <Label htmlFor="dateFormat" className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Date Format in Sheet
+              </Label>
+              <Select
+                value={syncConfig.dateFormat || 'MM/DD/YYYY'}
+                onValueChange={(newFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY') => {
+                  // Re-convert existing filter dates to the new format
+                  const oldFormat = syncConfig.dateFormat || 'MM/DD/YYYY';
+                  if (oldFormat !== newFormat) {
+                    const updates: any = { dateFormat: newFormat };
+                    // Convert start date
+                    if (syncConfig.startDate) {
+                      const iso = formatToDatePicker(syncConfig.startDate);
+                      if (iso) {
+                        const [y, m, d] = iso.split('-');
+                        updates.startDate = newFormat === 'DD/MM/YYYY' ? `${d}/${m}/${y}` : `${m}/${d}/${y}`;
+                      }
+                    }
+                    // Convert end date
+                    if (syncConfig.endDate) {
+                      const iso = formatToDatePicker(syncConfig.endDate);
+                      if (iso) {
+                        const [y, m, d] = iso.split('-');
+                        updates.endDate = newFormat === 'DD/MM/YYYY' ? `${d}/${m}/${y}` : `${m}/${d}/${y}`;
+                      }
+                    }
+                    updateSyncConfig(updates);
+                  } else {
+                    updateSyncConfig({ dateFormat: newFormat });
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select date format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MM/DD/YYYY">MM/DD/YYYY (e.g., 10/15/2025)</SelectItem>
+                  <SelectItem value="DD/MM/YYYY">DD/MM/YYYY (e.g., 15/10/2025)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Select the date format used in your Google Sheet. This format will be used to parse all date columns.
+              </p>
+            </div>
+          </div>
+
           {/* Date Filter Options */}
           <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-2">
@@ -683,9 +692,6 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                 Enable date filter
               </label>
             </div>
-            <p className="text-xs text-amber-600 dark:text-amber-400 pl-6">
-              📝 <strong>Note:</strong> Date column supports two formats: MM/DD/YYYY (e.g., 10/15/2025) or DD/MM/YYYY (e.g., 15-10-2025). Only date strings are sent, no time components.
-            </p>
             
             {syncConfig.enableDateFilter && (
               <div className="grid grid-cols-2 gap-4">
@@ -694,28 +700,30 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                   <Input
                     className="w-full"
                     id="startDate"
-                    type="text"
-                    placeholder="MM/DD/YYYY or DD-MM-YYYY"
-                    value={syncConfig.startDate || ''}
-                    onChange={(e : any) => updateSyncConfig({ startDate: e.target.value })}
+                    type="date"
+                    value={formatToDatePicker(syncConfig.startDate || '')}
+                    onChange={(e: any) => updateSyncConfig({ startDate: datePickerToFormat(e.target.value) })}
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Examples: 10/15/2025 or 15-10-2025
-                  </p>
+                  {syncConfig.startDate && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Sending as: {syncConfig.startDate}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="endDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">End Date</Label>
                   <Input
                     className="w-full"
                     id="endDate"
-                    type="text"
-                    placeholder="MM/DD/YYYY or DD-MM-YYYY"
-                    value={syncConfig.endDate || ''}
-                    onChange={(e : any) => updateSyncConfig({ endDate: e.target.value })}
+                    type="date"
+                    value={formatToDatePicker(syncConfig.endDate || '')}
+                    onChange={(e: any) => updateSyncConfig({ endDate: datePickerToFormat(e.target.value) })}
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Examples: 10/15/2025 or 15-10-2025
-                  </p>
+                  {syncConfig.endDate && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Sending as: {syncConfig.endDate}
+                    </p>
+                  )}
                 </div>
               </div>
             )}

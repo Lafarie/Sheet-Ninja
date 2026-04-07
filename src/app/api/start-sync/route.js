@@ -45,62 +45,54 @@ function resolveColumnFromMapping(mapping, headers) {
   return null;
 }
 
-// Helper: parse dates with automatic format detection
-// - If date has / (slash): treat as MM/DD/YYYY format
-// - If date has - (dash): treat as DD/MM/YYYY format
-function parseDateWithFormatDetection(value) {
-  console.log('parseDateWithFormatDetection input:', { value });
+// Helper: parse dates using the user-selected date format
+// dateFormat is stored globally during sync from syncData.dateFormat
+// Supports both / and - separators, format determines which part is month vs day
+function parseDateWithFormat(value, dateFormat) {
   if (!value) return null;
-  // If already a Date
   if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
 
   const s = String(value).trim();
   if (!s) return null;
 
-  console.log('parseDateWithFormatDetection input:', { value, s });
+  // Use the provided format or fall back to global setting or default
+  const format = dateFormat || globalThis._syncDateFormat || 'MM/DD/YYYY';
 
-  // Check for MM/DD/YYYY format (slash separator)
-  const mmddyyyy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (mmddyyyy) {
-    const month = parseInt(mmddyyyy[1], 10);
-    const day = parseInt(mmddyyyy[2], 10);
-    const year = parseInt(mmddyyyy[3], 10);
-    
-    console.log('MM/DD/YYYY format detected:', { month, day, year });
-    
-    // Validate date components
-    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
-      console.log('MM/DD/YYYY validation failed - invalid date components');
-      return null;
-    }
-    
-    const maybe = new Date(year, month - 1, day);
-    console.log('MM/DD/YYYY result:', maybe);
-    if (!isNaN(maybe.getTime())) return maybe;
+  // Match date with / or - separator
+  const match = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (!match) {
+    console.log('Date format not matched:', s);
+    return null;
   }
 
-  // Check for DD/MM/YYYY format (dash separator)
-  const ddmmyyyy = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if (ddmmyyyy) {
-    const day = parseInt(ddmmyyyy[1], 10);
-    const month = parseInt(ddmmyyyy[2], 10);
-    const year = parseInt(ddmmyyyy[3], 10);
-    
-    console.log('DD/MM/YYYY format detected:', { day, month, year });
-    
-    // Validate date components
-    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
-      console.log('DD/MM/YYYY validation failed - invalid date components');
-      return null;
-    }
-    
-    const maybe = new Date(year, month - 1, day);
-    console.log('DD/MM/YYYY result:', maybe);
-    if (!isNaN(maybe.getTime())) return maybe;
+  let month, day, year;
+
+  if (format === 'DD/MM/YYYY') {
+    day = parseInt(match[1], 10);
+    month = parseInt(match[2], 10);
+    year = parseInt(match[3], 10);
+  } else {
+    // MM/DD/YYYY (default)
+    month = parseInt(match[1], 10);
+    day = parseInt(match[2], 10);
+    year = parseInt(match[3], 10);
   }
 
-  console.log('Date format not supported - only MM/DD/YYYY (with /) or DD/MM/YYYY (with -) formats accepted');
+  console.log(`Date parsed (${format}):`, { day, month, year, original: s });
+
+  if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+    console.log('Date validation failed - invalid components');
+    return null;
+  }
+
+  const result = new Date(year, month - 1, day);
+  if (!isNaN(result.getTime())) return result;
   return null;
+}
+
+// Backward-compatible wrapper that uses the global date format
+function parseDateWithFormatDetection(value) {
+  return parseDateWithFormat(value);
 }
 
 export async function POST(request) {
@@ -223,6 +215,11 @@ export async function POST(request) {
 // Perform actual sync between Google Sheets and GitLab
 async function performActualSync(syncData) {
   try {
+    // Store date format globally so parsing functions can use it
+    globalThis._syncDateFormat = syncData.dateFormat || 'MM/DD/YYYY';
+    console.log('Date format set to:', globalThis._syncDateFormat);
+    syncStateManager.addOutput(`  - Date format: ${globalThis._syncDateFormat}\n`);
+
     // Expose columnMappings to helper functions used later (extractTaskData uses this)
     try {
       if (syncData && syncData.columnMappings) {
@@ -339,6 +336,43 @@ async function performActualSync(syncData) {
     
 
     // Note: Using the global parseDateWithFormatDetection function defined at the top of the file
+
+    // Debug: Log all raw date values from the sheet so we can see the actual format
+    {
+      const dateCol = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.DATE, sheet.headerValues) : null;
+      const startDateCol = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.START_DATE, sheet.headerValues) : null;
+      const endDateCol = syncData.columnMappings ? resolveColumnFromMapping(syncData.columnMappings.END_DATE, sheet.headerValues) : null;
+
+      console.log('=== RAW SHEET DATE VALUES ===');
+      console.log('Date format selected by user:', globalThis._syncDateFormat);
+      console.log('Date column:', dateCol, '| Start date column:', startDateCol, '| End date column:', endDateCol);
+
+      const sampleSize = Math.min(rows.length, 10);
+      for (let r = 0; r < sampleSize; r++) {
+        const row = rows[r];
+        const rawDate = dateCol ? row.get(dateCol) : '(no col)';
+        const rawStart = startDateCol ? row.get(startDateCol) : '(no col)';
+        const rawEnd = endDateCol ? row.get(endDateCol) : '(no col)';
+        console.log(`  Row ${r + 2}: DATE="${rawDate}" | START_DATE="${rawStart}" | END_DATE="${rawEnd}"`);
+
+        // Also log parsed result so we can verify format is correct
+        if (dateCol && rawDate) {
+          const parsed = parseDateWithFormatDetection(rawDate);
+          console.log(`    -> DATE parsed (${globalThis._syncDateFormat}): ${parsed ? parsed.toISOString().split('T')[0] : 'FAILED TO PARSE'}`);
+        }
+      }
+      if (rows.length > sampleSize) {
+        console.log(`  ... and ${rows.length - sampleSize} more rows`);
+      }
+      console.log('=== END RAW SHEET DATE VALUES ===');
+
+      syncStateManager.addOutput(`  - Sheet date columns: DATE="${dateCol || 'not mapped'}", START_DATE="${startDateCol || 'not mapped'}", END_DATE="${endDateCol || 'not mapped'}"\n`);
+      syncStateManager.addOutput(`  - Date format: ${globalThis._syncDateFormat}\n`);
+      if (rows.length > 0 && dateCol) {
+        const sampleDate = rows[0].get(dateCol);
+        syncStateManager.addOutput(`  - Sample date from row 2: "${sampleDate}"\n`);
+      }
+    }
 
     // Debug: Log user filter information
     syncStateManager.addOutput(`  - User filter debug: ${JSON.stringify({
@@ -457,7 +491,8 @@ async function performActualSync(syncData) {
 
           // If row date is not in supported format, skip it but don't filter it out
           if (!rowDate) {
-            syncStateManager.addOutput(`  - Skipping row with invalid date format: "${dateValue}" (must be MM/DD/YYYY with / or DD/MM/YYYY with -) - including in sync\n`);
+            syncStateManager.addOutput(`  - Skipping row with invalid date format: "${dateValue}" (expected ${globalThis._syncDateFormat}) - including in sync\n`);
+            console.log(`Date parse FAILED for value "${dateValue}" with format ${globalThis._syncDateFormat}`);
             return true; // Include the row even if date format is invalid
           }
 
@@ -523,6 +558,15 @@ async function performActualSync(syncData) {
     // Log project mapping mode vs single project mode
     if (syncData.projectMappings && Array.isArray(syncData.projectMappings)) {
       syncStateManager.addOutput(`  - Using project mappings (${syncData.projectMappings.length} projects configured)\n`);
+      // Debug: Log milestones for each project
+      for (const pm of syncData.projectMappings) {
+        const milestones = pm.projectData?.milestones || [];
+        syncStateManager.addOutput(`  - Project "${pm.projectName}" (ID: ${pm.projectId}): ${milestones.length} milestones\n`);
+        for (const m of milestones) {
+          syncStateManager.addOutput(`      Milestone: "${m.title}" (ID: ${m.id}) | ${m.start_date || 'no start'} -> ${m.due_date || 'no due'}\n`);
+          console.log(`Milestone [${pm.projectName}]: "${m.title}" (ID: ${m.id}) start=${m.start_date} due=${m.due_date}`);
+        }
+      }
     } else {
       syncStateManager.addOutput(`  - Using single project mode: ${syncData.projectId}\n`);
     }
@@ -751,65 +795,76 @@ function extractTaskData(row, headers) {
                         resolveColumnFromMapping(columnMappings.USER, headers);
   taskData.assignee = assigneeColumn ? row.get(assigneeColumn) : '';
 
-  // Debug: Log extracted data
+  // Debug: Log extracted data including raw date values
   console.log('Extracted task data:', {
-    timeEstimate: taskData.timeEstimate,
+    date: taskData.date,
+    startDate: taskData.startDate,
     dueDate: taskData.dueDate,
+    dateParsed: taskData.date ? parseDateWithFormatDetection(taskData.date)?.toISOString()?.split('T')[0] : null,
+    startDateParsed: taskData.startDate ? parseDateWithFormatDetection(taskData.startDate)?.toISOString()?.split('T')[0] : null,
+    dueDateParsed: taskData.dueDate ? parseDateWithFormatDetection(taskData.dueDate)?.toISOString()?.split('T')[0] : null,
+    dateFormat: globalThis._syncDateFormat,
+    timeEstimate: taskData.timeEstimate,
     assignee: taskData.assignee,
-    timeEstimateColumn: timeEstimateColumn,
-    dueDateColumn: dueDateColumn,
-    assigneeColumn: assigneeColumn,
-    columnMappings: {
-      ASSIGNEE: columnMappings.ASSIGNEE,
-      USER: columnMappings.USER,
-      SELECTED_USER: columnMappings.SELECTED_USER
-    }
+    mainTask: taskData.mainTask,
   });
   
   return taskData;
 }
 
 // Find milestone by date range - returns the first matching milestone
+// Note: GitLab milestone dates come in YYYY-MM-DD format from the API
 function findMilestoneByDateRange(taskDate, milestones) {
   if (!taskDate || !milestones || milestones.length === 0) return null;
-  
+
+  console.log('=== MILESTONE DATE MATCHING ===');
+  console.log('Task date:', taskDate.toISOString().split('T')[0], '(raw Date object)');
+
   // Sort milestones by start date (chronologically first)
   const sortedMilestones = milestones
     .filter(m => m.start_date || m.due_date)
     .sort((a, b) => {
-      // Use start_date if available, otherwise use due_date
       const aDate = new Date(a.start_date || a.due_date);
       const bDate = new Date(b.start_date || b.due_date);
       return aDate - bDate;
     });
-  
+
   // Find the first milestone that matches the task date
   for (const milestone of sortedMilestones) {
-    const startDate = milestone.start_date ? new Date(milestone.start_date) : null;
-    const dueDate = milestone.due_date ? new Date(milestone.due_date) : null;
-    
+    // GitLab returns dates as YYYY-MM-DD strings, parse them properly
+    const startDate = milestone.start_date ? new Date(milestone.start_date + 'T00:00:00') : null;
+    const dueDate = milestone.due_date ? new Date(milestone.due_date + 'T00:00:00') : null;
+
+    console.log(`  Checking milestone "${milestone.title}":`, {
+      rawStart: milestone.start_date,
+      rawDue: milestone.due_date,
+      parsedStart: startDate ? startDate.toISOString().split('T')[0] : null,
+      parsedDue: dueDate ? dueDate.toISOString().split('T')[0] : null,
+      taskDate: taskDate.toISOString().split('T')[0],
+    });
+
     let isMatch = false;
-    
-    // If milestone has both start and due dates, check if task date is within range
+
     if (startDate && dueDate) {
       isMatch = taskDate >= startDate && taskDate <= dueDate;
-    }
-    // If milestone only has start date, check if task date is after start date
-    else if (startDate && !dueDate) {
+      console.log(`    Range check: ${taskDate.toISOString().split('T')[0]} >= ${startDate.toISOString().split('T')[0]} && <= ${dueDate.toISOString().split('T')[0]} => ${isMatch}`);
+    } else if (startDate && !dueDate) {
       isMatch = taskDate >= startDate;
-    }
-    // If milestone only has due date, check if task date is before due date
-    else if (!startDate && dueDate) {
+      console.log(`    Start-only check: ${taskDate.toISOString().split('T')[0]} >= ${startDate.toISOString().split('T')[0]} => ${isMatch}`);
+    } else if (!startDate && dueDate) {
       isMatch = taskDate <= dueDate;
+      console.log(`    Due-only check: ${taskDate.toISOString().split('T')[0]} <= ${dueDate.toISOString().split('T')[0]} => ${isMatch}`);
     }
-    
-    // Return the first matching milestone (chronologically first)
+
     if (isMatch) {
-      console.log(`Milestone conflict resolved: Selected "${milestone.title}" (start: ${milestone.start_date}, due: ${milestone.due_date}) for task date: ${taskDate.toISOString().split('T')[0]}`);
+      console.log(`  -> MATCHED: "${milestone.title}" (start: ${milestone.start_date}, due: ${milestone.due_date})`);
+      console.log('=== END MILESTONE DATE MATCHING ===');
       return milestone;
     }
   }
-  
+
+  console.log('  -> NO MATCH FOUND');
+  console.log('=== END MILESTONE DATE MATCHING ===');
   return null;
 }
 
@@ -874,39 +929,57 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   const selectedUserFilter = globalColumnMappings.SELECTED_USER;
   const useGitlabUserAsAssignee = globalColumnMappings.USE_GITLAB_USER_AS_ASSIGNEE === 'true';
   const gitlabUser = globalColumnMappings.GITLAB_USER;
-  
+
   let assigneeToUse;
-  let normalizedAssignee;
-  
+  let assigneeId = null;
+
   if (useGitlabUserAsAssignee && gitlabUser) {
     // Use GitLab user as assignee for all issues
     assigneeToUse = gitlabUser;
-    normalizedAssignee = gitlabUser.toString().trim().toLowerCase().replace(/\s+/g, '');
-    console.log('Using GitLab user as assignee for all issues:', {
-      gitlabUser: gitlabUser,
-      normalizedAssignee: normalizedAssignee
-    });
+    console.log('Using GitLab user as assignee for all issues:', { gitlabUser });
   } else {
     // Use normal assignee logic (task data, project config, or selected user filter)
     assigneeToUse = taskData.assignee || projectConfig.assignee || selectedUserFilter;
-    normalizedAssignee = assigneeToUse ? 
-      assigneeToUse.toString().trim().toLowerCase().replace(/\s+/g, '') : null;
   }
-  
+
+  // Resolve assignee to GitLab user ID from project members
+  if (assigneeToUse && assigneeToUse !== 'none' && assigneeToUse !== '') {
+    const normalizedAssignee = assigneeToUse.toString().trim().toLowerCase().replace(/\s+/g, '');
+    const projectMembers = projectConfig.projectData?.assignees || [];
+
+    // Try to find by username first, then by name
+    const matchedMember = projectMembers.find(m =>
+      m.username && m.username.toLowerCase() === normalizedAssignee
+    ) || projectMembers.find(m =>
+      m.name && m.name.toLowerCase().replace(/\s+/g, '') === normalizedAssignee
+    );
+
+    if (matchedMember) {
+      assigneeId = matchedMember.id;
+      console.log('Resolved assignee to GitLab user ID:', {
+        input: assigneeToUse,
+        matchedUsername: matchedMember.username,
+        matchedName: matchedMember.name,
+        userId: assigneeId
+      });
+    } else {
+      // Fallback to slash command if no member match found
+      console.log('Could not resolve assignee to user ID, using slash command:', {
+        input: assigneeToUse,
+        normalizedAssignee,
+        availableMembers: projectMembers.map(m => ({ id: m.id, username: m.username, name: m.name }))
+      });
+      description += `\n\n/assign @${normalizedAssignee}`;
+    }
+  }
+
   console.log('Assignee handling:', {
-    useGitlabUserAsAssignee: useGitlabUserAsAssignee,
-    gitlabUser: gitlabUser,
+    useGitlabUserAsAssignee,
+    gitlabUser,
     taskDataAssignee: taskData.assignee,
-    projectConfigAssignee: projectConfig.assignee,
-    selectedUserFilter: selectedUserFilter,
-    assigneeToUse: assigneeToUse,
-    normalizedAssignee: normalizedAssignee,
-    hasAssignee: !!normalizedAssignee && normalizedAssignee !== 'none' && normalizedAssignee !== ''
+    assigneeToUse,
+    assigneeId,
   });
-  
-  if (normalizedAssignee && normalizedAssignee !== 'none' && normalizedAssignee !== '') {
-    description += `\n\n/assign @${normalizedAssignee}`;
-  }
   
   if (taskData.timeEstimate) {
     description += `\n/estimate ${taskData.timeEstimate}`;
@@ -944,18 +1017,35 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
   
   // Auto-assign milestone based on task date and milestone date ranges
   let milestoneToUse = null;
+  let milestoneTitle = null;
   const taskDate = parseDateWithFormatDetection(taskData.date || taskData.startDate);
-  if (taskDate && projectConfig.projectData?.milestones) {
-    const matchingMilestone = findMilestoneByDateRange(taskDate, projectConfig.projectData.milestones);
+
+  // Debug: Log available milestones
+  const availableMilestones = projectConfig.projectData?.milestones || [];
+  console.log('=== MILESTONE DEBUG ===');
+  console.log('Task date raw:', taskData.date || taskData.startDate);
+  console.log('Task date parsed:', taskDate);
+  console.log('Available milestones:', availableMilestones.map(m => ({
+    id: m.id, title: m.title, start_date: m.start_date, due_date: m.due_date
+  })));
+
+  if (taskDate && availableMilestones.length > 0) {
+    const matchingMilestone = findMilestoneByDateRange(taskDate, availableMilestones);
     if (matchingMilestone) {
       milestoneToUse = matchingMilestone.id;
-      console.log(`Auto-assigned milestone: ${matchingMilestone.title} for date: ${taskDate.toISOString().split('T')[0]}`);
+      milestoneTitle = matchingMilestone.title;
+      console.log(`Auto-assigned milestone: "${milestoneTitle}" (ID: ${milestoneToUse}) for date: ${taskDate.toISOString().split('T')[0]}`);
+      syncStateManager.addOutput(`    -> Milestone: "${milestoneTitle}" (date ${taskDate.toISOString().split('T')[0]} in range ${matchingMilestone.start_date || '?'} to ${matchingMilestone.due_date || '?'})\n`);
+    } else {
+      console.log('No matching milestone found for date:', taskDate.toISOString().split('T')[0]);
+      syncStateManager.addOutput(`    -> No milestone matched for date ${taskDate.toISOString().split('T')[0]}\n`);
     }
+  } else {
+    console.log('Skipping milestone assignment: taskDate=', taskDate, 'milestones count=', availableMilestones.length);
   }
-  
+  console.log('=== END MILESTONE DEBUG ===');
+
   if (milestoneToUse && milestoneToUse !== 'none' && milestoneToUse !== '') {
-    // Find the milestone title from the project data
-    const milestoneTitle = projectConfig.projectData?.milestones?.find(m => m.id === milestoneToUse)?.title || milestoneToUse;
     description += `\n/milestone %"${milestoneTitle}"`;
   }
   
@@ -973,27 +1063,64 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
     description: description,
   };
 
-  // Add date fields using GitLab API (slash commands don't work for dates)
-  if (taskData.startDate) {
-    // Parse and format the start date for GitLab API
-    const startDate = parseDateWithFormatDetection(taskData.startDate);
-    if (startDate) {
-      issueData.created_at = startDate.toISOString();
-    }
+  // Set assignee_id using the resolved GitLab user ID
+  if (assigneeId) {
+    issueData.assignee_ids = [assigneeId];
+    console.log('Setting assignee_ids on issue:', [assigneeId]);
   }
+
+  // Set milestone_id directly on the API call
+  if (milestoneToUse && milestoneToUse !== 'none' && milestoneToUse !== '') {
+    issueData.milestone_id = milestoneToUse;
+    console.log('Setting milestone_id on issue:', milestoneToUse);
+  }
+
+  // Add start date
+  console.log('=== START DATE PROCESSING DEBUG ===');
+  console.log('taskData.startDate:', taskData.startDate);
+  console.log('taskData.startDate type:', typeof taskData.startDate);
+  console.log('taskData.startDate truthy:', !!taskData.startDate);
+
+  if (taskData.startDate) {
+    const parsedStartDate = parseDateWithFormatDetection(taskData.startDate);
+    console.log('Parsed start date:', parsedStartDate);
+
+    if (parsedStartDate) {
+      // Set created_at (requires admin/owner permissions on GitLab - may be silently ignored)
+      issueData.created_at = parsedStartDate.toISOString();
+      console.log('Start date set as created_at:', {
+        original: taskData.startDate,
+        parsed: parsedStartDate.toISOString(),
+        formatted: parsedStartDate.toISOString().split('T')[0],
+      });
+    } else {
+      console.log('WARNING: Start date could not be parsed! Raw value:', JSON.stringify(taskData.startDate));
+      console.log('Expected format:', globalThis._syncDateFormat);
+    }
+  } else {
+    console.log('No start date found in taskData');
+  }
+  console.log('=== END START DATE PROCESSING DEBUG ===');
   
   console.log('=== API FIELD PROCESSING DEBUG ===');
   console.log('Processing due date for API field...');
   
   if (taskData.dueDate) {
     console.log('API field - taskData.dueDate:', taskData.dueDate);
-    
-    // Use the raw date directly without parsing
-    issueData.due_date = taskData.dueDate;
-    console.log('Due date API field set:', {
-      originalDueDate: taskData.dueDate,
-      apiField: issueData.due_date
-    });
+
+    // Parse due date using the selected format and send as YYYY-MM-DD for GitLab API
+    const parsedDueDate = parseDateWithFormatDetection(taskData.dueDate);
+    if (parsedDueDate) {
+      issueData.due_date = parsedDueDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      console.log('Due date API field set:', {
+        originalDueDate: taskData.dueDate,
+        apiField: issueData.due_date
+      });
+    } else {
+      // Fallback: send raw value
+      issueData.due_date = taskData.dueDate;
+      console.log('Due date could not be parsed, using raw value:', taskData.dueDate);
+    }
   } else {
     console.log('No due date for API field processing');
   }
