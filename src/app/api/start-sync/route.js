@@ -639,14 +639,30 @@ async function performActualSync(syncData) {
         syncStateManager.addOutput(`  - Created issue #${issue.iid}: ${issue.title}\n`);
 
         // Update the Google Sheet with the issue ID and link
+        // IMPORTANT: Use cell-based update to avoid overwriting other columns (e.g. date format changes)
         if (gitIdColumn) {
-          // Create a link to the GitLab issue
           const issueLink = `=HYPERLINK("${issue.web_url}","#${issue.iid}")`;
-          row.set(gitIdColumn, issueLink);
-          await row.save();
-          updatedRows++;
+          const gitIdColIndex = sheet.headerValues.indexOf(gitIdColumn);
 
-          syncStateManager.addOutput(`  - Updated sheet with issue link: #${issue.iid}\n`);
+          if (gitIdColIndex !== -1) {
+            // Use cell-based API to update only the GIT_ID cell
+            const rowIndex = row.rowNumber; // 1-based row number in sheet
+            await sheet.loadCells({
+              startRowIndex: rowIndex - 1,
+              endRowIndex: rowIndex,
+              startColumnIndex: gitIdColIndex,
+              endColumnIndex: gitIdColIndex + 1,
+            });
+            const cell = sheet.getCell(rowIndex - 1, gitIdColIndex);
+            cell.formula = issueLink;
+            await sheet.saveUpdatedCells();
+            updatedRows++;
+
+            syncStateManager.addOutput(`  - Updated sheet with issue link: #${issue.iid}\n`);
+          } else {
+            // Fallback if column index not found
+            syncStateManager.addOutput(`  - Warning: Could not find column index for "${gitIdColumn}", skipping sheet update\n`);
+          }
         }
 
         // Small delay to avoid rate limiting
@@ -1075,32 +1091,20 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
     console.log('Setting milestone_id on issue:', milestoneToUse);
   }
 
-  // Add start date
-  console.log('=== START DATE PROCESSING DEBUG ===');
-  console.log('taskData.startDate:', taskData.startDate);
-  console.log('taskData.startDate type:', typeof taskData.startDate);
-  console.log('taskData.startDate truthy:', !!taskData.startDate);
-
+  // Parse start date — will be set via PUT after issue creation (POST ignores start_date)
+  let parsedStartDateForUpdate = null;
   if (taskData.startDate) {
     const parsedStartDate = parseDateWithFormatDetection(taskData.startDate);
-    console.log('Parsed start date:', parsedStartDate);
-
     if (parsedStartDate) {
-      // Set created_at (requires admin/owner permissions on GitLab - may be silently ignored)
-      issueData.created_at = parsedStartDate.toISOString();
-      console.log('Start date set as created_at:', {
+      parsedStartDateForUpdate = parsedStartDate.toISOString().split('T')[0];
+      console.log('Start date parsed for post-create update:', {
         original: taskData.startDate,
-        parsed: parsedStartDate.toISOString(),
-        formatted: parsedStartDate.toISOString().split('T')[0],
+        formatted: parsedStartDateForUpdate,
       });
     } else {
       console.log('WARNING: Start date could not be parsed! Raw value:', JSON.stringify(taskData.startDate));
-      console.log('Expected format:', globalThis._syncDateFormat);
     }
-  } else {
-    console.log('No start date found in taskData');
   }
-  console.log('=== END START DATE PROCESSING DEBUG ===');
   
   console.log('=== API FIELD PROCESSING DEBUG ===');
   console.log('Processing due date for API field...');
@@ -1151,11 +1155,75 @@ async function createGitLabIssue(gitlabUrl, headers, projectId, projectConfig, t
     headers: headers,
     body: JSON.stringify(issueData),
   });
-  
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(`GitLab API error: ${response.status} - ${errorData.message || 'Unknown error'}`);
   }
-  
-  return await response.json();
+
+  const createdIssue = await response.json();
+
+  // GitLab REST API does not support start_date on issues — use GraphQL API
+  if (parsedStartDateForUpdate && createdIssue.id) {
+    try {
+      // Derive GraphQL endpoint from REST API URL (e.g. https://gitlab.com/api/v4/ -> https://gitlab.com/api/graphql)
+      const graphqlUrl = gitlabUrl.replace(/\/api\/v4\/?$/, '/api/graphql');
+
+      const mutation = `
+        mutation($id: WorkItemID!, $startDate: Date, $dueDate: Date) {
+          workItemUpdate(input: {
+            id: $id,
+            startAndDueDateWidget: {
+              startDate: $startDate,
+              dueDate: $dueDate
+            }
+          }) {
+            workItem {
+              id
+              widgets {
+                ... on WorkItemWidgetStartAndDueDate {
+                  startDate
+                  dueDate
+                }
+              }
+            }
+            errors
+          }
+        }
+      `;
+
+      const variables = {
+        id: `gid://gitlab/Issue/${createdIssue.id}`,
+        startDate: parsedStartDateForUpdate,
+        dueDate: issueData.due_date || null,
+      };
+
+      console.log(`Setting start_date on issue #${createdIssue.iid} via GraphQL:`, variables);
+
+      const gqlResp = await fetch(graphqlUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ query: mutation, variables }),
+      });
+
+      if (gqlResp.ok) {
+        const gqlData = await gqlResp.json();
+        if (gqlData.data?.workItemUpdate?.errors?.length > 0) {
+          console.log(`GraphQL errors setting start_date:`, gqlData.data.workItemUpdate.errors);
+          syncStateManager.addOutput(`    -> Warning: Failed to set start date: ${gqlData.data.workItemUpdate.errors.join(', ')}\n`);
+        } else {
+          console.log(`start_date set to ${parsedStartDateForUpdate} on issue #${createdIssue.iid} via GraphQL`);
+          syncStateManager.addOutput(`    -> Start date set: ${parsedStartDateForUpdate}\n`);
+        }
+      } else {
+        const errText = await gqlResp.text().catch(() => '');
+        console.log(`GraphQL request failed (${gqlResp.status}):`, errText);
+        syncStateManager.addOutput(`    -> Warning: Failed to set start date via GraphQL (${gqlResp.status})\n`);
+      }
+    } catch (err) {
+      console.log(`Error setting start_date on issue #${createdIssue.iid}:`, err.message);
+    }
+  }
+
+  return createdIssue;
 }
