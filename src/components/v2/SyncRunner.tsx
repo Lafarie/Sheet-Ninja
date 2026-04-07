@@ -75,7 +75,6 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
   const [syncOutput, setSyncOutput] = useState('');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  const [pollingTimeout, setPollingTimeout] = useState<NodeJS.Timeout | null>(null);
 
 
   const validateConfiguration = () => {
@@ -240,205 +239,75 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
   };
 
   const startProgressPolling = () => {
+    stopPolling();
+    (window as any).syncErrorCount = 0;
+
+    // Poll every 1 second — detection is entirely based on server response
+    updateSyncProgress();
+    intervalRef.current = setInterval(updateSyncProgress, 1500);
+  };
+
+  const stopPolling = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
-    if (pollingTimeout) {
-      clearTimeout(pollingTimeout);
-    }
-
-    // Set sync start time for timeout calculations
-    (window as any).syncStartTime = Date.now();
-    (window as any).lastStep = null;
-    (window as any).lastStepTime = Date.now();
-    (window as any).syncErrorCount = 0; // Reset error counter
-    
-    updateSyncProgress();
-    intervalRef.current = setInterval(updateSyncProgress, 2000);
-    
-    // Add a more frequent check for completion after 30 seconds
-    setTimeout(() => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = setInterval(updateSyncProgress, 1000); // Check every second
-        console.log('Switched to faster polling (1s) for completion detection');
-      }
-    }, 30000);
-    
-    // Set a timeout to stop polling after 5 minutes (reduced from 10)
-    const timeout = setTimeout(() => {
-      console.log('Sync polling timeout reached, stopping polling');
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      setSyncLoading(false);
-      setSyncRunning(false);
-      setSyncProgress('error');
-      addNotification({
-        type: 'error',
-        title: 'Sync Timeout',
-        message: 'Sync process timed out after 5 minutes',
-      });
-    }, 5 * 60 * 1000); // 5 minutes
-    
-    setPollingTimeout(timeout);
   };
 
   const updateSyncProgress = async () => {
-    if (syncProgress === 'completed' || syncProgress === 'stopped' || syncProgress === 'error') {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      return;
-    }
-
     try {
       const response = await fetch('/api/sync-status');
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      
-      // Debug: Log sync status data
-      console.log('Sync status data:', {
-        currentStep: data.currentStep,
-        running: data.running,
-        endTime: data.endTime,
-        error: data.error,
-        isCompleted: data.currentStep === 'completed' || (!data.running && data.endTime)
-      });
-      
+
+      // Update step indicator
       if (data.currentStep) {
         const stepIndex = syncSteps.findIndex(step => step.id === data.currentStep);
         if (stepIndex !== -1) {
           setCurrentStep(stepIndex);
         }
       }
-      
+
       // Reset error counter on successful response
       (window as any).syncErrorCount = 0;
 
+      // Update output
       if (data.output) {
         setSyncOutput(data.output);
-        
-        // Immediate completion check based on output
-        if (data.output.includes('Sync process completed successfully')) {
-          console.log('Found completion message in output, triggering completion immediately');
-          setSyncRunning(false);
-          setSyncProgress('completed');
-          setCurrentStep(syncSteps.length - 1);
-          setSyncLoading(false);
-          
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
-          
-          if (pollingTimeout) {
-            clearTimeout(pollingTimeout);
-            setPollingTimeout(null);
-          }
-
-          addNotification({
-            type: 'success',
-            title: 'Sync Completed',
-            message: 'Synchronization completed successfully!',
-          });
-          
-          onComplete();
-          return;
-        }
       }
 
-      // Enhanced completion detection with multiple indicators
+      // --- Completion detection: rely on SERVER state, not stale React state ---
       const isCompleted = data.currentStep === 'completed' || (!data.running && data.endTime);
-      
-      // Check for completion indicators in output
-      const hasCompletionOutput = data.output && (
-        data.output.includes('Sync process completed successfully') ||
-        data.output.includes('Synchronization completed successfully') ||
-        data.output.includes('Finalizing updates') ||
-        (data.output.includes('Created') && data.output.includes('GitLab issues')) ||
-        data.output.includes('Updated') && data.output.includes('sheet rows')
-      );
-      
-      // Check if we're in the final step (updating-sheet) and not running
-      const isInFinalStep = data.currentStep === 'updating-sheet' && !data.running;
-      
-      // Timeout fallback - if we've been polling for more than 1 minute without completion
-      const hasBeenPolling = Date.now() - (window as any).syncStartTime > 60000; // 1 minute
-      const shouldForceComplete = hasBeenPolling && !data.running && !data.error;
-      
-      // Check if we've been stuck in the same step for too long
-      const currentStepTime = (window as any).lastStepTime || (window as any).syncStartTime;
-      const stepStuckTooLong = Date.now() - currentStepTime > 30000; // 30 seconds
-      const isStuckInFinalSteps = ['updating-sheet', 'completed'].includes(data.currentStep) && stepStuckTooLong;
-      
-      // Update step tracking
-      if (data.currentStep && data.currentStep !== (window as any).lastStep) {
-        (window as any).lastStep = data.currentStep;
-        (window as any).lastStepTime = Date.now();
-      }
-      
-      // Debug logging for completion detection
-      console.log('Completion detection:', {
-        isCompleted,
-        hasCompletionOutput,
-        isInFinalStep,
-        shouldForceComplete,
-        isStuckInFinalSteps,
-        stepStuckTooLong,
-        currentStep: data.currentStep,
-        running: data.running,
-        endTime: data.endTime,
-        hasOutput: !!data.output,
-        outputSnippet: data.output ? data.output.slice(-200) : 'no output'
-      });
-      
-      if (isCompleted || hasCompletionOutput || isInFinalStep || shouldForceComplete || isStuckInFinalSteps) {
+      const hasCompletionOutput = data.output?.includes('Sync process completed successfully');
+
+      if (isCompleted || hasCompletionOutput) {
+        console.log('Sync completed detected from server:', { currentStep: data.currentStep, running: data.running });
+        stopPolling();
         setSyncRunning(false);
         setSyncProgress('completed');
         setCurrentStep(syncSteps.length - 1);
         setSyncLoading(false);
-        
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        
-        if (pollingTimeout) {
-          clearTimeout(pollingTimeout);
-          setPollingTimeout(null);
-        }
 
         addNotification({
           type: 'success',
           title: 'Sync Completed',
           message: 'Synchronization completed successfully!',
         });
-        
+
         onComplete();
         return;
       }
 
+      // Error detection
       if (data.error || data.currentStep === 'error') {
+        stopPolling();
         setSyncRunning(false);
         setSyncProgress('error');
         setSyncLoading(false);
-
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        
-        if (pollingTimeout) {
-          clearTimeout(pollingTimeout);
-          setPollingTimeout(null);
-        }
 
         addNotification({
           type: 'error',
@@ -448,44 +317,26 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
         return;
       }
 
+      // Stopped detection
       if (data.currentStep === 'stopped') {
+        stopPolling();
         setSyncRunning(false);
         setSyncProgress('stopped');
         setSyncLoading(false);
-
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        
-        if (pollingTimeout) {
-          clearTimeout(pollingTimeout);
-          setPollingTimeout(null);
-        }
         return;
       }
     } catch (error) {
       console.error('Progress polling error:', error);
-      
-      // If we get network errors repeatedly, consider the sync failed
-      const errorCount = (window as any).syncErrorCount || 0;
-      (window as any).syncErrorCount = errorCount + 1;
-      
-      if (errorCount >= 5) { // After 5 consecutive errors
+
+      const errorCount = ((window as any).syncErrorCount || 0) + 1;
+      (window as any).syncErrorCount = errorCount;
+
+      if (errorCount >= 5) {
+        stopPolling();
         setSyncRunning(false);
         setSyncProgress('error');
         setSyncLoading(false);
-        
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        
-        if (pollingTimeout) {
-          clearTimeout(pollingTimeout);
-          setPollingTimeout(null);
-        }
-        
+
         addNotification({
           type: 'error',
           title: 'Sync Connection Error',
@@ -501,27 +352,14 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
     setCurrentStep(0);
     setSyncOutput('');
     
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    
-    if (pollingTimeout) {
-      clearTimeout(pollingTimeout);
-      setPollingTimeout(null);
-    }
+    stopPolling();
   };
 
   useEffect(() => {
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      if (pollingTimeout) {
-        clearTimeout(pollingTimeout);
-      }
+      stopPolling();
     };
-  }, [pollingTimeout]);
+  }, []);
 
   const getStepStatus = (index: number) => {
     if (syncProgress === 'completed') return 'completed';
@@ -771,14 +609,7 @@ export function SyncRunner({ onComplete }: SyncRunnerProps) {
                     setSyncRunning(false);
                     setSyncProgress('completed');
                     setSyncLoading(false);
-                    if (intervalRef.current) {
-                      clearInterval(intervalRef.current);
-                      intervalRef.current = null;
-                    }
-                    if (pollingTimeout) {
-                      clearTimeout(pollingTimeout);
-                      setPollingTimeout(null);
-                    }
+                    stopPolling();
                     addNotification({
                       type: 'warning',
                       title: 'Sync Manually Completed',
